@@ -36,7 +36,10 @@ class GameScaffold extends StatelessWidget {
               onDestinationSelected: (index) {
                 if (index == 0) context.go('/home');
                 if (index == 1) context.go('/quiz');
-                if (index == 2) context.go('/profile');
+                if (index == 2) context.go('/social');
+                if (index == 3) context.go('/duels');
+                if (index == 4) context.go('/ranking');
+                if (index == 5) context.go('/profile');
               },
               destinations: const [
                 NavigationDestination(
@@ -46,6 +49,18 @@ class GameScaffold extends StatelessWidget {
                 NavigationDestination(
                   icon: Icon(Icons.sports_esports_rounded),
                   label: 'Jugar',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.group_rounded),
+                  label: 'Social',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.sports_mma_rounded),
+                  label: 'Duelos',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.leaderboard_rounded),
+                  label: 'Ranking',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.person_rounded),
@@ -61,7 +76,10 @@ class GameScaffold extends StatelessWidget {
   int _selectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     if (location.startsWith('/quiz')) return 1;
-    if (location.startsWith('/profile')) return 2;
+    if (location.startsWith('/social')) return 2;
+    if (location.startsWith('/duels')) return 3;
+    if (location.startsWith('/ranking')) return 4;
+    if (location.startsWith('/profile')) return 5;
     return 0;
   }
 }

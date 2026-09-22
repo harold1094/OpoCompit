@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/design/app_colors.dart';
 import '../../core/design/app_spacing.dart';
+import '../../core/domain/duel.dart';
 import '../../shared/widgets/game_scaffold.dart';
 import '../../shared/widgets/primary_button.dart';
 import '../../shared/widgets/stat_card.dart';
@@ -15,6 +16,7 @@ class ResultsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final result = ref.watch(appControllerProvider).lastResult;
+    final duelResult = ref.watch(appControllerProvider).lastDuelResult;
 
     if (result == null) {
       return GameScaffold(
@@ -70,6 +72,49 @@ class ResultsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (duelResult != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Duelo contra ${duelResult.opponent.username}',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _duelOutcomeText(duelResult.outcome),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: _duelOutcomeColor(duelResult.outcome),
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Tú: ${duelResult.playerResult.correct} aciertos · ${duelResult.playerTimeSeconds}s',
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${duelResult.opponent.username}: ${duelResult.opponentCorrect} aciertos · ${duelResult.opponentTimeSeconds}s',
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
@@ -211,4 +256,20 @@ class ResultsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _duelOutcomeText(DuelOutcome outcome) {
+  return switch (outcome) {
+    DuelOutcome.win => 'Victoria',
+    DuelOutcome.loss => 'Derrota',
+    DuelOutcome.draw => 'Empate',
+  };
+}
+
+Color _duelOutcomeColor(DuelOutcome outcome) {
+  return switch (outcome) {
+    DuelOutcome.win => AppColors.success,
+    DuelOutcome.loss => AppColors.danger,
+    DuelOutcome.draw => AppColors.gold,
+  };
 }

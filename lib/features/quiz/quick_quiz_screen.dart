@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/app_colors.dart';
+import '../../core/domain/answer_submission.dart';
 import '../../core/design/app_spacing.dart';
 import '../../shared/widgets/game_scaffold.dart';
 import '../app_state/application/app_controller.dart';
@@ -43,6 +44,9 @@ class _QuickQuizScreenState extends ConsumerState<QuickQuizScreen> {
 
     final question = questions[_index];
     final selectedAnswer = state.selectedAnswers[question.id];
+    final hasSelection = state.selectedAnswers.containsKey(question.id) &&
+        selectedAnswer != null;
+    final isBlank = selectedAnswer == blankAnswerId;
     final progress = (_index + 1) / questions.length;
     final isLast = _index == questions.length - 1;
 
@@ -114,17 +118,34 @@ class _QuickQuizScreenState extends ConsumerState<QuickQuizScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => ref
-                        .read(appControllerProvider.notifier)
-                        .answerQuestion(question.id, null),
-                    child: const Text('Dejar en blanco'),
+                child: OutlinedButton(
+                  onPressed: () => ref
+                      .read(appControllerProvider.notifier)
+                      .answerQuestion(question.id, null),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor:
+                        isBlank ? const Color(0xFFFFF4D6) : null,
+                    side: BorderSide(
+                      color: isBlank ? AppColors.gold : AppColors.line,
+                    ),
                   ),
+                  child: Text(isBlank ? 'En blanco' : 'Dejar en blanco'),
+                ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: FilledButton(
                     onPressed: () {
+                      if (!hasSelection) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Elige una respuesta o marca en blanco.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
                       if (isLast) {
                         ref
                             .read(appControllerProvider.notifier)

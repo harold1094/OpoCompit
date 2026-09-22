@@ -16,6 +16,8 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
     final profile = state.profile;
+    final dailyReward = state.dailyReward;
+    final missions = state.missions;
 
     if (profile == null) {
       return GameScaffold(
@@ -153,27 +155,100 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.flag_rounded, color: AppColors.gold),
-              title: const Text('Misión diaria'),
-              subtitle: const Text('Completa una partida rápida.'),
-              trailing: profile.testsCompleted > 0
-                  ? const Icon(Icons.check_circle, color: AppColors.success)
-                  : const Text('+20 XP'),
+          Text(
+            'Misiones',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...missions.map(
+            (mission) => Card(
+              child: ListTile(
+                leading: Icon(
+                  mission.claimed
+                      ? Icons.check_circle_rounded
+                      : Icons.flag_rounded,
+                  color: mission.claimed
+                      ? AppColors.success
+                      : mission.rewardReady
+                          ? AppColors.gold
+                          : AppColors.muted,
+                ),
+                title: Text(mission.title),
+                subtitle: Text(
+                  '${mission.description} ${mission.progress}/${mission.target}',
+                ),
+                trailing: mission.claimed
+                    ? const Text('Hecha')
+                    : mission.rewardReady
+                        ? FilledButton(
+                            onPressed: () => ref
+                                .read(appControllerProvider.notifier)
+                                .claimMission(mission.id),
+                            child: const Text('Cobrar'),
+                          )
+                        : Text('+${mission.rewardXp} XP'),
+              ),
             ),
           ),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.card_giftcard_rounded,
-                  color: AppColors.brand,
+              leading: const Icon(
+                Icons.psychology_alt_rounded,
+                color: AppColors.danger,
+              ),
+              title: const Text('Mis errores'),
+              subtitle: const Text('Repasa fallos y blancos guardados.'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/errors'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.sports_mma_rounded,
+                color: AppColors.brand,
+              ),
+              title: const Text('Duelos'),
+              subtitle: const Text('Reta a un amigo en duelo clásico.'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/duels'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.tune_rounded,
+                color: AppColors.aqua,
+              ),
+              title: const Text('Cambiar territorio'),
+              subtitle: const Text('Reconfigura el perfil invitado.'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/onboarding'),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(
+                Icons.card_giftcard_rounded,
+                color: AppColors.brand,
               ),
               title: const Text('Recompensa diaria'),
-              subtitle: const Text('Preparada para conectar con Remote Config.'),
-              trailing: FilledButton(
-                onPressed: null,
-                child: Text(profile.testsCompleted > 0 ? 'Pronto' : 'Juega'),
+              subtitle: Text(
+                dailyReward == null
+                    ? 'Configura tu jugador para activarla.'
+                    : 'Día ${dailyReward.day}: ${dailyReward.coins} coins'
+                        '${dailyReward.gems > 0 ? ' · ${dailyReward.gems} gemas' : ''}',
               ),
+              trailing: dailyReward == null || dailyReward.claimed
+                  ? const Text('Cobrada')
+                  : FilledButton(
+                      onPressed: () => ref
+                          .read(appControllerProvider.notifier)
+                          .claimDailyReward(),
+                      child: const Text('Cobrar'),
+                    ),
             ),
           ),
         ],

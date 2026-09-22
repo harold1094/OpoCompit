@@ -3,6 +3,7 @@ import 'dart:math';
 import '../../../core/domain/player_profile.dart';
 import '../../../core/domain/question.dart';
 import '../../../core/domain/quiz_result.dart';
+import '../../../core/domain/answer_submission.dart';
 
 class ScoringService {
   const ScoringService();
@@ -15,7 +16,9 @@ class ScoringService {
         .map(
           (question) => QuestionAttempt(
             question: question,
-            selectedAnswerId: selectedAnswers[question.id],
+            selectedAnswerId: selectedAnswers[question.id] == blankAnswerId
+                ? null
+                : selectedAnswers[question.id],
           ),
         )
         .toList();
@@ -85,4 +88,3 @@ class ScoringService {
     return 1;
   }
 }
-
