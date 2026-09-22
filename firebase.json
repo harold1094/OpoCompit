@@ -1,14 +1,1 @@
-{
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "runtime": "nodejs22"
-    }
-  ]
-}
-
+{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"functions":[{"source":"functions","codebase":"default","runtime":"nodejs22"}],"flutter":{"platforms":{"android":{"default":{"projectId":"opocompit-dev","appId":"1:38007659451:android:f50d7e67c483815bdf829e","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"opocompit-dev","configurations":{"android":"1:38007659451:android:f50d7e67c483815bdf829e","web":"1:38007659451:web:ec48613235d506e0df829e"}}}}}}

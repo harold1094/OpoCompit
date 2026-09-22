@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "38007659451",
+    "project_id": "opocompit-dev",
+    "storage_bucket": "opocompit-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:38007659451:android:f50d7e67c483815bdf829e",
+        "android_client_info": {
+          "package_name": "com.example.opocompit"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6MDUuq-H5zaHYXgEO25tLNS4Z7jDTe0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

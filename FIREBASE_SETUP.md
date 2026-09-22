@@ -30,6 +30,24 @@ Then add app dependencies:
 flutter pub add firebase_core firebase_auth cloud_firestore firebase_analytics firebase_crashlytics firebase_messaging firebase_remote_config firebase_app_check
 ```
 
+These dependencies are already declared in `pubspec.yaml`; run `flutter pub get` after pulling the latest code.
+
+## Run With Or Without Firebase
+
+By default the app runs in local mode:
+
+```bash
+flutter run -d chrome
+```
+
+Firebase mode is opt-in until `flutterfire configure` has generated native/web configuration:
+
+```bash
+flutter run -d chrome --dart-define=OPOCOMPIT_USE_FIREBASE=true
+```
+
+Do not enable the flag before Firebase configuration exists.
+
 ## Deploy Rules And Functions
 
 ```bash
@@ -56,4 +74,3 @@ The client can submit raw attempts. Cloud Functions calculate:
 - economy transaction log
 
 The client cannot write those fields directly.
-

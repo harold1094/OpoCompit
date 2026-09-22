@@ -27,6 +27,10 @@
 - Callable `startQuickQuiz`.
 - Callable `submitQuizSession`.
 - Server-side scoring and economy transaction log skeleton.
+- Flutter Firebase dependencies.
+- Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
+- Anonymous Auth service skeleton.
+- Firestore user profile service skeleton.
 
 ## Still Local / Not Production-Safe Yet
 
@@ -40,11 +44,10 @@
 ## Next Implementation Steps
 
 1. Create Firebase project and run FlutterFire configuration.
-2. Add Firebase Flutter packages.
-3. Implement anonymous sign-in.
+2. Run `flutter pub get`.
+3. Wire anonymous sign-in into app startup.
 4. Create user document on first launch.
 5. Replace local quick quiz with `startQuickQuiz`.
 6. Replace local result validation with `submitQuizSession`.
 7. Seed Firestore with demo questions.
 8. Move question stats, missions, rankings, and duels to server-authoritative Functions.
-
