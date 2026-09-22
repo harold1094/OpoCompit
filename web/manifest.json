@@ -1,0 +1,13 @@
+{
+  "name": "OpoCompit",
+  "short_name": "OpoCompit",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFFBF5",
+  "theme_color": "#FF6B35",
+  "description": "Estudia oposiciones jugando partidas competitivas.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}
+
