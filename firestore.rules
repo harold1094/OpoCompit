@@ -1,0 +1,140 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'xp',
+          'level',
+          'coins',
+          'gems',
+          'currentStreak',
+          'bestStreak',
+          'role'
+        ]);
+      allow delete: if false;
+
+      match /questionStats/{questionId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /inventory/{itemId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /missions/{missionId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /questions/{questionId} {
+      allow read: if signedIn() && resource.data.status == 'published';
+      allow write: if isAdmin();
+    }
+
+    match /oppositions/{oppositionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /territories/{territoryId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /officialExams/{examId} {
+      allow read: if signedIn() && resource.data.status == 'published';
+      allow write: if isAdmin();
+    }
+
+    match /quizSessions/{sessionId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /currencyTransactions/{transactionId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /rankings/{rankingId}/entries/{uid} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if signedIn()
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if signedIn() && resource.data.toUid == request.auth.uid;
+      allow delete: if signedIn()
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+    }
+
+    match /friends/{edgeId} {
+      allow read: if signedIn()
+        && (resource.data.uids.hasAny([request.auth.uid]) || isAdmin());
+      allow write: if false;
+    }
+
+    match /groups/{groupId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /duels/{duelId} {
+      allow read: if signedIn() && resource.data.participantUids.hasAny([request.auth.uid]);
+      allow write: if false;
+    }
+
+    match /missions/{missionId} {
+      allow read: if signedIn() && resource.data.active == true;
+      allow write: if isAdmin();
+    }
+
+    match /dailyRewards/{rewardId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /shopItems/{itemId} {
+      allow read: if signedIn() && resource.data.active == true;
+      allow write: if isAdmin();
+    }
+
+    match /subscriptionPlans/{planId} {
+      allow read: if signedIn() && resource.data.active == true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
