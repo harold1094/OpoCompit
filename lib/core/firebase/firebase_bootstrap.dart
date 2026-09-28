@@ -7,6 +7,7 @@ import '../../firebase_options.dart';
 
 class FirebaseBootstrap {
   static const enabled = bool.fromEnvironment('OPOCOMPIT_USE_FIREBASE');
+  static bool initialized = false;
 
   static Future<void> initializeIfEnabled() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,7 @@ class FirebaseBootstrap {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    initialized = true;
 
     // Web App Check needs a reCAPTCHA provider. Keep web disabled in local dev
     // until the production site key is configured in Firebase.

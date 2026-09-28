@@ -1,5 +1,15 @@
 # Project Status
 
+## React Migration
+
+- Expo + React Native + React Native Web client created in `apps/client`.
+- Shared Android/web navigation through Expo Router.
+- TypeScript domain models, territorial filtering, scoring, XP, coins, streak, question stats, daily reward, and missions.
+- AsyncStorage persistence through Zustand.
+- Optional Firebase anonymous Auth and guest profile creation.
+- Guest onboarding, game-first home, quick quiz, results, errors, rankings, social, and profile screens ported.
+- Flutter remains in place as a reference until React feature parity is verified.
+
 ## Completed Local Vertical Slices
 
 - Guest onboarding.
@@ -43,11 +53,10 @@
 
 ## Next Implementation Steps
 
-1. Create Firebase project and run FlutterFire configuration.
-2. Run `flutter pub get`.
-3. Wire anonymous sign-in into app startup.
-4. Create user document on first launch.
-5. Replace local quick quiz with `startQuickQuiz`.
-6. Replace local result validation with `submitQuizSession`.
-7. Seed Firestore with demo questions.
-8. Move question stats, missions, rankings, and duels to server-authoritative Functions.
+1. Enable the existing Firebase project in `apps/client/.env`.
+2. Replace local quick quiz selection with `startQuickQuiz`.
+3. Replace local result validation with `submitQuizSession`.
+4. Seed Firestore with reviewed questions.
+5. Port the classic duel flow to React.
+6. Move question stats, missions, rankings, and duels to server-authoritative Functions.
+7. Remove Flutter only after React reaches verified feature parity.

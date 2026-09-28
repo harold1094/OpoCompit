@@ -21,12 +21,13 @@ class PlayerProfile {
   });
 
   factory PlayerProfile.guest({
+    String uid = 'local_guest',
     required String oppositionId,
     required String oppositionName,
     required TerritorySelection territory,
   }) {
     return PlayerProfile(
-      uid: 'local_guest',
+      uid: uid,
       username: 'Invitado',
       isGuest: true,
       oppositionId: oppositionId,
@@ -104,4 +105,3 @@ class PlayerProfile {
     );
   }
 }
-

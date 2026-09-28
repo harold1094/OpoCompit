@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "OpoCompit",
+    "slug": "opocompit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "opocompit",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.opocompit.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFF9F2"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

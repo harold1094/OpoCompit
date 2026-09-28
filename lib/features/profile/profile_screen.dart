@@ -67,7 +67,18 @@ class ProfileScreen extends ConsumerWidget {
                   FilledButton.tonalIcon(
                     onPressed: null,
                     icon: const Icon(Icons.link_rounded),
-                    label: const Text('Guardar cuenta pronto'),
+                    label: Text(
+                      profile.uid == 'local_guest'
+                          ? 'Modo local'
+                          : 'Invitado Firebase',
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'ID: ${profile.uid}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.muted,
+                        ),
                   ),
                 ],
               ),

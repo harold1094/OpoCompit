@@ -16,3 +16,12 @@ Thumbs.db
 
 # Firebase/local
 *.log
+functions/lib/
+
+# React Native / Expo
+node_modules/
+.expo/
+apps/client/dist/
+apps/client/.env
+apps/client/.env.local
+!apps/client/.env.example

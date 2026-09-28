@@ -4,23 +4,31 @@ OpoCompit is a gamified study app for competitive exams. The first vertical slic
 
 ## Current Scope
 
-- Flutter app-first architecture for Android, with web kept compatible.
-- Local demo repository implementation that mirrors the intended Firebase-backed domain model.
-- Feature-first structure with Riverpod and GoRouter.
+- Expo + React Native client for Android and web in `apps/client`.
+- The previous Flutter client remains temporarily as a migration reference.
+- Local vertical slice that mirrors the intended Firebase-backed domain model.
+- Feature-first TypeScript structure with Expo Router and Zustand.
 - Server-authoritative design documented for the Firebase phase.
 
-## Run
+## Run React Client
 
 ```bash
-flutter create . --platforms=android,web
-flutter pub get
-flutter test
-flutter run
+cd apps/client
+npm install
+npm run web
 ```
 
-The current build uses an in-memory/local repository so the vertical slice can be tested before Firebase is wired.
+For Android, install Expo Go or use an Android emulator, then run `npm run android`.
 
-If the native Android folder already exists, do not regenerate it blindly; run `flutter pub get`, then `flutter test`, then `flutter run`.
+The client persists progress locally through AsyncStorage. Copy `.env.example` to `.env` and enable Firebase to use anonymous authentication and create the guest user document.
+
+## Verify
+
+```bash
+cd apps/client
+npm run typecheck
+npm test -- --runInBand
+```
 
 ## Vertical Slice Ready To Test
 
@@ -31,4 +39,4 @@ If the native Android folder already exists, do not regenerate it blindly; run `
 5. Finish the match.
 6. Check result, XP, coins, streak, and updated Home/Profile progress.
 
-Local progress is persisted with `shared_preferences`. Firebase will replace the local repository layer in the next stage while keeping the same flow.
+Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

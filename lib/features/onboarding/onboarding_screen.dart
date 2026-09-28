@@ -102,10 +102,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const Spacer(),
               PrimaryButton(
                 label: 'Entrar y jugar',
-                onPressed: () {
-                  ref
+                onPressed: () async {
+                  await ref
                       .read(appControllerProvider.notifier)
                       .startGuest(_selectedTerritory);
+                  if (!context.mounted) return;
                   context.go('/home');
                 },
               ),

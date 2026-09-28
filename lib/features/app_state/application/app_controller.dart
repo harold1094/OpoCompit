@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,10 @@ import '../../../core/domain/player_profile.dart';
 import '../../../core/domain/quiz_result.dart';
 import '../../../core/domain/territory.dart';
 import '../../../core/domain/user_question_stat.dart';
+import '../../../core/firebase/firebase_bootstrap.dart';
+import '../../auth/data/firebase_auth_service.dart';
 import '../../onboarding/domain/onboarding_options.dart';
+import '../../profile/data/firestore_user_profile_service.dart';
 import '../../quiz/application/question_filter.dart';
 import '../../quiz/application/scoring_service.dart';
 import '../../quiz/data/seed_questions.dart';
@@ -36,13 +40,28 @@ class AppController extends StateNotifier<AppState> {
   final QuestionFilter _filter;
   final ScoringService _scoring;
 
-  void startGuest(TerritorySelection territory) {
+  Future<void> startGuest(TerritorySelection territory) async {
+    var uid = 'local_guest';
+    if (FirebaseBootstrap.initialized) {
+      try {
+        final user = await FirebaseAuthService()
+            .signInAnonymously()
+            .timeout(const Duration(seconds: 4));
+        uid = user.uid;
+      } catch (_) {
+        uid = 'local_guest';
+      }
+    }
+
+    final profile = PlayerProfile.guest(
+      uid: uid,
+      oppositionId: firefighterOppositionId,
+      oppositionName: firefighterOppositionName,
+      territory: territory,
+    );
+
     state = state.copyWith(
-      profile: PlayerProfile.guest(
-        oppositionId: firefighterOppositionId,
-        oppositionName: firefighterOppositionName,
-        territory: territory,
-      ),
+      profile: profile,
       dailyReward: _initialDailyReward(),
       missions: _initialMissions(),
       activeQuestions: const [],
@@ -50,6 +69,20 @@ class AppController extends StateNotifier<AppState> {
       questionStats: const {},
     );
     _saveProfile();
+
+    if (FirebaseBootstrap.initialized && uid != 'local_guest') {
+      unawaited(_syncGuestProfile(profile));
+    }
+  }
+
+  Future<void> _syncGuestProfile(PlayerProfile profile) async {
+    try {
+      await FirestoreUserProfileService()
+          .createGuestProfileIfMissing(profile)
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Keep the local slice usable even if Firestore is not configured yet.
+    }
   }
 
   void startQuickMatch() {

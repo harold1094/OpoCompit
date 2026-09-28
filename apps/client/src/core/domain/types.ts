@@ -1,0 +1,94 @@
+export type TerritorySelection = {
+  label: string;
+  country: string;
+  autonomousCommunity?: string;
+  province?: string;
+  municipality?: string;
+  specificBody?: string;
+};
+
+export type AnswerOption = {
+  id: string;
+  text: string;
+};
+
+export type Question = {
+  id: string;
+  oppositionId: string;
+  statement: string;
+  answers: AnswerOption[];
+  correctAnswerId: string;
+  explanation: string;
+  categoryId: string;
+  difficulty: number;
+  scopeType: string;
+  territoryKeys: string[];
+  source: string;
+};
+
+export type PlayerProfile = {
+  uid: string;
+  username: string;
+  isGuest: boolean;
+  oppositionId: string;
+  oppositionName: string;
+  territory: TerritorySelection;
+  xp: number;
+  level: number;
+  coins: number;
+  gems: number;
+  currentStreak: number;
+  bestStreak: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  testsCompleted: number;
+  lastValidActivityDate?: string;
+};
+
+export type QuestionAttempt = {
+  question: Question;
+  selectedAnswerId: string | null;
+  isBlank: boolean;
+  isCorrect: boolean;
+};
+
+export type QuizResult = {
+  attempts: QuestionAttempt[];
+  correct: number;
+  incorrect: number;
+  blank: number;
+  points: number;
+  percentage: number;
+  xpEarned: number;
+  coinsEarned: number;
+  completedAt: string;
+};
+
+export type UserQuestionStat = {
+  questionId: string;
+  timesSeen: number;
+  correctCount: number;
+  incorrectCount: number;
+  blankCount: number;
+  lastAnswerId: string | null;
+  lastAnsweredAt: string;
+};
+
+export type Mission = {
+  id: string;
+  title: string;
+  description: string;
+  type: 'completeQuickMatches' | 'answerQuestions' | 'correctAnswers';
+  target: number;
+  rewardXp: number;
+  rewardCoins: number;
+  progress: number;
+  claimed: boolean;
+};
+
+export type DailyReward = {
+  day: number;
+  coins: number;
+  gems: number;
+  claimed: boolean;
+};

@@ -2,20 +2,17 @@
 
 ## What Exists And What Is Reused
 
-Automatic repository inspection is currently blocked by the Windows sandbox process launcher (`CreateProcessAsUserW failed: 5`). Because of that, this baseline is added conservatively as new files and avoids overwriting existing files. If a Flutter project already exists, the intended reusable pieces are:
-
-- Existing Flutter app bootstrap, if present.
-- Existing Firebase configuration files, if present.
-- Existing assets and branding, if present.
-- Existing test setup, if present.
+- Firestore rules, indexes, Firebase project configuration, and Cloud Functions are reused unchanged.
+- Product models and local gameplay rules are being ported from Flutter to TypeScript.
+- The Flutter client remains available as a reference during migration.
 
 ## Product Architecture
 
-OpoCompit is built as a Flutter client with Firebase as the backend authority. The client is optimized for fast entry into useful study gameplay; Firebase validates competitive and economic outcomes.
+OpoCompit uses one Expo/React Native client for Android and web, with Firebase as the backend authority. The client is optimized for fast entry into useful study gameplay; Firebase validates competitive and economic outcomes.
 
 ```mermaid
 flowchart LR
-  App["Flutter App"] --> Auth["Firebase Auth"]
+  App["Expo / React Native App"] --> Auth["Firebase Auth"]
   App --> Firestore["Cloud Firestore"]
   App --> Functions["Cloud Functions"]
   App --> Storage["Firebase Storage"]
@@ -28,22 +25,13 @@ flowchart LR
 ## Project Structure
 
 ```text
-lib/
-  app/
-    app.dart
-    router.dart
-  core/
-    design/
-    domain/
-    utils/
-  features/
-    onboarding/
-    home/
-    quiz/
-    results/
-    profile/
-    admin/
-  shared/
+apps/client/
+  app/                 # Expo Router screens
+  src/
+    core/              # domain, design, Firebase
+    features/          # feature state, rules, and data
+    shared/            # reusable UI
+functions/             # trusted Firebase backend
 ```
 
 ## Feature Boundaries
@@ -77,7 +65,7 @@ Server must:
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant A as Flutter App
+  participant A as Expo App
   participant R as Quiz Repository
   participant P as Progress Service
   U->>A: Start as guest
@@ -90,4 +78,3 @@ sequenceDiagram
   P-->>A: Score, XP, coins, stats, streak
   A-->>U: Results and updated home
 ```
-

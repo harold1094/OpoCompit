@@ -21,5 +21,8 @@ class FirebaseAuthService {
     }
     return user;
   }
-}
 
+  Future<void> signOut() {
+    return _auth.signOut();
+  }
+}
