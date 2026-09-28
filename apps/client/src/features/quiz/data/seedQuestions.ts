@@ -1,4 +1,4 @@
-import { Question } from '@/core/domain/types';
+import type { Question } from '@/core/domain/types';
 
 export const seedQuestions: Question[] = [
   {

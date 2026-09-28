@@ -69,6 +69,14 @@ Start them from the repository root:
 firebase emulators:start --only auth,firestore,functions
 ```
 
+Run the complete isolated backend verification from `functions`:
+
+```bash
+npm run verify:emulator
+```
+
+This command starts clean emulators, imports the 12 existing development questions, creates an anonymous user, completes three quizzes, claims all daily rewards, verifies duplicate-claim protection, and shuts the emulators down.
+
 For the React client, set:
 
 ```dotenv

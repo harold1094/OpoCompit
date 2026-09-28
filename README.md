@@ -32,6 +32,14 @@ npm run typecheck
 npm test -- --runInBand
 ```
 
+Verify the complete Firebase backend locally, without Blaze or deployed services:
+
+```bash
+cd functions
+npm install
+npm run verify:emulator
+```
+
 ## Vertical Slice Ready To Test
 
 1. Open the app.

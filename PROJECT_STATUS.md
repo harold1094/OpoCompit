@@ -11,6 +11,8 @@
 - Server-owned quiz XP, coins, level, streak, aggregate progress, and question statistics.
 - Server-owned daily rewards, daily mission progress, and mission claims.
 - Auth and Functions connect to local emulators on web and Android when emulator mode is enabled.
+- Reproducible emulator seed with the 12 existing development questions.
+- End-to-end emulator smoke test for guest Auth, quizzes, mission rewards, daily rewards, and duplicate-claim protection.
 - Quiz questions hide answers and explanations until the server validates the submission.
 - Guest onboarding, game-first home, quick quiz, results, errors, rankings, social, and profile screens ported.
 - Flutter remains in place as a reference until React feature parity is verified.
@@ -59,10 +61,8 @@
 
 ## Next Implementation Steps
 
-1. Install a local JDK and run Auth, Firestore, and Functions emulators.
-2. Seed the Firestore emulator with reviewed development questions.
-3. Run the guest-to-reward Firebase emulator smoke test.
-4. Port the classic duel flow to React.
-5. Move rankings, duels, and the social graph to server-authoritative Functions.
-6. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-7. Remove Flutter only after React reaches verified feature parity.
+1. Port the classic duel flow to React.
+2. Move rankings, duels, and the social graph to server-authoritative Functions.
+3. Add the first functional admin import flow against the emulator.
+4. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+5. Remove Flutter only after React reaches verified feature parity.
