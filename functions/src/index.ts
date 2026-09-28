@@ -2,6 +2,15 @@ import {initializeApp} from "firebase-admin/app";
 import {Timestamp, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 
+import {
+  dailyMissionTemplates,
+  dailyRewardFor,
+  madridDay,
+  missionDocumentId,
+  missionProgressIncrement,
+  MissionTemplate,
+} from "./engagement.js";
+
 initializeApp();
 
 const db = getFirestore();
@@ -53,6 +62,10 @@ type SubmitQuizInput = {
   answers: Answer[];
 };
 
+type ClaimMissionInput = {
+  missionId: string;
+};
+
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const oppositionId = requireString(request.data?.oppositionId, "oppositionId", 80);
@@ -100,6 +113,8 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       correctAnswers: 0,
       testsCompleted: 0,
       lastValidActivityDate: null,
+      dailyRewardDay: 0,
+      lastDailyRewardDate: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -108,6 +123,176 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
   });
 
   return {profile};
+});
+
+export const getDailyEngagement = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const now = Timestamp.now();
+  const date = madridDay(now.toDate());
+  const userRef = db.collection("users").doc(uid);
+  const missionRefs = dailyMissionTemplates.map((mission) =>
+    userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
+  );
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, missionSnapshots] = await Promise.all([
+      transaction.get(userRef),
+      Promise.all(missionRefs.map((reference) => transaction.get(reference))),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+    }
+
+    const user = userSnapshot.data() ?? {};
+    const missions = dailyMissionTemplates.map((template, index) => {
+      const snapshot = missionSnapshots[index];
+      const data = snapshot.data() ?? {};
+      if (!snapshot.exists) {
+        transaction.set(missionRefs[index], missionDocument(template, date, now));
+      }
+      return serializeMission(template, data, date);
+    });
+
+    return {
+      dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+      missions,
+    };
+  });
+});
+
+export const claimDailyReward = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const now = Timestamp.now();
+  const date = madridDay(now.toDate());
+  const userRef = db.collection("users").doc(uid);
+  const claimRef = userRef.collection("dailyRewards").doc(date);
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, claimSnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(claimRef),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+
+    const user = userSnapshot.data() ?? {};
+    const reward = dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date);
+    if (reward.claimed || claimSnapshot.exists) {
+      return {
+        dailyReward: {...reward, claimed: true},
+        progress: serializeProgress(user),
+      };
+    }
+
+    const coins = numberValue(user.coins) + reward.coins;
+    const gems = numberValue(user.gems) + reward.gems;
+    const profileUpdate = {
+      coins,
+      gems,
+      dailyRewardDay: reward.day,
+      lastDailyRewardDate: date,
+      updatedAt: now,
+    };
+    transaction.update(userRef, profileUpdate);
+    transaction.set(claimRef, {
+      date,
+      day: reward.day,
+      coins: reward.coins,
+      gems: reward.gems,
+      claimedAt: now,
+    });
+    transaction.set(db.collection("currencyTransactions").doc(`${uid}_${date}_daily_coins`), {
+      uid,
+      type: "daily_reward",
+      currency: "coins",
+      amount: reward.coins,
+      balanceAfter: coins,
+      sourceId: date,
+      createdAt: now,
+    });
+    if (reward.gems > 0) {
+      transaction.set(db.collection("currencyTransactions").doc(`${uid}_${date}_daily_gems`), {
+        uid,
+        type: "daily_reward",
+        currency: "gems",
+        amount: reward.gems,
+        balanceAfter: gems,
+        sourceId: date,
+        createdAt: now,
+      });
+    }
+
+    return {
+      dailyReward: {...reward, claimed: true},
+      progress: serializeProgress({...user, ...profileUpdate}),
+    };
+  });
+});
+
+export const claimMission = onCall<ClaimMissionInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const missionId = requireString(request.data?.missionId, "missionId", 80);
+  const template = dailyMissionTemplates.find((mission) => mission.id === missionId);
+  if (!template) throw new HttpsError("not-found", "Mission not found.");
+
+  const now = Timestamp.now();
+  const date = madridDay(now.toDate());
+  const userRef = db.collection("users").doc(uid);
+  const missionRef = userRef.collection("missions").doc(missionDocumentId(date, missionId));
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, missionSnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(missionRef),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    if (!missionSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "Mission has not started.");
+    }
+
+    const user = userSnapshot.data() ?? {};
+    const mission = missionSnapshot.data() ?? {};
+    if (mission.claimed === true) {
+      return {
+        mission: serializeMission(template, mission, date),
+        progress: serializeProgress(user),
+      };
+    }
+    if (numberValue(mission.progress) < template.target) {
+      throw new HttpsError("failed-precondition", "Mission is not complete.");
+    }
+
+    const xp = numberValue(user.xp) + template.rewardXp;
+    const coins = numberValue(user.coins) + template.rewardCoins;
+    const profileUpdate = {
+      xp,
+      level: Math.floor(Math.sqrt(xp / 100)) + 1,
+      coins,
+      updatedAt: now,
+    };
+    transaction.update(userRef, profileUpdate);
+    transaction.update(missionRef, {claimed: true, claimedAt: now, updatedAt: now});
+    transaction.set(
+      db.collection("currencyTransactions").doc(`${uid}_${date}_${missionId}_coins`),
+      {
+        uid,
+        type: "mission",
+        currency: "coins",
+        amount: template.rewardCoins,
+        balanceAfter: coins,
+        sourceId: missionDocumentId(date, missionId),
+        createdAt: now,
+      },
+    );
+
+    return {
+      mission: serializeMission(template, {...mission, claimed: true}, date),
+      progress: serializeProgress({...user, ...profileUpdate}),
+    };
+  });
 });
 
 export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
@@ -192,10 +377,16 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     const userRef = db.collection("users").doc(uid);
     const questionRefs = questionIds.map((id) => db.collection("questions").doc(id));
     const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
-    const [userSnapshot, questionSnapshots, statSnapshots] = await Promise.all([
+    const completedAt = Timestamp.now();
+    const date = madridDay(completedAt.toDate());
+    const missionRefs = dailyMissionTemplates.map((mission) =>
+      userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
+    );
+    const [userSnapshot, questionSnapshots, statSnapshots, missionSnapshots] = await Promise.all([
       transaction.get(userRef),
       Promise.all(questionRefs.map((reference) => transaction.get(reference))),
       Promise.all(statRefs.map((reference) => transaction.get(reference))),
+      Promise.all(missionRefs.map((reference) => transaction.get(reference))),
     ]);
 
     if (!userSnapshot.exists) {
@@ -211,7 +402,6 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     const answersByQuestion = new Map(
       submittedAnswers.map((answer) => [answer.questionId, answer]),
     );
-    const completedAt = Timestamp.now();
     let correct = 0;
     let blank = 0;
     let incorrect = 0;
@@ -280,6 +470,24 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       }, {merge: true});
     });
 
+    const missions = dailyMissionTemplates.map((template, index) => {
+      const previous = missionSnapshots[index].data() ?? {};
+      const progress = Math.min(
+        template.target,
+        numberValue(previous.progress) +
+          missionProgressIncrement(template.type, questions.length, correct),
+      );
+      const updated = {
+        ...missionDocument(template, date, completedAt),
+        progress,
+        claimed: previous.claimed === true,
+        createdAt: previous.createdAt ?? completedAt,
+        updatedAt: completedAt,
+      };
+      transaction.set(missionRefs[index], updated);
+      return serializeMission(template, updated, date);
+    });
+
     const sanitizedAnswers = questionIds.map((questionId) => {
       const answer = answersByQuestion.get(questionId);
       return {
@@ -319,6 +527,10 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
         completedAt: completedAt.toDate().toISOString(),
       },
       progress: serializeProgress({...user, ...profileUpdate}),
+      engagement: {
+        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        missions,
+      },
     };
   });
 });
@@ -451,15 +663,6 @@ function nextStreak(current: number, previousValue: unknown, now: Timestamp): nu
   return 1;
 }
 
-function madridDay(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Madrid",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
 function serializeProfile(uid: string, data: Record<string, unknown>) {
   return {
     uid,
@@ -485,5 +688,41 @@ function serializeProgress(data: Record<string, unknown>) {
     testsCompleted: numberValue(data.testsCompleted),
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
+  };
+}
+
+function missionDocument(template: MissionTemplate, date: string, now: Timestamp) {
+  return {
+    missionId: template.id,
+    date,
+    title: template.title,
+    description: template.description,
+    type: template.type,
+    target: template.target,
+    rewardXp: template.rewardXp,
+    rewardCoins: template.rewardCoins,
+    progress: 0,
+    claimed: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function serializeMission(
+  template: MissionTemplate,
+  data: Record<string, unknown>,
+  date: string,
+) {
+  return {
+    id: template.id,
+    date,
+    title: template.title,
+    description: template.description,
+    type: template.type,
+    target: template.target,
+    rewardXp: template.rewardXp,
+    rewardCoins: template.rewardCoins,
+    progress: Math.min(template.target, numberValue(data.progress)),
+    claimed: data.claimed === true,
   };
 }

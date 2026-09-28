@@ -3,6 +3,7 @@ import * as FirebaseAuthInternal from '@firebase/auth';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
+  connectAuthEmulator,
   getAuth,
   initializeAuth,
   Persistence,
@@ -16,6 +17,9 @@ import {
 import { Platform } from 'react-native';
 
 import {
+  DailyEngagement,
+  DailyReward,
+  Mission,
   PlayerProfile,
   PlayerProgress,
   Question,
@@ -25,6 +29,7 @@ import {
 
 const firebaseEnabled = process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'true';
 let authInstance: Auth | null = null;
+let authEmulatorConnected = false;
 let functionsEmulatorConnected = false;
 
 type StartQuickQuizResponse = {
@@ -34,6 +39,17 @@ type StartQuickQuizResponse = {
 
 type SubmitQuizResponse = {
   result: QuizResult;
+  progress: PlayerProgress;
+  engagement: DailyEngagement;
+};
+
+type ClaimDailyRewardResponse = {
+  dailyReward: DailyReward;
+  progress: PlayerProgress;
+};
+
+type ClaimMissionResponse = {
+  mission: Mission;
   progress: PlayerProgress;
 };
 
@@ -65,23 +81,30 @@ function firebaseApp(): FirebaseApp | null {
 }
 
 function firebaseAuth(app: FirebaseApp): Auth {
-  if (authInstance) return authInstance;
-  if (Platform.OS === 'web') {
-    authInstance = getAuth(app);
-    return authInstance;
+  if (!authInstance) {
+    if (Platform.OS === 'web') {
+      authInstance = getAuth(app);
+    } else {
+      try {
+        const getNativePersistence = (
+          FirebaseAuthInternal as unknown as {
+            getReactNativePersistence: (storage: typeof AsyncStorage) => Persistence;
+          }
+        ).getReactNativePersistence;
+        authInstance = initializeAuth(app, {
+          persistence: getNativePersistence(AsyncStorage),
+        });
+      } catch {
+        authInstance = getAuth(app);
+      }
+    }
   }
 
-  try {
-    const getNativePersistence = (
-      FirebaseAuthInternal as unknown as {
-        getReactNativePersistence: (storage: typeof AsyncStorage) => Persistence;
-      }
-    ).getReactNativePersistence;
-    authInstance = initializeAuth(app, {
-      persistence: getNativePersistence(AsyncStorage),
+  if (usingFirebaseEmulators() && !authEmulatorConnected) {
+    connectAuthEmulator(authInstance, `http://${emulatorHost()}:9099`, {
+      disableWarnings: true,
     });
-  } catch {
-    authInstance = getAuth(app);
+    authEmulatorConnected = true;
   }
   return authInstance;
 }
@@ -95,10 +118,10 @@ function callable<Request, Response>(name: string) {
   );
 
   if (
-    process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true' &&
+    usingFirebaseEmulators() &&
     !functionsEmulatorConnected
   ) {
-    connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+    connectFunctionsEmulator(functions, emulatorHost(), 5001);
     functionsEmulatorConnected = true;
   }
   return httpsCallable<Request, Response>(functions, name);
@@ -115,6 +138,7 @@ export async function startAnonymousSession(): Promise<string> {
 }
 
 export async function bootstrapGuestProfile(profile: PlayerProfile): Promise<PlayerProfile> {
+  await startAnonymousSession();
   const invoke = callable<
     Pick<PlayerProfile, 'oppositionId' | 'oppositionName' | 'territory'>,
     { profile: PlayerProfile }
@@ -128,6 +152,7 @@ export async function bootstrapGuestProfile(profile: PlayerProfile): Promise<Pla
 }
 
 export async function startQuickQuizRemote(questionCount = 10): Promise<StartQuickQuizResponse> {
+  await startAnonymousSession();
   const invoke = callable<{ questionCount: number }, StartQuickQuizResponse>('startQuickQuiz');
   const response = await invoke({ questionCount });
   return response.data;
@@ -137,11 +162,33 @@ export async function submitQuizSessionRemote(
   sessionId: string,
   answers: QuizAnswerSubmission[],
 ): Promise<SubmitQuizResponse> {
+  await startAnonymousSession();
   const invoke = callable<
     { sessionId: string; answers: QuizAnswerSubmission[] },
     SubmitQuizResponse
   >('submitQuizSession');
   const response = await invoke({ sessionId, answers });
+  return response.data;
+}
+
+export async function getDailyEngagementRemote(): Promise<DailyEngagement> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, DailyEngagement>('getDailyEngagement');
+  const response = await invoke({});
+  return response.data;
+}
+
+export async function claimDailyRewardRemote(): Promise<ClaimDailyRewardResponse> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, ClaimDailyRewardResponse>('claimDailyReward');
+  const response = await invoke({});
+  return response.data;
+}
+
+export async function claimMissionRemote(missionId: string): Promise<ClaimMissionResponse> {
+  await startAnonymousSession();
+  const invoke = callable<{ missionId: string }, ClaimMissionResponse>('claimMission');
+  const response = await invoke({ missionId });
   return response.data;
 }
 
@@ -169,4 +216,15 @@ function requiredEnv(value: string | undefined, name: string): string {
     throw new Error(`Missing Firebase environment variable: ${name}`);
   }
   return value;
+}
+
+function usingFirebaseEmulators(): boolean {
+  return process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATORS === 'true';
+}
+
+function emulatorHost(): string {
+  return (
+    process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST ||
+    (Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1')
+  );
 }

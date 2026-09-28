@@ -25,6 +25,8 @@ The schema is designed around cheap reads, server-authoritative writes, territor
   "currentStreak": 0,
   "bestStreak": 0,
   "lastValidActivityDate": null,
+  "dailyRewardDay": 0,
+  "lastDailyRewardDate": null,
   "createdAt": "serverTimestamp",
   "updatedAt": "serverTimestamp"
 }
@@ -35,8 +37,11 @@ Subcollections:
 - `users/{uid}/questionStats/{questionId}`
 - `users/{uid}/inventory/{itemId}`
 - `users/{uid}/missions/{missionId}`
+- `users/{uid}/dailyRewards/{YYYY-MM-DD}`
 - `users/{uid}/achievements/{achievementId}`
 - `users/{uid}/notifications/{notificationId}`
+
+Daily mission document IDs include the Madrid date, for example `2026-09-28_daily_15_correct`. Each document stores the server-owned `progress`, `claimed` state, rewards, and definition snapshot for that day.
 
 ## oppositions/{oppositionId}
 
@@ -208,4 +213,3 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 - `subscriptionPlans/{planId}`.
 - `subscriptions/{uid}`.
 - `appConfig/{configId}`.
-

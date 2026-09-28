@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
@@ -14,8 +15,17 @@ export default function HomeScreen() {
   const missions = useAppStore((state) => state.missions);
   const startQuickMatch = useAppStore((state) => state.startQuickMatch);
   const isStartingQuiz = useAppStore((state) => state.isStartingQuiz);
+  const isClaimingDailyReward = useAppStore((state) => state.isClaimingDailyReward);
+  const claimingMissionId = useAppStore((state) => state.claimingMissionId);
+  const refreshDailyEngagement = useAppStore((state) => state.refreshDailyEngagement);
   const claimDailyReward = useAppStore((state) => state.claimDailyReward);
   const claimMission = useAppStore((state) => state.claimMission);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshDailyEngagement();
+    }, [refreshDailyEngagement]),
+  );
 
   if (!profile) return null;
   const currentLevelXp = profile.xp % 100;
@@ -29,6 +39,26 @@ export default function HomeScreen() {
     }
     const message = useAppStore.getState().quizError;
     if (message) Alert.alert('No se pudo iniciar la partida', message);
+  };
+
+  const collectDailyReward = async () => {
+    const claimed = await claimDailyReward();
+    if (claimed) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+    const message = useAppStore.getState().engagementError;
+    if (message) Alert.alert('No se pudo recoger', message);
+  };
+
+  const collectMission = async (missionId: string) => {
+    const claimed = await claimMission(missionId);
+    if (claimed) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return;
+    }
+    const message = useAppStore.getState().engagementError;
+    if (message) Alert.alert('No se pudo recoger', message);
   };
 
   return (
@@ -95,14 +125,15 @@ export default function HomeScreen() {
           </View>
           <Pressable
             accessibilityRole="button"
-            disabled={dailyReward.claimed}
-            onPress={() => {
-              claimDailyReward();
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }}
+            disabled={dailyReward.claimed || isClaimingDailyReward}
+            onPress={() => void collectDailyReward()}
             style={[styles.claimButton, dailyReward.claimed && styles.claimedButton]}
           >
-            <Text style={styles.claimLabel}>{dailyReward.claimed ? 'Recogida' : 'Recoger'}</Text>
+            {isClaimingDailyReward ? (
+              <ActivityIndicator color={colors.surface} size="small" />
+            ) : (
+              <Text style={styles.claimLabel}>{dailyReward.claimed ? 'Recogida' : 'Recoger'}</Text>
+            )}
           </Pressable>
         </View>
       ) : null}
@@ -116,17 +147,21 @@ export default function HomeScreen() {
           const ready = mission.progress >= mission.target && !mission.claimed;
           return (
             <Pressable
-              disabled={!ready}
+              disabled={!ready || claimingMissionId !== null}
               key={mission.id}
-              onPress={() => claimMission(mission.id)}
+              onPress={() => void collectMission(mission.id)}
               style={styles.mission}
             >
               <View style={[styles.missionStatus, ready && styles.missionReady]}>
-                <MaterialCommunityIcons
-                  name={mission.claimed ? 'check' : 'target'}
-                  size={20}
-                  color={mission.claimed ? colors.success : ready ? colors.surface : colors.aqua}
-                />
+                {claimingMissionId === mission.id ? (
+                  <ActivityIndicator color={colors.surface} size="small" />
+                ) : (
+                  <MaterialCommunityIcons
+                    name={mission.claimed ? 'check' : 'target'}
+                    size={20}
+                    color={mission.claimed ? colors.success : ready ? colors.surface : colors.aqua}
+                  />
+                )}
               </View>
               <View style={styles.missionCopy}>
                 <Text style={styles.missionTitle}>{mission.title}</Text>
@@ -197,7 +232,7 @@ const styles = StyleSheet.create({
   rewardCopy: { flex: 1 },
   rewardTitle: { color: colors.ink, fontSize: 14, fontWeight: '900' },
   rewardSubtitle: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  claimButton: { backgroundColor: colors.ink, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 9 },
+  claimButton: { minWidth: 76, minHeight: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8 },
   claimedButton: { opacity: 0.45 },
   claimLabel: { color: colors.surface, fontSize: 12, fontWeight: '800' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xl, marginBottom: spacing.sm },

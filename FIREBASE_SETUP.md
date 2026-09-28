@@ -1,6 +1,6 @@
 # Firebase Setup
 
-The React client is wired to Firebase Auth and callable Functions, but production Firebase is intentionally disabled until the project infrastructure is ready.
+The React client is wired to Firebase Auth and callable Functions. Production Firebase is intentionally disabled while development continues with the free local Emulator Suite.
 
 ## Current Project State
 
@@ -45,11 +45,16 @@ firebase deploy --only functions
 
 - `bootstrapGuestProfile`: creates the protected server profile with zero economy values.
 - `startQuickQuiz`: reads opposition and territory from the trusted user profile and returns questions without answers or explanations.
-- `submitQuizSession`: validates ownership, expiry, question IDs, answer options, scoring, XP, coins, level, streak, question statistics, and the economy transaction.
+- `submitQuizSession`: validates ownership, expiry, question IDs, answer options, scoring, XP, coins, level, streak, question statistics, mission progress, and the economy transaction.
+- `getDailyEngagement`: returns today's reward and missions using the Madrid calendar day.
+- `claimDailyReward`: grants one idempotent daily reward and records its economy transactions.
+- `claimMission`: validates server-owned mission progress before granting XP and coins.
 
 The React client falls back to local mode when Firebase is disabled or guest bootstrap cannot complete.
 
 ## Local Emulators
+
+This path does not require Blaze or a deployed Firestore database. Firebase Emulator Suite requires Java 11 or newer; install a current JDK before starting it.
 
 The configured ports are:
 
@@ -69,8 +74,11 @@ For the React client, set:
 ```dotenv
 EXPO_PUBLIC_FIREBASE_ENABLED=true
 EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true
+EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=
 ```
+
+Leave the host empty to use `127.0.0.1` on web and `10.0.2.2` on the standard Android emulator automatically. For a physical phone, set the development computer's LAN address and allow the emulator ports through the local firewall.
 
 ## Security Principle
 
-Clients cannot create or update user progress, read question answers directly, create quiz sessions, or write economy transactions. Admin SDK code in callable Functions performs those operations after validating the authenticated user and raw answers.
+Clients cannot create or update user progress, claim rewards directly, read question answers, create quiz sessions, or write economy transactions. Admin SDK code in callable Functions performs those operations after validating the authenticated user and raw actions.

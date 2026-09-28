@@ -13,12 +13,19 @@ import {
 } from '@/core/domain/types';
 import {
   bootstrapGuestProfile,
+  claimDailyRewardRemote,
+  claimMissionRemote,
+  getDailyEngagementRemote,
   isFirebaseEnabled,
   readableFirebaseError,
   startAnonymousSession,
   startQuickQuizRemote,
   submitQuizSessionRemote,
 } from '@/core/firebase/firebaseClient';
+import {
+  localDailyEngagement,
+  progressLocalMissions,
+} from '@/features/gamification/domain/engagement';
 import {
   FIREFIGHTER_OPPOSITION_ID,
   FIREFIGHTER_OPPOSITION_NAME,
@@ -46,7 +53,11 @@ type AppStore = {
   lastResult: QuizResult | null;
   isStartingQuiz: boolean;
   isSubmittingQuiz: boolean;
+  isLoadingEngagement: boolean;
+  isClaimingDailyReward: boolean;
+  claimingMissionId: string | null;
   quizError: string | null;
+  engagementError: string | null;
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
@@ -54,45 +65,10 @@ type AppStore = {
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
   clearQuizError: () => void;
-  claimDailyReward: () => void;
-  claimMission: (missionId: string) => void;
+  refreshDailyEngagement: () => Promise<void>;
+  claimDailyReward: () => Promise<boolean>;
+  claimMission: (missionId: string) => Promise<boolean>;
 };
-
-const initialMissions = (): Mission[] => [
-  {
-    id: 'daily_complete_quick',
-    title: 'Primera partida del día',
-    description: 'Completa una partida rápida.',
-    type: 'completeQuickMatches',
-    target: 1,
-    rewardXp: 20,
-    rewardCoins: 10,
-    progress: 0,
-    claimed: false,
-  },
-  {
-    id: 'daily_30_questions',
-    title: 'Calienta motores',
-    description: 'Responde 30 preguntas.',
-    type: 'answerQuestions',
-    target: 30,
-    rewardXp: 30,
-    rewardCoins: 15,
-    progress: 0,
-    claimed: false,
-  },
-  {
-    id: 'daily_15_correct',
-    title: 'Precisión útil',
-    description: 'Consigue 15 respuestas correctas.',
-    type: 'correctAnswers',
-    target: 15,
-    rewardXp: 35,
-    rewardCoins: 20,
-    progress: 0,
-    claimed: false,
-  },
-];
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -109,7 +85,11 @@ export const useAppStore = create<AppStore>()(
       lastResult: null,
       isStartingQuiz: false,
       isSubmittingQuiz: false,
+      isLoadingEngagement: false,
+      isClaimingDailyReward: false,
+      claimingMissionId: null,
       quizError: null,
+      engagementError: null,
       setHydrated: (hydrated) => set({ hydrated }),
       startGuest: async (territory) => {
         let backendMode: BackendMode = 'local';
@@ -125,12 +105,15 @@ export const useAppStore = create<AppStore>()(
         }
 
         let profile: PlayerProfile = localGuestProfile(uid, territory);
+        let engagement = localDailyEngagement();
         if (backendMode === 'firebase') {
           try {
             profile = await bootstrapGuestProfile(profile);
+            engagement = await getDailyEngagementRemote();
           } catch {
             backendMode = 'local';
             profile = localGuestProfile('local_guest', territory);
+            engagement = localDailyEngagement();
           }
         }
 
@@ -141,10 +124,11 @@ export const useAppStore = create<AppStore>()(
           activeSessionId: null,
           selectedAnswers: {},
           questionStats: {},
-          dailyReward: { day: 1, coins: 25, gems: 0, claimed: false },
-          missions: initialMissions(),
+          dailyReward: engagement.dailyReward,
+          missions: engagement.missions,
           lastResult: null,
           quizError: null,
+          engagementError: null,
         });
       },
       startQuickMatch: async () => {
@@ -219,6 +203,8 @@ export const useAppStore = create<AppStore>()(
         try {
           let result: QuizResult;
           let profile: PlayerProfile;
+          let dailyReward = state.dailyReward;
+          let missions: Mission[];
 
           if (state.backendMode === 'firebase' && state.activeSessionId) {
             const submission = state.activeQuestions.map((question) => ({
@@ -231,15 +217,21 @@ export const useAppStore = create<AppStore>()(
             const remote = await submitQuizSessionRemote(state.activeSessionId, submission);
             result = remote.result;
             profile = { ...state.profile, ...remote.progress };
+            dailyReward = remote.engagement.dailyReward;
+            missions = remote.engagement.missions;
           } else {
             result = scoreQuickMatch(state.activeQuestions, state.selectedAnswers);
             profile = applyResult(state.profile, result);
+            const engagement = localDailyEngagement(state.dailyReward, state.missions);
+            dailyReward = engagement.dailyReward;
+            missions = progressLocalMissions(engagement.missions, result);
           }
 
           set({
             profile,
             questionStats: applyQuestionStats(state.questionStats, result),
-            missions: progressMissions(state.missions, result),
+            dailyReward,
+            missions,
             lastResult: result,
             activeSessionId: null,
           });
@@ -252,35 +244,89 @@ export const useAppStore = create<AppStore>()(
         }
       },
       clearQuizError: () => set({ quizError: null }),
-      claimDailyReward: () => {
-        const { profile, dailyReward } = get();
-        if (!profile || !dailyReward || dailyReward.claimed) return;
-        set({
-          profile: {
-            ...profile,
-            coins: profile.coins + dailyReward.coins,
-            gems: profile.gems + dailyReward.gems,
-          },
-          dailyReward: { ...dailyReward, claimed: true },
-        });
+      refreshDailyEngagement: async () => {
+        const state = get();
+        if (!state.profile || state.isLoadingEngagement) return;
+        set({ isLoadingEngagement: true, engagementError: null });
+        try {
+          const engagement =
+            state.backendMode === 'firebase'
+              ? await getDailyEngagementRemote()
+              : localDailyEngagement(state.dailyReward, state.missions);
+          set({ dailyReward: engagement.dailyReward, missions: engagement.missions });
+        } catch (error) {
+          set({ engagementError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingEngagement: false });
+        }
       },
-      claimMission: (missionId) => {
-        const { profile, missions } = get();
-        if (!profile) return;
-        const mission = missions.find((item) => item.id === missionId);
-        if (!mission || mission.claimed || mission.progress < mission.target) return;
-        const xp = profile.xp + mission.rewardXp;
-        set({
-          profile: {
-            ...profile,
-            xp,
-            level: Math.floor(Math.sqrt(xp / 100)) + 1,
-            coins: profile.coins + mission.rewardCoins,
-          },
-          missions: missions.map((item) =>
-            item.id === missionId ? { ...item, claimed: true } : item,
-          ),
-        });
+      claimDailyReward: async () => {
+        const state = get();
+        if (!state.profile || !state.dailyReward || state.dailyReward.claimed) return false;
+        set({ isClaimingDailyReward: true, engagementError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const remote = await claimDailyRewardRemote();
+            set({
+              profile: { ...state.profile, ...remote.progress },
+              dailyReward: remote.dailyReward,
+            });
+          } else {
+            const engagement = localDailyEngagement(state.dailyReward, state.missions);
+            set({
+              profile: {
+                ...state.profile,
+                coins: state.profile.coins + engagement.dailyReward.coins,
+                gems: state.profile.gems + engagement.dailyReward.gems,
+              },
+              dailyReward: { ...engagement.dailyReward, claimed: true },
+              missions: engagement.missions,
+            });
+          }
+          return true;
+        } catch (error) {
+          set({ engagementError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isClaimingDailyReward: false });
+        }
+      },
+      claimMission: async (missionId) => {
+        const state = get();
+        if (!state.profile || state.claimingMissionId) return false;
+        const mission = state.missions.find((item) => item.id === missionId);
+        if (!mission || mission.claimed || mission.progress < mission.target) return false;
+        set({ claimingMissionId: missionId, engagementError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const remote = await claimMissionRemote(missionId);
+            set({
+              profile: { ...state.profile, ...remote.progress },
+              missions: state.missions.map((item) =>
+                item.id === missionId ? remote.mission : item,
+              ),
+            });
+          } else {
+            const xp = state.profile.xp + mission.rewardXp;
+            set({
+              profile: {
+                ...state.profile,
+                xp,
+                level: Math.floor(Math.sqrt(xp / 100)) + 1,
+                coins: state.profile.coins + mission.rewardCoins,
+              },
+              missions: state.missions.map((item) =>
+                item.id === missionId ? { ...item, claimed: true } : item,
+              ),
+            });
+          }
+          return true;
+        } catch (error) {
+          set({ engagementError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ claimingMissionId: null });
+        }
       },
     }),
     {
@@ -337,16 +383,4 @@ function applyQuestionStats(
     };
   });
   return updated;
-}
-
-function progressMissions(missions: Mission[], result: QuizResult): Mission[] {
-  return missions.map((mission) => {
-    const increment =
-      mission.type === 'answerQuestions'
-        ? result.attempts.length
-        : mission.type === 'correctAnswers'
-          ? result.correct
-          : 1;
-    return { ...mission, progress: Math.min(mission.target, mission.progress + increment) };
-  });
 }

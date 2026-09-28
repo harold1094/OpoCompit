@@ -9,6 +9,8 @@
 - Optional Firebase anonymous Auth and guest profile creation.
 - React callable integration for guest bootstrap, quick quiz start, and server-validated submission.
 - Server-owned quiz XP, coins, level, streak, aggregate progress, and question statistics.
+- Server-owned daily rewards, daily mission progress, and mission claims.
+- Auth and Functions connect to local emulators on web and Android when emulator mode is enabled.
 - Quiz questions hide answers and explanations until the server validates the submission.
 - Guest onboarding, game-first home, quick quiz, results, errors, rankings, social, and profile screens ported.
 - Flutter remains in place as a reference until React feature parity is verified.
@@ -24,8 +26,8 @@
 - Results with score, XP, coins, streak, and review.
 - Per-question user stats.
 - Error review mode.
-- Local daily reward.
-- Local daily missions.
+- Daily reward with a seven-day local fallback calendar.
+- Daily missions with automatic Madrid-day reset.
 - Local social friends.
 - Local global, territorial, and friends rankings.
 - Local classic 1v1 duel.
@@ -39,6 +41,9 @@
 - Cloud Functions TypeScript skeleton.
 - Callable `startQuickQuiz`.
 - Callable `submitQuizSession`.
+- Callable `getDailyEngagement`.
+- Callable `claimDailyReward`.
+- Callable `claimMission`.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -48,18 +53,16 @@
 ## Still Local / Not Production-Safe Yet
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
-- Daily rewards and mission rewards.
 - Rankings and duels.
 - Friends and social graph.
 - Admin import.
 
 ## Next Implementation Steps
 
-1. Choose the permanent Firestore location and matching Functions region.
-2. Enable Firestore, Anonymous Auth, Cloud Functions, and Blaze billing with budget alerts.
-3. Deploy Firestore rules, indexes, and callable Functions.
-4. Configure `apps/client/.env` and run an end-to-end Firebase smoke test.
-5. Seed Firestore with reviewed questions.
-6. Port the classic duel flow to React.
-7. Move missions, daily rewards, rankings, and duels to server-authoritative Functions.
-8. Remove Flutter only after React reaches verified feature parity.
+1. Install a local JDK and run Auth, Firestore, and Functions emulators.
+2. Seed the Firestore emulator with reviewed development questions.
+3. Run the guest-to-reward Firebase emulator smoke test.
+4. Port the classic duel flow to React.
+5. Move rankings, duels, and the social graph to server-authoritative Functions.
+6. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+7. Remove Flutter only after React reaches verified feature parity.

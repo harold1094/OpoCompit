@@ -96,6 +96,7 @@ export type UserQuestionStat = {
 
 export type Mission = {
   id: string;
+  date: string;
   title: string;
   description: string;
   type: 'completeQuickMatches' | 'answerQuestions' | 'correctAnswers';
@@ -107,8 +108,14 @@ export type Mission = {
 };
 
 export type DailyReward = {
+  date: string;
   day: number;
   coins: number;
   gems: number;
   claimed: boolean;
+};
+
+export type DailyEngagement = {
+  dailyReward: DailyReward;
+  missions: Mission[];
 };

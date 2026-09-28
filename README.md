@@ -20,9 +20,9 @@ npm run web
 
 For Android, install Expo Go or use an Android emulator, then run `npm run android`.
 
-The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, and question statistics.
+The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, and missions.
 
-Firebase remains opt-in until Firestore and Cloud Functions are enabled for the project. Copy `.env.example` to `.env` only after completing the steps in `FIREBASE_SETUP.md`.
+Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
 
 ## Verify
 

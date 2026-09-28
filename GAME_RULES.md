@@ -76,3 +76,21 @@ Streak rules:
 - Previous day: `currentStreak + 1`.
 - Older or empty: reset to `1`.
 
+## Daily Reward
+
+- Uses the `Europe/Madrid` calendar day.
+- Can be claimed once per user and day.
+- Advances through a seven-day cycle and wraps to day one.
+- Awards 25, 30, 35, 40, 50, 60, and 75 coins respectively.
+- Day seven also awards one gem.
+- Server claims are transactional and idempotent.
+
+## Daily Missions
+
+The MVP daily set is:
+
+- Complete one quick match: `20 XP` and `10 coins`.
+- Answer 30 questions: `30 XP` and `15 coins`.
+- Get 15 correct answers: `35 XP` and `20 coins`.
+
+Mission progress resets on the Madrid calendar day. In Firebase mode, quiz submission updates progress and callable Functions validate every claim.
