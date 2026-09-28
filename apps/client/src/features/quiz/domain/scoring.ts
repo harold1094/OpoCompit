@@ -14,7 +14,8 @@ export function scoreQuickMatch(
       question,
       selectedAnswerId,
       isBlank: selectedAnswerId === null,
-      isCorrect: selectedAnswerId === question.correctAnswerId,
+      isCorrect:
+        question.correctAnswerId !== undefined && selectedAnswerId === question.correctAnswerId,
     };
   });
   const correct = attempts.filter((attempt) => attempt.isCorrect).length;
@@ -57,7 +58,7 @@ export function applyResult(profile: PlayerProfile, result: QuizResult): PlayerP
   };
 }
 
-function nextStreak(current: number, previousIso: string | undefined, currentIso: string): number {
+function nextStreak(current: number, previousIso: string | null | undefined, currentIso: string): number {
   if (!previousIso) return 1;
   const previous = startOfDay(new Date(previousIso));
   const currentDay = startOfDay(new Date(currentIso));

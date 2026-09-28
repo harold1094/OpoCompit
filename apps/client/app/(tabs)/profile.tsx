@@ -2,13 +2,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
-import { isFirebaseEnabled } from '@/core/firebase/firebaseClient';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { StatTile } from '@/shared/components/StatTile';
 
 export default function ProfileScreen() {
   const profile = useAppStore((state) => state.profile);
+  const backendMode = useAppStore((state) => state.backendMode);
   if (!profile) return null;
   const accuracy = profile.totalQuestions === 0 ? 0 : profile.correctAnswers / profile.totalQuestions;
 
@@ -59,7 +59,7 @@ export default function ProfileScreen() {
         <View style={styles.accountCopy}>
           <Text style={styles.accountTitle}>Sesión preparada</Text>
           <Text style={styles.accountText}>
-            {isFirebaseEnabled()
+            {backendMode === 'firebase'
               ? 'Tu invitado anónimo puede vincularse después sin perder el progreso.'
               : 'Activa Firebase en el entorno para sincronizar este progreso entre dispositivos.'}
           </Text>

@@ -1,14 +1,25 @@
-import {initializeApp} from 'firebase-admin/app';
-import {FieldValue, getFirestore} from 'firebase-admin/firestore';
-import {HttpsError, onCall} from 'firebase-functions/v2/https';
+import {initializeApp} from "firebase-admin/app";
+import {Timestamp, getFirestore} from "firebase-admin/firestore";
+import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 initializeApp();
 
 const db = getFirestore();
+const maxQuestionCount = 25;
+const sessionLifetimeMs = 24 * 60 * 60 * 1000;
+
+type TerritorySelection = {
+  label: string;
+  country: string;
+  autonomousCommunity?: string;
+  province?: string;
+  municipality?: string;
+  specificBody?: string;
+};
 
 type Answer = {
   questionId: string;
-  selectedAnswerId?: string | null;
+  selectedAnswerId: string | null;
   elapsedMs?: number;
 };
 
@@ -27,9 +38,13 @@ type QuestionDoc = {
   verified: boolean;
 };
 
-type StartQuickQuizInput = {
+type BootstrapGuestInput = {
   oppositionId: string;
-  territoryKeys: string[];
+  oppositionName: string;
+  territory: TerritorySelection;
+};
+
+type StartQuickQuizInput = {
   questionCount?: number;
 };
 
@@ -38,173 +53,437 @@ type SubmitQuizInput = {
   answers: Answer[];
 };
 
+export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const oppositionId = requireString(request.data?.oppositionId, "oppositionId", 80);
+  const oppositionName = requireString(request.data?.oppositionName, "oppositionName", 80);
+  const territory = parseTerritory(request.data?.territory);
+  const userRef = db.collection("users").doc(uid);
+
+  const profile = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    const now = Timestamp.now();
+
+    if (snapshot.exists) {
+      const existing = snapshot.data() ?? {};
+      const updated = {
+        ...existing,
+        oppositionId,
+        oppositionName,
+        territorySelection: territory,
+        updatedAt: now,
+      };
+      transaction.update(userRef, {
+        oppositionId,
+        oppositionName,
+        territorySelection: territory,
+        updatedAt: now,
+      });
+      return serializeProfile(uid, updated);
+    }
+
+    const created = {
+      uid,
+      isAnonymous: true,
+      username: "Invitado",
+      role: "guest",
+      oppositionId,
+      oppositionName,
+      territorySelection: territory,
+      level: 1,
+      xp: 0,
+      coins: 0,
+      gems: 0,
+      currentStreak: 0,
+      bestStreak: 0,
+      totalQuestions: 0,
+      correctAnswers: 0,
+      testsCompleted: 0,
+      lastValidActivityDate: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    transaction.set(userRef, created);
+    return serializeProfile(uid, created);
+  });
+
+  return {profile};
+});
+
 export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) {
-    throw new HttpsError('unauthenticated', 'Authentication required.');
+  const uid = requireUid(request.auth?.uid);
+  const questionCount = parseQuestionCount(request.data?.questionCount);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
   }
 
-  const oppositionId = request.data.oppositionId;
-  const territoryKeys = request.data.territoryKeys ?? [];
-  const questionCount = Math.min(request.data.questionCount ?? 10, 25);
+  const user = userSnapshot.data() ?? {};
+  const oppositionId = requireString(user.oppositionId, "stored oppositionId", 80);
+  const territory = parseTerritory(user.territorySelection);
+  const territoryKeys = buildTerritoryKeys(territory);
 
-  if (!oppositionId || territoryKeys.length === 0) {
-    throw new HttpsError('invalid-argument', 'Missing opposition or territory.');
-  }
-
-  const snapshot = await db.collection('questions')
-    .where('oppositionId', '==', oppositionId)
-    .where('status', '==', 'published')
-    .where('verified', '==', true)
-    .where('territoryKeys', 'array-contains-any', territoryKeys.slice(0, 10))
+  const snapshot = await db.collection("questions")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "published")
+    .where("verified", "==", true)
+    .where("territoryKeys", "array-contains-any", territoryKeys.slice(0, 10))
+    .orderBy("difficulty", "asc")
     .limit(questionCount)
     .get();
 
   if (snapshot.empty) {
-    throw new HttpsError('not-found', 'No eligible questions found.');
+    throw new HttpsError("not-found", "No eligible questions found.");
   }
 
-  const questions = snapshot.docs.map((doc) => {
-    const data = doc.data() as QuestionDoc;
-    return {
-      id: doc.id,
-      statement: data.statement,
-      answers: data.answers,
-      explanation: data.explanation,
-      categoryId: data.categoryId,
-      difficulty: data.difficulty,
-      scopeType: data.scopeType,
-      territoryKeys: data.territoryKeys,
-      source: data.source,
-    };
+  const questions = snapshot.docs.map((document) => {
+    const data = document.data() as QuestionDoc;
+    return publicQuestion(document.id, data);
   });
 
-  const sessionRef = db.collection('quizSessions').doc();
+  const sessionRef = db.collection("quizSessions").doc();
   await sessionRef.set({
     uid,
-    mode: 'quick',
+    mode: "quick",
     oppositionId,
     territoryKeys,
-    questionIds: snapshot.docs.map((doc) => doc.id),
+    questionIds: snapshot.docs.map((document) => document.id),
     answers: [],
-    status: 'started',
-    createdAt: FieldValue.serverTimestamp(),
+    status: "started",
+    createdAt: Timestamp.now(),
     submittedAt: null,
   });
 
-  return {
-    sessionId: sessionRef.id,
-    questions,
-  };
+  return {sessionId: sessionRef.id, questions};
 });
 
 export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) {
-    throw new HttpsError('unauthenticated', 'Authentication required.');
-  }
+  const uid = requireUid(request.auth?.uid);
+  const sessionId = requireString(request.data?.sessionId, "sessionId", 160);
+  const submittedAnswers = parseAnswers(request.data?.answers);
+  const sessionRef = db.collection("quizSessions").doc(sessionId);
 
-  const sessionRef = db.collection('quizSessions').doc(request.data.sessionId);
-  const result = await db.runTransaction(async (transaction) => {
+  return db.runTransaction(async (transaction) => {
     const sessionSnapshot = await transaction.get(sessionRef);
     if (!sessionSnapshot.exists) {
-      throw new HttpsError('not-found', 'Quiz session not found.');
+      throw new HttpsError("not-found", "Quiz session not found.");
     }
 
-    const session = sessionSnapshot.data();
-    if (!session || session.uid !== uid) {
-      throw new HttpsError('permission-denied', 'Not your quiz session.');
+    const session = sessionSnapshot.data() ?? {};
+    if (session.uid !== uid) {
+      throw new HttpsError("permission-denied", "Not your quiz session.");
     }
-    if (session.status !== 'started') {
-      throw new HttpsError('failed-precondition', 'Session already submitted.');
+    if (session.status !== "started") {
+      throw new HttpsError("failed-precondition", "Session already submitted.");
     }
 
-    const questionIds = session.questionIds as string[];
-    const questionSnapshots = await Promise.all(
-      questionIds.map((id) => transaction.get(db.collection('questions').doc(id))),
-    );
+    const createdAt = session.createdAt;
+    if (!(createdAt instanceof Timestamp) || Date.now() - createdAt.toMillis() > sessionLifetimeMs) {
+      throw new HttpsError("deadline-exceeded", "Quiz session expired.");
+    }
+
+    const questionIds = parseQuestionIds(session.questionIds);
+    const allowedQuestionIds = new Set(questionIds);
+    if (submittedAnswers.some((answer) => !allowedQuestionIds.has(answer.questionId))) {
+      throw new HttpsError("invalid-argument", "Answer contains an unknown question.");
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const questionRefs = questionIds.map((id) => db.collection("questions").doc(id));
+    const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
+    const [userSnapshot, questionSnapshots, statSnapshots] = await Promise.all([
+      transaction.get(userRef),
+      Promise.all(questionRefs.map((reference) => transaction.get(reference))),
+      Promise.all(statRefs.map((reference) => transaction.get(reference))),
+    ]);
+
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+
     const questions = questionSnapshots.map((snapshot) => {
       if (!snapshot.exists) {
-        throw new HttpsError('failed-precondition', 'Question missing.');
+        throw new HttpsError("failed-precondition", "Question missing.");
       }
-      return {
-        id: snapshot.id,
-        data: snapshot.data() as QuestionDoc,
-      };
+      return {id: snapshot.id, data: snapshot.data() as QuestionDoc};
     });
-
     const answersByQuestion = new Map(
-      request.data.answers.map((answer) => [answer.questionId, answer]),
+      submittedAnswers.map((answer) => [answer.questionId, answer]),
     );
-
+    const completedAt = Timestamp.now();
     let correct = 0;
     let blank = 0;
     let incorrect = 0;
 
-    for (const question of questions) {
+    const attempts = questions.map((question) => {
       const answer = answersByQuestion.get(question.id);
       const selectedAnswerId = answer?.selectedAnswerId ?? null;
-      if (!selectedAnswerId) {
-        blank++;
-      } else if (selectedAnswerId === question.data.correctAnswerId) {
-        correct++;
-      } else {
-        incorrect++;
+      if (
+        selectedAnswerId !== null &&
+        !question.data.answers.some((option) => option.id === selectedAnswerId)
+      ) {
+        throw new HttpsError("invalid-argument", "Invalid answer option.");
       }
-    }
+
+      const isBlank = selectedAnswerId === null;
+      const isCorrect = selectedAnswerId === question.data.correctAnswerId;
+      if (isBlank) blank++;
+      else if (isCorrect) correct++;
+      else incorrect++;
+
+      return {
+        question: reviewQuestion(question.id, question.data),
+        selectedAnswerId,
+        isBlank,
+        isCorrect,
+      };
+    });
 
     const percentage = questions.length === 0 ? 0 : correct / questions.length;
     const xpEarned = correct * 10 + 20 + (percentage >= 0.8 ? 10 : 0);
     const coinsEarned = correct * 2 + 5;
+    const user = userSnapshot.data() ?? {};
+    const previousXp = numberValue(user.xp);
+    const previousCoins = numberValue(user.coins);
+    const previousStreak = numberValue(user.currentStreak);
+    const streak = nextStreak(previousStreak, user.lastValidActivityDate, completedAt);
+    const xp = previousXp + xpEarned;
+    const coins = previousCoins + coinsEarned;
+    const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+    const profileUpdate = {
+      xp,
+      level,
+      coins,
+      currentStreak: streak,
+      bestStreak: Math.max(numberValue(user.bestStreak), streak),
+      totalQuestions: numberValue(user.totalQuestions) + questions.length,
+      correctAnswers: numberValue(user.correctAnswers) + correct,
+      testsCompleted: numberValue(user.testsCompleted) + 1,
+      lastValidActivityDate: completedAt,
+      updatedAt: completedAt,
+    };
 
-    const userRef = db.collection('users').doc(uid);
-    transaction.set(
-      userRef,
-      {
-        xp: FieldValue.increment(xpEarned),
-        coins: FieldValue.increment(coinsEarned),
-        totalQuestions: FieldValue.increment(questions.length),
-        correctAnswers: FieldValue.increment(correct),
-        testsCompleted: FieldValue.increment(1),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      {merge: true},
-    );
+    transaction.update(userRef, profileUpdate);
 
-    transaction.update(sessionRef, {
-      answers: request.data.answers,
-      status: 'validated',
-      score: {
-        correct,
-        incorrect,
-        blank,
-        percentage,
-        xpEarned,
-        coinsEarned,
-      },
-      submittedAt: FieldValue.serverTimestamp(),
+    statSnapshots.forEach((snapshot, index) => {
+      const attempt = attempts[index];
+      const previous = snapshot.data() ?? {};
+      transaction.set(statRefs[index], {
+        questionId: attempt.question.id,
+        timesSeen: numberValue(previous.timesSeen) + 1,
+        correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
+        incorrectCount: numberValue(previous.incorrectCount) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
+        blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        lastAnswerId: attempt.selectedAnswerId,
+        lastAnsweredAt: completedAt,
+      }, {merge: true});
     });
 
-    const transactionRef = db.collection('currencyTransactions').doc();
+    const sanitizedAnswers = questionIds.map((questionId) => {
+      const answer = answersByQuestion.get(questionId);
+      return {
+        questionId,
+        selectedAnswerId: answer?.selectedAnswerId ?? null,
+        elapsedMs: answer?.elapsedMs ?? null,
+      };
+    });
+    transaction.update(sessionRef, {
+      answers: sanitizedAnswers,
+      status: "validated",
+      score: {correct, incorrect, blank, percentage, xpEarned, coinsEarned},
+      submittedAt: completedAt,
+    });
+
+    const transactionRef = db.collection("currencyTransactions").doc();
     transaction.set(transactionRef, {
       uid,
-      type: 'quiz_reward',
-      currency: 'coins',
+      type: "quiz_reward",
+      currency: "coins",
       amount: coinsEarned,
+      balanceAfter: coins,
       sourceId: sessionRef.id,
-      createdAt: FieldValue.serverTimestamp(),
+      createdAt: completedAt,
     });
 
     return {
-      correct,
-      incorrect,
-      blank,
-      percentage,
-      xpEarned,
-      coinsEarned,
+      result: {
+        attempts,
+        correct,
+        incorrect,
+        blank,
+        points: correct,
+        percentage,
+        xpEarned,
+        coinsEarned,
+        completedAt: completedAt.toDate().toISOString(),
+      },
+      progress: serializeProgress({...user, ...profileUpdate}),
     };
   });
-
-  return result;
 });
 
+function requireUid(uid: string | undefined): string {
+  if (!uid) throw new HttpsError("unauthenticated", "Authentication required.");
+  return uid;
+}
+
+function requireString(value: unknown, field: string, maxLength: number): string {
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > maxLength) {
+    throw new HttpsError("invalid-argument", `Invalid ${field}.`);
+  }
+  return value.trim();
+}
+
+function optionalString(value: unknown, field: string, maxLength = 100): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return requireString(value, field, maxLength);
+}
+
+function parseTerritory(value: unknown): TerritorySelection {
+  if (typeof value !== "object" || value === null) {
+    throw new HttpsError("invalid-argument", "Invalid territory.");
+  }
+  const data = value as Record<string, unknown>;
+  return {
+    label: requireString(data.label, "territory.label", 100),
+    country: requireString(data.country, "territory.country", 8),
+    autonomousCommunity: optionalString(data.autonomousCommunity, "territory.autonomousCommunity"),
+    province: optionalString(data.province, "territory.province"),
+    municipality: optionalString(data.municipality, "territory.municipality"),
+    specificBody: optionalString(data.specificBody, "territory.specificBody"),
+  };
+}
+
+function buildTerritoryKeys(territory: TerritorySelection): string[] {
+  const keys = [territory.country];
+  if (territory.autonomousCommunity) {
+    keys.push(`${territory.country}-${territory.autonomousCommunity}`);
+  }
+  if (territory.autonomousCommunity && territory.municipality) {
+    keys.push(`${territory.country}-${territory.autonomousCommunity}-${territory.municipality}`);
+  }
+  return keys;
+}
+
+function parseQuestionCount(value: unknown): number {
+  if (value === undefined) return 10;
+  if (!Number.isInteger(value) || Number(value) < 1) {
+    throw new HttpsError("invalid-argument", "Invalid question count.");
+  }
+  return Math.min(Number(value), maxQuestionCount);
+}
+
+function parseQuestionIds(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxQuestionCount) {
+    throw new HttpsError("failed-precondition", "Invalid session questions.");
+  }
+  const ids = value.map((id) => requireString(id, "questionId", 160));
+  if (new Set(ids).size !== ids.length) {
+    throw new HttpsError("failed-precondition", "Duplicate session questions.");
+  }
+  return ids;
+}
+
+function parseAnswers(value: unknown): Answer[] {
+  if (!Array.isArray(value) || value.length > maxQuestionCount) {
+    throw new HttpsError("invalid-argument", "Invalid answers.");
+  }
+  const answers = value.map((raw) => {
+    if (typeof raw !== "object" || raw === null) {
+      throw new HttpsError("invalid-argument", "Invalid answer.");
+    }
+    const data = raw as Record<string, unknown>;
+    const selectedAnswerId = data.selectedAnswerId === null || data.selectedAnswerId === undefined ? null :
+      requireString(data.selectedAnswerId, "selectedAnswerId", 80);
+    const elapsedMs = data.elapsedMs;
+    if (elapsedMs !== undefined && (!Number.isInteger(elapsedMs) || Number(elapsedMs) < 0)) {
+      throw new HttpsError("invalid-argument", "Invalid elapsed time.");
+    }
+    return {
+      questionId: requireString(data.questionId, "questionId", 160),
+      selectedAnswerId,
+      elapsedMs: elapsedMs === undefined ? undefined : Math.min(Number(elapsedMs), 3_600_000),
+    };
+  });
+  if (new Set(answers.map((answer) => answer.questionId)).size !== answers.length) {
+    throw new HttpsError("invalid-argument", "Duplicate answers.");
+  }
+  return answers;
+}
+
+function publicQuestion(id: string, question: QuestionDoc) {
+  return {
+    id,
+    oppositionId: question.oppositionId,
+    statement: question.statement,
+    answers: question.answers,
+    categoryId: question.categoryId,
+    difficulty: question.difficulty,
+    scopeType: question.scopeType,
+    territoryKeys: question.territoryKeys,
+    source: question.source,
+  };
+}
+
+function reviewQuestion(id: string, question: QuestionDoc) {
+  return {
+    ...publicQuestion(id, question),
+    correctAnswerId: question.correctAnswerId,
+    explanation: question.explanation,
+  };
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function nextStreak(current: number, previousValue: unknown, now: Timestamp): number {
+  if (!(previousValue instanceof Timestamp)) return 1;
+  const previousDay = madridDay(previousValue.toDate());
+  const currentDay = madridDay(now.toDate());
+  const difference = Math.round(
+    (Date.parse(`${currentDay}T00:00:00Z`) - Date.parse(`${previousDay}T00:00:00Z`)) /
+    86_400_000,
+  );
+  if (difference === 0) return current;
+  if (difference === 1) return current + 1;
+  return 1;
+}
+
+function madridDay(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function serializeProfile(uid: string, data: Record<string, unknown>) {
+  return {
+    uid,
+    username: typeof data.username === "string" ? data.username : "Invitado",
+    isGuest: data.isAnonymous !== false,
+    oppositionId: typeof data.oppositionId === "string" ? data.oppositionId : "",
+    oppositionName: typeof data.oppositionName === "string" ? data.oppositionName : "",
+    territory: parseTerritory(data.territorySelection),
+    ...serializeProgress(data),
+  };
+}
+
+function serializeProgress(data: Record<string, unknown>) {
+  return {
+    xp: numberValue(data.xp),
+    level: Math.max(1, numberValue(data.level)),
+    coins: numberValue(data.coins),
+    gems: numberValue(data.gems),
+    currentStreak: numberValue(data.currentStreak),
+    bestStreak: numberValue(data.bestStreak),
+    totalQuestions: numberValue(data.totalQuestions),
+    correctAnswers: numberValue(data.correctAnswers),
+    testsCompleted: numberValue(data.testsCompleted),
+    lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
+      data.lastValidActivityDate.toDate().toISOString() : null,
+  };
+}

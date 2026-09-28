@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
@@ -13,18 +13,22 @@ export default function HomeScreen() {
   const dailyReward = useAppStore((state) => state.dailyReward);
   const missions = useAppStore((state) => state.missions);
   const startQuickMatch = useAppStore((state) => state.startQuickMatch);
+  const isStartingQuiz = useAppStore((state) => state.isStartingQuiz);
   const claimDailyReward = useAppStore((state) => state.claimDailyReward);
   const claimMission = useAppStore((state) => state.claimMission);
 
   if (!profile) return null;
   const currentLevelXp = profile.xp % 100;
 
-  const play = () => {
-    const count = startQuickMatch();
+  const play = async () => {
+    const count = await startQuickMatch();
     if (count > 0) {
       void Haptics.selectionAsync();
       router.push('/quiz');
+      return;
     }
+    const message = useAppStore.getState().quizError;
+    if (message) Alert.alert('No se pudo iniciar la partida', message);
   };
 
   return (
@@ -60,7 +64,12 @@ export default function HomeScreen() {
         <Text style={styles.playEyebrow}>PARTIDA RÁPIDA</Text>
         <Text style={styles.playTitle}>Una ronda. Diez preguntas.</Text>
         <Text style={styles.playCopy}>Contenido adaptado a {profile.territory.label}.</Text>
-        <PrimaryButton label="JUGAR" icon="play" onPress={play} />
+        <PrimaryButton
+          label="JUGAR"
+          icon="play"
+          loading={isStartingQuiz}
+          onPress={() => void play()}
+        />
       </View>
 
       <View style={styles.modes}>
@@ -145,7 +154,15 @@ function ModeButton({
   onPress?: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.mode, pressed && styles.modePressed]}>
+    <Pressable
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.mode,
+        !onPress && styles.modeDisabled,
+        pressed && onPress && styles.modePressed,
+      ]}
+    >
       <MaterialCommunityIcons name={icon} size={24} color={color} />
       <Text style={styles.modeLabel}>{label}</Text>
     </Pressable>
@@ -173,6 +190,7 @@ const styles = StyleSheet.create({
   modes: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   mode: { flex: 1, minWidth: 0, height: 76, alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md },
   modePressed: { backgroundColor: colors.softBrand },
+  modeDisabled: { opacity: 0.5 },
   modeLabel: { color: colors.ink, fontSize: 11, fontWeight: '800', textAlign: 'center' },
   rewardBand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: spacing.xl, backgroundColor: colors.softGold, borderWidth: 1, borderColor: '#F2D98D', borderRadius: radius.md, padding: spacing.md },
   rewardIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },

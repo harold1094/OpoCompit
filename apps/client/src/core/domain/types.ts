@@ -17,8 +17,8 @@ export type Question = {
   oppositionId: string;
   statement: string;
   answers: AnswerOption[];
-  correctAnswerId: string;
-  explanation: string;
+  correctAnswerId?: string;
+  explanation?: string;
   categoryId: string;
   difficulty: number;
   scopeType: string;
@@ -42,7 +42,27 @@ export type PlayerProfile = {
   totalQuestions: number;
   correctAnswers: number;
   testsCompleted: number;
-  lastValidActivityDate?: string;
+  lastValidActivityDate?: string | null;
+};
+
+export type PlayerProgress = Pick<
+  PlayerProfile,
+  | 'xp'
+  | 'level'
+  | 'coins'
+  | 'gems'
+  | 'currentStreak'
+  | 'bestStreak'
+  | 'totalQuestions'
+  | 'correctAnswers'
+  | 'testsCompleted'
+  | 'lastValidActivityDate'
+>;
+
+export type QuizAnswerSubmission = {
+  questionId: string;
+  selectedAnswerId: string | null;
+  elapsedMs?: number;
 };
 
 export type QuestionAttempt = {

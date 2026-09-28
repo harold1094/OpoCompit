@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
@@ -17,6 +17,7 @@ export default function QuizScreen() {
   const answers = useAppStore((state) => state.selectedAnswers);
   const answerQuestion = useAppStore((state) => state.answerQuestion);
   const finishQuiz = useAppStore((state) => state.finishQuiz);
+  const isSubmittingQuiz = useAppStore((state) => state.isSubmittingQuiz);
   const [index, setIndex] = useState(0);
 
   const question = questions[index];
@@ -29,16 +30,19 @@ export default function QuizScreen() {
   const answered = selectedAnswer !== null && selectedAnswer !== undefined;
   const isLast = index === questions.length - 1;
 
-  const next = () => {
+  const next = async () => {
     void Haptics.selectionAsync();
     if (!isLast) {
       setIndex((value) => value + 1);
       return;
     }
-    if (finishQuiz()) {
+    if (await finishQuiz()) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/results');
+      return;
     }
+    const message = useAppStore.getState().quizError;
+    if (message) Alert.alert('No se pudo validar la partida', message);
   };
 
   return (
@@ -105,7 +109,8 @@ export default function QuizScreen() {
           disabled={!answered}
           label={isLast ? 'Terminar partida' : 'Siguiente'}
           icon={isLast ? 'flag-checkered' : 'arrow-right'}
-          onPress={next}
+          loading={isLast && isSubmittingQuiz}
+          onPress={() => void next()}
         />
       </View>
     </AppScreen>

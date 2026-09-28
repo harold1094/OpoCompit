@@ -20,7 +20,9 @@ npm run web
 
 For Android, install Expo Go or use an Android emulator, then run `npm run android`.
 
-The client persists progress locally through AsyncStorage. Copy `.env.example` to `.env` and enable Firebase to use anonymous authentication and create the guest user document.
+The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, and question statistics.
+
+Firebase remains opt-in until Firestore and Cloud Functions are enabled for the project. Copy `.env.example` to `.env` only after completing the steps in `FIREBASE_SETUP.md`.
 
 ## Verify
 

@@ -18,18 +18,7 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'xp',
-          'level',
-          'coins',
-          'gems',
-          'currentStreak',
-          'bestStreak',
-          'role'
-        ]);
-      allow delete: if false;
+      allow create, update, delete: if false;
 
       match /questionStats/{questionId} {
         allow read: if isOwner(uid) || isAdmin();
@@ -48,7 +37,9 @@ service cloud.firestore {
     }
 
     match /questions/{questionId} {
-      allow read: if signedIn() && resource.data.status == 'published';
+      // Quiz questions are served by callable Functions so answer fields never
+      // become readable before a session has been validated.
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -137,4 +128,3 @@ service cloud.firestore {
     }
   }
 }
-

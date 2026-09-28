@@ -7,6 +7,9 @@
 - TypeScript domain models, territorial filtering, scoring, XP, coins, streak, question stats, daily reward, and missions.
 - AsyncStorage persistence through Zustand.
 - Optional Firebase anonymous Auth and guest profile creation.
+- React callable integration for guest bootstrap, quick quiz start, and server-validated submission.
+- Server-owned quiz XP, coins, level, streak, aggregate progress, and question statistics.
+- Quiz questions hide answers and explanations until the server validates the submission.
 - Guest onboarding, game-first home, quick quiz, results, errors, rankings, social, and profile screens ported.
 - Flutter remains in place as a reference until React feature parity is verified.
 
@@ -44,19 +47,19 @@
 
 ## Still Local / Not Production-Safe Yet
 
-- Auth session.
-- User profile persistence.
-- Question reads.
-- XP, coins, streak, missions, rankings, duels.
+- Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
+- Daily rewards and mission rewards.
+- Rankings and duels.
 - Friends and social graph.
 - Admin import.
 
 ## Next Implementation Steps
 
-1. Enable the existing Firebase project in `apps/client/.env`.
-2. Replace local quick quiz selection with `startQuickQuiz`.
-3. Replace local result validation with `submitQuizSession`.
-4. Seed Firestore with reviewed questions.
-5. Port the classic duel flow to React.
-6. Move question stats, missions, rankings, and duels to server-authoritative Functions.
-7. Remove Flutter only after React reaches verified feature parity.
+1. Choose the permanent Firestore location and matching Functions region.
+2. Enable Firestore, Anonymous Auth, Cloud Functions, and Blaze billing with budget alerts.
+3. Deploy Firestore rules, indexes, and callable Functions.
+4. Configure `apps/client/.env` and run an end-to-end Firebase smoke test.
+5. Seed Firestore with reviewed questions.
+6. Port the classic duel flow to React.
+7. Move missions, daily rewards, rankings, and duels to server-authoritative Functions.
+8. Remove Flutter only after React reaches verified feature parity.

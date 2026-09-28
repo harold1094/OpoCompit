@@ -12,8 +12,12 @@ import {
   UserQuestionStat,
 } from '@/core/domain/types';
 import {
-  createGuestProfileIfMissing,
+  bootstrapGuestProfile,
+  isFirebaseEnabled,
+  readableFirebaseError,
   startAnonymousSession,
+  startQuickQuizRemote,
+  submitQuizSessionRemote,
 } from '@/core/firebase/firebaseClient';
 import {
   FIREFIGHTER_OPPOSITION_ID,
@@ -27,21 +31,29 @@ import {
 } from '@/features/quiz/domain/scoring';
 import { seedQuestions } from '@/features/quiz/data/seedQuestions';
 
+type BackendMode = 'local' | 'firebase';
+
 type AppStore = {
   hydrated: boolean;
+  backendMode: BackendMode;
   profile: PlayerProfile | null;
   activeQuestions: Question[];
+  activeSessionId: string | null;
   selectedAnswers: Record<string, string | null>;
   questionStats: Record<string, UserQuestionStat>;
   dailyReward: DailyReward | null;
   missions: Mission[];
   lastResult: QuizResult | null;
+  isStartingQuiz: boolean;
+  isSubmittingQuiz: boolean;
+  quizError: string | null;
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
-  startQuickMatch: () => number;
+  startQuickMatch: () => Promise<number>;
   startErrorReview: () => number;
   answerQuestion: (questionId: string, answerId: string | null) => void;
-  finishQuiz: () => QuizResult | null;
+  finishQuiz: () => Promise<QuizResult | null>;
+  clearQuizError: () => void;
   claimDailyReward: () => void;
   claimMission: (missionId: string) => void;
 };
@@ -86,61 +98,86 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       hydrated: false,
+      backendMode: 'local',
       profile: null,
       activeQuestions: [],
+      activeSessionId: null,
       selectedAnswers: {},
       questionStats: {},
       dailyReward: null,
       missions: [],
       lastResult: null,
+      isStartingQuiz: false,
+      isSubmittingQuiz: false,
+      quizError: null,
       setHydrated: (hydrated) => set({ hydrated }),
       startGuest: async (territory) => {
+        let backendMode: BackendMode = 'local';
         let uid = 'local_guest';
-        try {
-          uid = await startAnonymousSession();
-        } catch {
-          uid = 'local_guest';
+
+        if (isFirebaseEnabled()) {
+          try {
+            uid = await startAnonymousSession();
+            backendMode = 'firebase';
+          } catch {
+            uid = 'local_guest';
+          }
         }
 
-        const profile: PlayerProfile = {
-          uid,
-          username: 'Invitado',
-          isGuest: true,
-          oppositionId: FIREFIGHTER_OPPOSITION_ID,
-          oppositionName: FIREFIGHTER_OPPOSITION_NAME,
-          territory,
-          xp: 0,
-          level: 1,
-          coins: 0,
-          gems: 0,
-          currentStreak: 0,
-          bestStreak: 0,
-          totalQuestions: 0,
-          correctAnswers: 0,
-          testsCompleted: 0,
-        };
+        let profile: PlayerProfile = localGuestProfile(uid, territory);
+        if (backendMode === 'firebase') {
+          try {
+            profile = await bootstrapGuestProfile(profile);
+          } catch {
+            backendMode = 'local';
+            profile = localGuestProfile('local_guest', territory);
+          }
+        }
 
         set({
+          backendMode,
           profile,
           activeQuestions: [],
+          activeSessionId: null,
           selectedAnswers: {},
           questionStats: {},
           dailyReward: { day: 1, coins: 25, gems: 0, claimed: false },
           missions: initialMissions(),
           lastResult: null,
+          quizError: null,
         });
-        void createGuestProfileIfMissing(profile).catch(() => undefined);
       },
-      startQuickMatch: () => {
-        const { profile } = get();
+      startQuickMatch: async () => {
+        const { profile, backendMode } = get();
         if (!profile) return 0;
-        const activeQuestions = eligibleForQuickMatch(profile, seedQuestions);
-        set({
-          activeQuestions,
-          selectedAnswers: Object.fromEntries(activeQuestions.map((question) => [question.id, null])),
-          lastResult: null,
-        });
-        return activeQuestions.length;
+        set({ isStartingQuiz: true, quizError: null });
+
+        try {
+          let activeQuestions: Question[];
+          let activeSessionId: string | null = null;
+          if (backendMode === 'firebase') {
+            const remote = await startQuickQuizRemote(10);
+            activeQuestions = remote.questions;
+            activeSessionId = remote.sessionId;
+          } else {
+            activeQuestions = eligibleForQuickMatch(profile, seedQuestions);
+          }
+
+          set({
+            activeQuestions,
+            activeSessionId,
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+          });
+          return activeQuestions.length;
+        } catch (error) {
+          set({ quizError: readableFirebaseError(error) });
+          return 0;
+        } finally {
+          set({ isStartingQuiz: false });
+        }
       },
       startErrorReview: () => {
         const { profile, questionStats } = get();
@@ -158,8 +195,12 @@ export const useAppStore = create<AppStore>()(
           .slice(0, 10);
         set({
           activeQuestions,
-          selectedAnswers: Object.fromEntries(activeQuestions.map((question) => [question.id, null])),
+          activeSessionId: null,
+          selectedAnswers: Object.fromEntries(
+            activeQuestions.map((question) => [question.id, null]),
+          ),
           lastResult: null,
+          quizError: null,
         });
         return activeQuestions.length;
       },
@@ -170,40 +211,47 @@ export const useAppStore = create<AppStore>()(
             [questionId]: answerId ?? BLANK_ANSWER_ID,
           },
         })),
-      finishQuiz: () => {
+      finishQuiz: async () => {
         const state = get();
         if (!state.profile || state.activeQuestions.length === 0) return null;
-        const result = scoreQuickMatch(state.activeQuestions, state.selectedAnswers);
-        const profile = applyResult(state.profile, result);
-        const questionStats = { ...state.questionStats };
+        set({ isSubmittingQuiz: true, quizError: null });
 
-        result.attempts.forEach((attempt) => {
-          const previous = questionStats[attempt.question.id];
-          questionStats[attempt.question.id] = {
-            questionId: attempt.question.id,
-            timesSeen: (previous?.timesSeen ?? 0) + 1,
-            correctCount: (previous?.correctCount ?? 0) + (attempt.isCorrect ? 1 : 0),
-            incorrectCount:
-              (previous?.incorrectCount ?? 0) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
-            blankCount: (previous?.blankCount ?? 0) + (attempt.isBlank ? 1 : 0),
-            lastAnswerId: attempt.selectedAnswerId,
-            lastAnsweredAt: result.completedAt,
-          };
-        });
+        try {
+          let result: QuizResult;
+          let profile: PlayerProfile;
 
-        const missions = state.missions.map((mission) => {
-          const increment =
-            mission.type === 'answerQuestions'
-              ? result.attempts.length
-              : mission.type === 'correctAnswers'
-                ? result.correct
-                : 1;
-          return { ...mission, progress: Math.min(mission.target, mission.progress + increment) };
-        });
+          if (state.backendMode === 'firebase' && state.activeSessionId) {
+            const submission = state.activeQuestions.map((question) => ({
+              questionId: question.id,
+              selectedAnswerId:
+                state.selectedAnswers[question.id] === BLANK_ANSWER_ID
+                  ? null
+                  : (state.selectedAnswers[question.id] ?? null),
+            }));
+            const remote = await submitQuizSessionRemote(state.activeSessionId, submission);
+            result = remote.result;
+            profile = { ...state.profile, ...remote.progress };
+          } else {
+            result = scoreQuickMatch(state.activeQuestions, state.selectedAnswers);
+            profile = applyResult(state.profile, result);
+          }
 
-        set({ profile, questionStats, missions, lastResult: result });
-        return result;
+          set({
+            profile,
+            questionStats: applyQuestionStats(state.questionStats, result),
+            missions: progressMissions(state.missions, result),
+            lastResult: result,
+            activeSessionId: null,
+          });
+          return result;
+        } catch (error) {
+          set({ quizError: readableFirebaseError(error) });
+          return null;
+        } finally {
+          set({ isSubmittingQuiz: false });
+        }
       },
+      clearQuizError: () => set({ quizError: null }),
       claimDailyReward: () => {
         const { profile, dailyReward } = get();
         if (!profile || !dailyReward || dailyReward.claimed) return;
@@ -239,6 +287,7 @@ export const useAppStore = create<AppStore>()(
       name: 'opocompit-client-state',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
+        backendMode: state.backendMode,
         profile: state.profile,
         questionStats: state.questionStats,
         dailyReward: state.dailyReward,
@@ -248,3 +297,56 @@ export const useAppStore = create<AppStore>()(
     },
   ),
 );
+
+function localGuestProfile(uid: string, territory: TerritorySelection): PlayerProfile {
+  return {
+    uid,
+    username: 'Invitado',
+    isGuest: true,
+    oppositionId: FIREFIGHTER_OPPOSITION_ID,
+    oppositionName: FIREFIGHTER_OPPOSITION_NAME,
+    territory,
+    xp: 0,
+    level: 1,
+    coins: 0,
+    gems: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    totalQuestions: 0,
+    correctAnswers: 0,
+    testsCompleted: 0,
+  };
+}
+
+function applyQuestionStats(
+  current: Record<string, UserQuestionStat>,
+  result: QuizResult,
+): Record<string, UserQuestionStat> {
+  const updated = { ...current };
+  result.attempts.forEach((attempt) => {
+    const previous = updated[attempt.question.id];
+    updated[attempt.question.id] = {
+      questionId: attempt.question.id,
+      timesSeen: (previous?.timesSeen ?? 0) + 1,
+      correctCount: (previous?.correctCount ?? 0) + (attempt.isCorrect ? 1 : 0),
+      incorrectCount:
+        (previous?.incorrectCount ?? 0) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
+      blankCount: (previous?.blankCount ?? 0) + (attempt.isBlank ? 1 : 0),
+      lastAnswerId: attempt.selectedAnswerId,
+      lastAnsweredAt: result.completedAt,
+    };
+  });
+  return updated;
+}
+
+function progressMissions(missions: Mission[], result: QuizResult): Mission[] {
+  return missions.map((mission) => {
+    const increment =
+      mission.type === 'answerQuestions'
+        ? result.attempts.length
+        : mission.type === 'correctAnswers'
+          ? result.correct
+          : 1;
+    return { ...mission, progress: Math.min(mission.target, mission.progress + increment) };
+  });
+}

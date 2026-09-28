@@ -6,6 +6,7 @@
       "fields": [
         {"fieldPath": "oppositionId", "order": "ASCENDING"},
         {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "verified", "order": "ASCENDING"},
         {"fieldPath": "territoryKeys", "arrayConfig": "CONTAINS"},
         {"fieldPath": "difficulty", "order": "ASCENDING"}
       ]
@@ -30,4 +31,3 @@
   ],
   "fieldOverrides": []
 }
-
