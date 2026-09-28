@@ -103,7 +103,12 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.modes}>
-        <ModeButton icon="sword-cross" label="Duelo" color={colors.aqua} />
+        <ModeButton
+          icon="sword-cross"
+          label="Duelo"
+          color={colors.aqua}
+          onPress={() => router.push('/(tabs)/social')}
+        />
         <ModeButton icon="clipboard-text-outline" label="Test" color={colors.gold} />
         <ModeButton icon="file-document-outline" label="Examen" color={colors.ink} />
         <ModeButton

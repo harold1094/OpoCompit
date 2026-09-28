@@ -24,6 +24,13 @@ The schema is designed around cheap reads, server-authoritative writes, territor
   "gems": 0,
   "currentStreak": 0,
   "bestStreak": 0,
+  "totalQuestions": 0,
+  "correctAnswers": 0,
+  "testsCompleted": 0,
+  "duelsPlayed": 0,
+  "duelWins": 0,
+  "duelLosses": 0,
+  "duelDraws": 0,
   "lastValidActivityDate": null,
   "dailyRewardDay": 0,
   "lastDailyRewardDate": null,
@@ -182,6 +189,25 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 }
 ```
 
+## duels/{duelId}
+
+```json
+{
+  "uid": "player uid",
+  "participantUids": ["player uid"],
+  "mode": "classic_training",
+  "opponent": {"id": "training_mario", "name": "MarioCT", "level": 8},
+  "questionIds": [],
+  "status": "started|completed",
+  "result": null,
+  "reward": null,
+  "createdAt": "serverTimestamp",
+  "completedAt": null
+}
+```
+
+Started duels are only exposed through callable Functions. Direct Firestore reads are limited to completed duels owned by the participant.
+
 ## Economy
 
 - `currencyTransactions/{transactionId}` is append-only.
@@ -190,7 +216,7 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 ```json
 {
   "uid": "user id",
-  "type": "quiz_reward|mission|daily_reward|purchase|admin_adjustment",
+  "type": "quiz_reward|duel_reward|mission|daily_reward|purchase|admin_adjustment",
   "currency": "coins|gems",
   "amount": 25,
   "balanceAfter": 300,

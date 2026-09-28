@@ -23,6 +23,10 @@ const profile: PlayerProfile = {
   totalQuestions: 0,
   correctAnswers: 0,
   testsCompleted: 0,
+  duelsPlayed: 0,
+  duelWins: 0,
+  duelLosses: 0,
+  duelDraws: 0,
 };
 
 function question(id: string, territoryKey: string, difficulty = 1): Question {

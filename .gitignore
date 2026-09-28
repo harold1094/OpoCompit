@@ -25,3 +25,8 @@ apps/client/dist/
 apps/client/.env
 apps/client/.env.local
 !apps/client/.env.example
+
+# Local visual QA
+artifacts/
+.chrome-capture*/
+.chrome-cdp/

@@ -56,6 +56,16 @@ MVP local formula:
 
 Coins buy cosmetics only. They do not buy academic advantage.
 
+## Classic Duel
+
+- Both competitors are measured against the same ten-question set.
+- The player with more correct answers wins.
+- Equal scores are resolved by the lower completion time; an equal time is a draw.
+- Training opponents are server-defined profiles with fixed score and time values.
+- A win adds `20 XP` and `10 coins`; a draw adds `10 XP` and `5 coins` to the normal quiz reward.
+- Duel questions also advance answer and accuracy missions, but do not count as a quick match.
+- The server owns scoring, rewards, elapsed time, and final outcome in Firebase mode.
+
 ## Level
 
 MVP formula:

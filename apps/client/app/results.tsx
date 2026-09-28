@@ -10,22 +10,55 @@ import { StatTile } from '@/shared/components/StatTile';
 
 export default function ResultsScreen() {
   const result = useAppStore((state) => state.lastResult);
+  const duel = useAppStore((state) => state.lastDuelResult);
+  const startClassicDuel = useAppStore((state) => state.startClassicDuel);
+  const isStartingDuel = useAppStore((state) => state.isStartingDuel);
   if (!result) return <Redirect href="/(tabs)" />;
+
+  const rematch = async () => {
+    if (!duel) return;
+    const count = await startClassicDuel(duel.opponent);
+    if (count > 0) router.replace('/quiz');
+  };
+
+  const outcomeCopy = duel
+    ? duel.outcome === 'win'
+      ? { title: 'Victoria', icon: 'trophy-outline' as const, color: colors.success }
+      : duel.outcome === 'loss'
+        ? { title: 'Derrota', icon: 'shield-outline' as const, color: colors.danger }
+        : { title: 'Empate', icon: 'scale-balance' as const, color: colors.gold }
+    : null;
 
   return (
     <AppScreen>
       <View style={styles.resultHeader}>
-        <View style={styles.resultIcon}>
+        <View style={[styles.resultIcon, outcomeCopy && { backgroundColor: outcomeCopy.color }]}>
           <MaterialCommunityIcons
-            name={result.percentage >= 0.8 ? 'trophy-outline' : 'check-bold'}
+            name={outcomeCopy?.icon ?? (result.percentage >= 0.8 ? 'trophy-outline' : 'check-bold')}
             size={37}
             color={colors.surface}
           />
         </View>
-        <Text style={styles.eyebrow}>PARTIDA COMPLETADA</Text>
-        <Text style={styles.score}>{Math.round(result.percentage * 100)}%</Text>
+        <Text style={styles.eyebrow}>{duel ? 'DUELO COMPLETADO' : 'PARTIDA COMPLETADA'}</Text>
+        <Text style={styles.score}>{outcomeCopy?.title ?? `${Math.round(result.percentage * 100)}%`}</Text>
         <Text style={styles.scoreLabel}>{result.correct} de {result.attempts.length} correctas</Text>
       </View>
+
+      {duel ? (
+        <View style={styles.versus}>
+          <View style={styles.competitor}>
+            <Text style={styles.competitorName}>Tú</Text>
+            <Text style={styles.competitorScore}>{duel.playerCorrect}</Text>
+            <Text style={styles.competitorTime}>{formatTime(duel.playerElapsedMs)}</Text>
+          </View>
+          <Text style={styles.versusLabel}>VS</Text>
+          <View style={styles.competitor}>
+            <Text style={styles.competitorName}>{duel.opponent.name}</Text>
+            <Text style={styles.competitorScore}>{duel.opponentCorrect}</Text>
+            <Text style={styles.competitorTime}>{formatTime(duel.opponentElapsedMs)}</Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.stats}>
         <StatTile label="Aciertos" value={`${result.correct}`} accent={colors.success} />
@@ -75,11 +108,24 @@ export default function ResultsScreen() {
       </View>
 
       <View style={styles.actions}>
+        {duel ? (
+          <PrimaryButton
+            label="Revancha"
+            icon="refresh"
+            loading={isStartingDuel}
+            onPress={() => void rematch()}
+          />
+        ) : null}
         <PrimaryButton label="Volver al inicio" icon="home-variant-outline" onPress={() => router.replace('/(tabs)')} />
         <PrimaryButton label="Repasar mis errores" icon="alert-circle-outline" variant="secondary" onPress={() => router.replace('/errors')} />
       </View>
     </AppScreen>
   );
+}
+
+function formatTime(milliseconds: number): string {
+  const seconds = Math.round(milliseconds / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({
@@ -88,6 +134,12 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '900' },
   score: { color: colors.ink, fontSize: 58, lineHeight: 64, fontWeight: '900', marginTop: spacing.sm },
   scoreLabel: { color: colors.muted, fontSize: 15, marginTop: 3 },
+  versus: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, padding: spacing.md, backgroundColor: colors.ink, borderRadius: radius.md },
+  competitor: { flex: 1, alignItems: 'center' },
+  competitorName: { color: colors.surface, fontSize: 13, fontWeight: '900' },
+  competitorScore: { color: colors.gold, fontSize: 35, fontWeight: '900', marginTop: 3 },
+  competitorTime: { color: '#CBD1D6', fontSize: 11, fontWeight: '700' },
+  versusLabel: { color: colors.muted, fontSize: 12, fontWeight: '900' },
   stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   rewards: { marginTop: spacing.xl },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginBottom: spacing.sm },

@@ -87,10 +87,11 @@ export function missionProgressIncrement(
   type: MissionType,
   questionCount: number,
   correctAnswers: number,
+  completedQuickMatch = true,
 ): number {
   if (type === "answerQuestions") return Math.max(0, questionCount);
   if (type === "correctAnswers") return Math.max(0, correctAnswers);
-  return 1;
+  return completedQuickMatch ? 1 : 0;
 }
 
 export function missionDocumentId(date: string, missionId: string): string {

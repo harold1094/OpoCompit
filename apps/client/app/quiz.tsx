@@ -18,6 +18,8 @@ export default function QuizScreen() {
   const answerQuestion = useAppStore((state) => state.answerQuestion);
   const finishQuiz = useAppStore((state) => state.finishQuiz);
   const isSubmittingQuiz = useAppStore((state) => state.isSubmittingQuiz);
+  const activeGameMode = useAppStore((state) => state.activeGameMode);
+  const duelOpponent = useAppStore((state) => state.activeDuelOpponent);
   const [index, setIndex] = useState(0);
 
   const question = questions[index];
@@ -60,6 +62,16 @@ export default function QuizScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {activeGameMode === 'duel' && duelOpponent ? (
+          <View style={styles.duelBand}>
+            <MaterialCommunityIcons name="sword-cross" size={20} color={colors.aqua} />
+            <View style={styles.duelCopy}>
+              <Text style={styles.duelLabel}>DUELO CLÁSICO</Text>
+              <Text style={styles.duelOpponent}>Tú vs. {duelOpponent.name}</Text>
+            </View>
+            <Text style={styles.duelLevel}>Nv. {duelOpponent.level}</Text>
+          </View>
+        ) : null}
         <View style={styles.metaRow}>
           <Text style={styles.category}>{categoryLabel(question.categoryId)}</Text>
           <Text style={styles.difficulty}>Dificultad {question.difficulty}</Text>
@@ -139,6 +151,11 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: colors.aqua, borderRadius: 4 },
   counter: { width: 45, color: colors.muted, fontSize: 12, fontWeight: '800', textAlign: 'right' },
   content: { padding: 20, paddingBottom: 32 },
+  duelBand: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.lg, paddingHorizontal: 14, backgroundColor: colors.softAqua, borderWidth: 1, borderColor: colors.aqua, borderRadius: radius.md },
+  duelCopy: { flex: 1 },
+  duelLabel: { color: colors.aqua, fontSize: 10, fontWeight: '900' },
+  duelOpponent: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 2 },
+  duelLevel: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   category: { color: colors.aqua, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
   difficulty: { color: colors.muted, fontSize: 12, fontWeight: '700' },

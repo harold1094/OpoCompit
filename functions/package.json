@@ -4,7 +4,7 @@
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test lib/engagement.test.js",
+    "test": "npm run build && node --test lib/*.test.js",
     "seed:emulator": "node --experimental-strip-types scripts/seedEmulator.ts",
     "smoke:emulator": "node --experimental-strip-types scripts/smokeEmulator.ts",
     "serve": "npm run build && firebase emulators:start --config ../firebase.json --project opocompit-dev --only auth,firestore,functions",

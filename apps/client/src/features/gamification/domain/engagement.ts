@@ -67,14 +67,18 @@ export function localDailyEngagement(
   };
 }
 
-export function progressLocalMissions(missions: Mission[], result: QuizResult): Mission[] {
+export function progressLocalMissions(
+  missions: Mission[],
+  result: QuizResult,
+  completedQuickMatch = true,
+): Mission[] {
   return missions.map((mission) => {
     const increment =
       mission.type === 'answerQuestions'
         ? result.attempts.length
         : mission.type === 'correctAnswers'
           ? result.correct
-          : 1;
+          : completedQuickMatch ? 1 : 0;
     return {...mission, progress: Math.min(mission.target, mission.progress + increment)};
   });
 }

@@ -42,6 +42,10 @@ export type PlayerProfile = {
   totalQuestions: number;
   correctAnswers: number;
   testsCompleted: number;
+  duelsPlayed: number;
+  duelWins: number;
+  duelLosses: number;
+  duelDraws: number;
   lastValidActivityDate?: string | null;
 };
 
@@ -56,6 +60,10 @@ export type PlayerProgress = Pick<
   | 'totalQuestions'
   | 'correctAnswers'
   | 'testsCompleted'
+  | 'duelsPlayed'
+  | 'duelWins'
+  | 'duelLosses'
+  | 'duelDraws'
   | 'lastValidActivityDate'
 >;
 
@@ -118,4 +126,23 @@ export type DailyReward = {
 export type DailyEngagement = {
   dailyReward: DailyReward;
   missions: Mission[];
+};
+
+export type DuelOpponent = {
+  id: string;
+  name: string;
+  level: number;
+  territoryLabel: string;
+};
+
+export type DuelOutcome = 'win' | 'loss' | 'draw';
+
+export type DuelResult = {
+  duelId: string;
+  opponent: DuelOpponent;
+  outcome: DuelOutcome;
+  playerCorrect: number;
+  opponentCorrect: number;
+  playerElapsedMs: number;
+  opponentElapsedMs: number;
 };

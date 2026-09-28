@@ -53,6 +53,10 @@ export default function ProfileScreen() {
         <StatTile label="Tests" value={`${profile.testsCompleted}`} accent={colors.aqua} />
         <StatTile label="Aciertos" value={`${profile.correctAnswers}`} accent={colors.success} />
       </View>
+      <View style={styles.grid}>
+        <StatTile label="Duelos" value={`${profile.duelsPlayed ?? 0}`} accent={colors.ink} />
+        <StatTile label="Victorias" value={`${profile.duelWins ?? 0}`} accent={colors.gold} />
+      </View>
 
       <View style={styles.accountNote}>
         <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.aqua} />

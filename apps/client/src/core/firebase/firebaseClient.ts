@@ -19,6 +19,8 @@ import { Platform } from 'react-native';
 import {
   DailyEngagement,
   DailyReward,
+  DuelOpponent,
+  DuelResult,
   Mission,
   PlayerProfile,
   PlayerProgress,
@@ -41,6 +43,16 @@ type SubmitQuizResponse = {
   result: QuizResult;
   progress: PlayerProgress;
   engagement: DailyEngagement;
+};
+
+type StartClassicDuelResponse = {
+  duelId: string;
+  opponent: DuelOpponent;
+  questions: Question[];
+};
+
+type SubmitClassicDuelResponse = SubmitQuizResponse & {
+  duel: DuelResult;
 };
 
 type ClaimDailyRewardResponse = {
@@ -168,6 +180,28 @@ export async function submitQuizSessionRemote(
     SubmitQuizResponse
   >('submitQuizSession');
   const response = await invoke({ sessionId, answers });
+  return response.data;
+}
+
+export async function startClassicDuelRemote(
+  opponentId: string,
+): Promise<StartClassicDuelResponse> {
+  await startAnonymousSession();
+  const invoke = callable<{ opponentId: string }, StartClassicDuelResponse>('startClassicDuel');
+  const response = await invoke({ opponentId });
+  return response.data;
+}
+
+export async function submitClassicDuelRemote(
+  duelId: string,
+  answers: QuizAnswerSubmission[],
+): Promise<SubmitClassicDuelResponse> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { duelId: string; answers: QuizAnswerSubmission[] },
+    SubmitClassicDuelResponse
+  >('submitClassicDuel');
+  const response = await invoke({ duelId, answers });
   return response.data;
 }
 

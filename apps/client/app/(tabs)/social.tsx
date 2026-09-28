@@ -1,22 +1,38 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
+import { useAppStore } from '@/features/app-state/useAppStore';
+import { trainingOpponents } from '@/features/duels/domain/duel';
 import { AppScreen } from '@/shared/components/AppScreen';
 
-const friends = [
-  { name: 'MarioCT', level: 8, streak: 12, online: true },
-  { name: 'LucíaM', level: 11, streak: 21, online: false },
-  { name: 'Alex112', level: 7, streak: 6, online: true },
-];
-
 export default function SocialScreen() {
+  const startClassicDuel = useAppStore((state) => state.startClassicDuel);
+  const isStartingDuel = useAppStore((state) => state.isStartingDuel);
+  const [startingOpponentId, setStartingOpponentId] = useState<string | null>(null);
+
+  const challenge = async (opponent: (typeof trainingOpponents)[number]) => {
+    setStartingOpponentId(opponent.id);
+    const count = await startClassicDuel(opponent);
+    if (count > 0) {
+      void Haptics.selectionAsync();
+      router.push('/quiz');
+      return;
+    }
+    setStartingOpponentId(null);
+    const message = useAppStore.getState().quizError;
+    if (message) Alert.alert('No se pudo iniciar el duelo', message);
+  };
+
   return (
     <AppScreen>
       <View style={styles.heading}>
         <View>
           <Text style={styles.title}>Social</Text>
-          <Text style={styles.subtitle}>Estudiar acompañado cambia la constancia.</Text>
+          <Text style={styles.subtitle}>Elige rival y mide tu precisión.</Text>
         </View>
         <View style={styles.addButton}>
           <MaterialCommunityIcons name="account-plus-outline" size={22} color={colors.surface} />
@@ -32,25 +48,35 @@ export default function SocialScreen() {
         <Text style={styles.streakValue}>6</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Amigos</Text>
+      <Text style={styles.sectionTitle}>Rivales de entrenamiento</Text>
       <View style={styles.list}>
-        {friends.map((friend) => (
-          <View key={friend.name} style={styles.friend}>
+        {trainingOpponents.map((opponent) => (
+          <View key={opponent.id} style={styles.friend}>
             <View style={styles.avatar}>
               <MaterialCommunityIcons name="account-outline" size={23} color={colors.ink} />
-              {friend.online ? <View style={styles.online} /> : null}
+              <View style={styles.online} />
             </View>
             <View style={styles.friendCopy}>
-              <Text style={styles.friendName}>{friend.name}</Text>
-              <Text style={styles.friendMeta}>Nivel {friend.level} · {friend.streak} días</Text>
+              <Text style={styles.friendName}>{opponent.name}</Text>
+              <Text style={styles.friendMeta}>Nivel {opponent.level} · {opponent.territoryLabel}</Text>
             </View>
-            <View style={styles.duelButton}>
-              <MaterialCommunityIcons name="sword-cross" size={20} color={colors.aqua} />
-            </View>
+            <Pressable
+              accessibilityLabel={`Retar a ${opponent.name}`}
+              accessibilityRole="button"
+              disabled={isStartingDuel}
+              onPress={() => void challenge(opponent)}
+              style={({ pressed }) => [styles.duelButton, pressed && styles.duelButtonPressed]}
+            >
+              {isStartingDuel && startingOpponentId === opponent.id ? (
+                <ActivityIndicator size="small" color={colors.aqua} />
+              ) : (
+                <MaterialCommunityIcons name="sword-cross" size={20} color={colors.aqua} />
+              )}
+            </Pressable>
           </View>
         ))}
       </View>
-      <Text style={styles.localNote}>Los amigos y duelos siguen en modo local durante la migración a React.</Text>
+      <Text style={styles.localNote}>Partidas contra perfiles de entrenamiento. Los duelos entre amigos llegarán en el siguiente bloque social.</Text>
     </AppScreen>
   );
 }
@@ -74,5 +100,6 @@ const styles = StyleSheet.create({
   friendName: { color: colors.ink, fontSize: 14, fontWeight: '900' },
   friendMeta: { color: colors.muted, fontSize: 11, marginTop: 2 },
   duelButton: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.softAqua, alignItems: 'center', justifyContent: 'center' },
+  duelButtonPressed: { opacity: 0.72 },
   localNote: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: spacing.lg, textAlign: 'center' },
 });

@@ -8,8 +8,6 @@ Input:
 
 ```json
 {
-  "oppositionId": "firefighters_es",
-  "territoryKeys": ["ES", "ES-MC", "ES-MC-Cartagena"],
   "questionCount": 10
 }
 ```
@@ -43,6 +41,29 @@ Responsibilities:
 - Update user aggregates transactionally.
 - Mark session as validated.
 - Return trusted result payload.
+
+## callable: `startClassicDuel`
+
+Input:
+
+```json
+{"opponentId": "training_mario"}
+```
+
+Responsibilities:
+
+- Validate the authenticated player and server-defined training opponent.
+- Select ten eligible questions from the player's opposition and territory.
+- Create `duels/{duelId}` and return questions without answers or explanations.
+
+## callable: `submitClassicDuel`
+
+Responsibilities:
+
+- Validate ownership, status, expiry, questions, and answer options.
+- Score both sides and use server elapsed time as the tie breaker.
+- Update quiz statistics, duel aggregates, missions, XP, coins, and economy logs atomically.
+- Reject repeat submissions and return the trusted comparative result.
 
 ## callable: `claimDailyReward`
 
@@ -83,4 +104,3 @@ Responsibilities:
 - Validate JSON/CSV import payload.
 - Create questions as `pending_review`.
 - Store source metadata and duplicate candidates.
-

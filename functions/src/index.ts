@@ -10,6 +10,7 @@ import {
   missionProgressIncrement,
   MissionTemplate,
 } from "./engagement.js";
+import {duelOutcome, trainingOpponent} from "./duel.js";
 
 initializeApp();
 
@@ -66,6 +67,15 @@ type ClaimMissionInput = {
   missionId: string;
 };
 
+type StartClassicDuelInput = {
+  opponentId: string;
+};
+
+type SubmitClassicDuelInput = {
+  duelId: string;
+  answers: Answer[];
+};
+
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const oppositionId = requireString(request.data?.oppositionId, "oppositionId", 80);
@@ -112,6 +122,10 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       totalQuestions: 0,
       correctAnswers: 0,
       testsCompleted: 0,
+      duelsPlayed: 0,
+      duelWins: 0,
+      duelLosses: 0,
+      duelDraws: 0,
       lastValidActivityDate: null,
       dailyRewardDay: 0,
       lastDailyRewardDate: null,
@@ -535,6 +549,283 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
   });
 });
 
+export const startClassicDuel = onCall<StartClassicDuelInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const opponentId = requireString(request.data?.opponentId, "opponentId", 80);
+  const opponent = trainingOpponent(opponentId);
+  if (!opponent) {
+    throw new HttpsError("not-found", "Training opponent not found.");
+  }
+
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const user = userSnapshot.data() ?? {};
+  const oppositionId = requireString(user.oppositionId, "stored oppositionId", 80);
+  const territory = parseTerritory(user.territorySelection);
+  const territoryKeys = buildTerritoryKeys(territory);
+  const snapshot = await db.collection("questions")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "published")
+    .where("verified", "==", true)
+    .where("territoryKeys", "array-contains-any", territoryKeys.slice(0, 10))
+    .orderBy("difficulty", "asc")
+    .limit(10)
+    .get();
+
+  if (snapshot.empty) {
+    throw new HttpsError("not-found", "No eligible questions found.");
+  }
+
+  const duelRef = db.collection("duels").doc();
+  const publicOpponent = {
+    id: opponent.id,
+    name: opponent.name,
+    level: opponent.level,
+    territoryLabel: opponent.territoryLabel,
+  };
+  await duelRef.set({
+    uid,
+    participantUids: [uid],
+    mode: "classic_training",
+    opponent: publicOpponent,
+    oppositionId,
+    territoryKeys,
+    questionIds: snapshot.docs.map((document) => document.id),
+    status: "started",
+    createdAt: Timestamp.now(),
+    completedAt: null,
+  });
+
+  return {
+    duelId: duelRef.id,
+    opponent: publicOpponent,
+    questions: snapshot.docs.map((document) =>
+      publicQuestion(document.id, document.data() as QuestionDoc)),
+  };
+});
+
+export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const duelId = requireString(request.data?.duelId, "duelId", 160);
+  const submittedAnswers = parseAnswers(request.data?.answers);
+  const duelRef = db.collection("duels").doc(duelId);
+
+  return db.runTransaction(async (transaction) => {
+    const duelSnapshot = await transaction.get(duelRef);
+    if (!duelSnapshot.exists) {
+      throw new HttpsError("not-found", "Duel not found.");
+    }
+
+    const duel = duelSnapshot.data() ?? {};
+    if (duel.uid !== uid) {
+      throw new HttpsError("permission-denied", "Not your duel.");
+    }
+    if (duel.status !== "started") {
+      throw new HttpsError("failed-precondition", "Duel already submitted.");
+    }
+    if (!(duel.createdAt instanceof Timestamp) ||
+      Date.now() - duel.createdAt.toMillis() > sessionLifetimeMs) {
+      throw new HttpsError("deadline-exceeded", "Duel expired.");
+    }
+
+    const opponentId = requireString(
+      (duel.opponent as Record<string, unknown> | undefined)?.id,
+      "stored opponentId",
+      80,
+    );
+    const opponent = trainingOpponent(opponentId);
+    if (!opponent) {
+      throw new HttpsError("failed-precondition", "Training opponent is no longer available.");
+    }
+
+    const questionIds = parseQuestionIds(duel.questionIds);
+    const allowedQuestionIds = new Set(questionIds);
+    if (submittedAnswers.some((answer) => !allowedQuestionIds.has(answer.questionId))) {
+      throw new HttpsError("invalid-argument", "Answer contains an unknown question.");
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const questionRefs = questionIds.map((id) => db.collection("questions").doc(id));
+    const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
+    const completedAt = Timestamp.now();
+    const date = madridDay(completedAt.toDate());
+    const missionRefs = dailyMissionTemplates.map((mission) =>
+      userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
+    );
+    const [userSnapshot, questionSnapshots, statSnapshots, missionSnapshots] = await Promise.all([
+      transaction.get(userRef),
+      Promise.all(questionRefs.map((reference) => transaction.get(reference))),
+      Promise.all(statRefs.map((reference) => transaction.get(reference))),
+      Promise.all(missionRefs.map((reference) => transaction.get(reference))),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+
+    const questions = questionSnapshots.map((snapshot) => {
+      if (!snapshot.exists) {
+        throw new HttpsError("failed-precondition", "Question missing.");
+      }
+      return {id: snapshot.id, data: snapshot.data() as QuestionDoc};
+    });
+    const answersByQuestion = new Map(
+      submittedAnswers.map((answer) => [answer.questionId, answer]),
+    );
+    let correct = 0;
+    let blank = 0;
+    let incorrect = 0;
+    const attempts = questions.map((question) => {
+      const answer = answersByQuestion.get(question.id);
+      const selectedAnswerId = answer?.selectedAnswerId ?? null;
+      if (selectedAnswerId !== null &&
+        !question.data.answers.some((option) => option.id === selectedAnswerId)) {
+        throw new HttpsError("invalid-argument", "Invalid answer option.");
+      }
+      const isBlank = selectedAnswerId === null;
+      const isCorrect = selectedAnswerId === question.data.correctAnswerId;
+      if (isBlank) blank++;
+      else if (isCorrect) correct++;
+      else incorrect++;
+      return {
+        question: reviewQuestion(question.id, question.data),
+        selectedAnswerId,
+        isBlank,
+        isCorrect,
+      };
+    });
+
+    const playerElapsedMs = Math.min(
+      Math.max(0, completedAt.toMillis() - duel.createdAt.toMillis()),
+      3_600_000,
+    );
+    const opponentCorrect = Math.min(opponent.correctAnswers, questions.length);
+    const outcome = duelOutcome(
+      correct,
+      playerElapsedMs,
+      opponentCorrect,
+      opponent.elapsedMs,
+    );
+    const percentage = correct / questions.length;
+    const outcomeXp = outcome === "win" ? 20 : outcome === "draw" ? 10 : 0;
+    const outcomeCoins = outcome === "win" ? 10 : outcome === "draw" ? 5 : 0;
+    const xpEarned = correct * 10 + 20 + (percentage >= 0.8 ? 10 : 0) + outcomeXp;
+    const coinsEarned = correct * 2 + 5 + outcomeCoins;
+    const user = userSnapshot.data() ?? {};
+    const previousStreak = numberValue(user.currentStreak);
+    const streak = nextStreak(previousStreak, user.lastValidActivityDate, completedAt);
+    const xp = numberValue(user.xp) + xpEarned;
+    const coins = numberValue(user.coins) + coinsEarned;
+    const profileUpdate = {
+      xp,
+      level: Math.floor(Math.sqrt(xp / 100)) + 1,
+      coins,
+      currentStreak: streak,
+      bestStreak: Math.max(numberValue(user.bestStreak), streak),
+      totalQuestions: numberValue(user.totalQuestions) + questions.length,
+      correctAnswers: numberValue(user.correctAnswers) + correct,
+      testsCompleted: numberValue(user.testsCompleted) + 1,
+      duelsPlayed: numberValue(user.duelsPlayed) + 1,
+      duelWins: numberValue(user.duelWins) + (outcome === "win" ? 1 : 0),
+      duelLosses: numberValue(user.duelLosses) + (outcome === "loss" ? 1 : 0),
+      duelDraws: numberValue(user.duelDraws) + (outcome === "draw" ? 1 : 0),
+      lastValidActivityDate: completedAt,
+      updatedAt: completedAt,
+    };
+    transaction.update(userRef, profileUpdate);
+
+    statSnapshots.forEach((snapshot, index) => {
+      const attempt = attempts[index];
+      const previous = snapshot.data() ?? {};
+      transaction.set(statRefs[index], {
+        questionId: attempt.question.id,
+        timesSeen: numberValue(previous.timesSeen) + 1,
+        correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
+        incorrectCount: numberValue(previous.incorrectCount) +
+          (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
+        blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        lastAnswerId: attempt.selectedAnswerId,
+        lastAnsweredAt: completedAt,
+      }, {merge: true});
+    });
+
+    const missions = dailyMissionTemplates.map((template, index) => {
+      const previous = missionSnapshots[index].data() ?? {};
+      const progress = Math.min(
+        template.target,
+        numberValue(previous.progress) +
+          missionProgressIncrement(template.type, questions.length, correct, false),
+      );
+      const updated = {
+        ...missionDocument(template, date, completedAt),
+        progress,
+        claimed: previous.claimed === true,
+        createdAt: previous.createdAt ?? completedAt,
+        updatedAt: completedAt,
+      };
+      transaction.set(missionRefs[index], updated);
+      return serializeMission(template, updated, date);
+    });
+
+    const result = {
+      attempts,
+      correct,
+      incorrect,
+      blank,
+      points: correct,
+      percentage,
+      xpEarned,
+      coinsEarned,
+      completedAt: completedAt.toDate().toISOString(),
+    };
+    const duelResult = {
+      duelId,
+      opponent: {
+        id: opponent.id,
+        name: opponent.name,
+        level: opponent.level,
+        territoryLabel: opponent.territoryLabel,
+      },
+      outcome,
+      playerCorrect: correct,
+      opponentCorrect,
+      playerElapsedMs,
+      opponentElapsedMs: opponent.elapsedMs,
+    };
+    transaction.update(duelRef, {
+      answers: questionIds.map((questionId) => ({
+        questionId,
+        selectedAnswerId: answersByQuestion.get(questionId)?.selectedAnswerId ?? null,
+      })),
+      status: "completed",
+      result: duelResult,
+      reward: {xpEarned, coinsEarned},
+      completedAt,
+    });
+    transaction.set(db.collection("currencyTransactions").doc(), {
+      uid,
+      type: "duel_reward",
+      currency: "coins",
+      amount: coinsEarned,
+      balanceAfter: coins,
+      sourceId: duelId,
+      createdAt: completedAt,
+    });
+
+    return {
+      result,
+      duel: duelResult,
+      progress: serializeProgress({...user, ...profileUpdate}),
+      engagement: {
+        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        missions,
+      },
+    };
+  });
+});
+
 function requireUid(uid: string | undefined): string {
   if (!uid) throw new HttpsError("unauthenticated", "Authentication required.");
   return uid;
@@ -686,6 +977,10 @@ function serializeProgress(data: Record<string, unknown>) {
     totalQuestions: numberValue(data.totalQuestions),
     correctAnswers: numberValue(data.correctAnswers),
     testsCompleted: numberValue(data.testsCompleted),
+    duelsPlayed: numberValue(data.duelsPlayed),
+    duelWins: numberValue(data.duelWins),
+    duelLosses: numberValue(data.duelLosses),
+    duelDraws: numberValue(data.duelDraws),
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
   };

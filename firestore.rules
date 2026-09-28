@@ -104,7 +104,9 @@ service cloud.firestore {
     }
 
     match /duels/{duelId} {
-      allow read: if signedIn() && resource.data.participantUids.hasAny([request.auth.uid]);
+      allow read: if signedIn()
+        && resource.data.status == 'completed'
+        && resource.data.participantUids.hasAny([request.auth.uid]);
       allow write: if false;
     }
 

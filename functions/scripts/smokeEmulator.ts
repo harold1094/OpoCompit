@@ -7,7 +7,16 @@ const authBaseUrl = "http://127.0.0.1:9099";
 const functionsBaseUrl = `http://127.0.0.1:5001/${projectId}/us-central1`;
 
 type CallableEnvelope<T> = {result?: T; error?: {message?: string; status?: string}};
-type Progress = {xp: number; coins: number; gems: number; level: number};
+type Progress = {
+  xp: number;
+  coins: number;
+  gems: number;
+  level: number;
+  duelsPlayed: number;
+  duelWins: number;
+  duelLosses: number;
+  duelDraws: number;
+};
 type MissionState = {id: string; progress: number; target: number; claimed: boolean};
 
 async function call<T>(name: string, data: unknown, idToken: string): Promise<T> {
@@ -149,13 +158,74 @@ async function main() {
   assert.equal(repeatedMissionClaim.progress.xp, 475);
   assert.equal(repeatedMissionClaim.progress.coins, 145);
 
+  const startedDuel = await call<{
+    duelId: string;
+    opponent: {id: string; name: string};
+    questions: Array<{id: string; correctAnswerId?: string; explanation?: string}>;
+  }>("startClassicDuel", {opponentId: "training_mario"}, auth.idToken);
+  assert.equal(startedDuel.opponent.name, "MarioCT");
+  assert.equal(startedDuel.questions.length, 10);
+  assert.equal(
+    startedDuel.questions.every((question) => question.correctAnswerId === undefined),
+    true,
+  );
+  assert.equal(
+    startedDuel.questions.every((question) => question.explanation === undefined),
+    true,
+  );
+
+  const submittedDuel = await call<{
+    result: {correct: number; xpEarned: number; coinsEarned: number};
+    duel: {outcome: string; playerCorrect: number; opponentCorrect: number};
+    progress: Progress;
+    engagement: {missions: MissionState[]};
+  }>(
+    "submitClassicDuel",
+    {
+      duelId: startedDuel.duelId,
+      answers: startedDuel.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: answersByQuestion.get(question.id),
+      })),
+    },
+    auth.idToken,
+  );
+  assert.equal(submittedDuel.result.correct, 10);
+  assert.equal(submittedDuel.result.xpEarned, 150);
+  assert.equal(submittedDuel.result.coinsEarned, 35);
+  assert.equal(submittedDuel.duel.outcome, "win");
+  assert.equal(submittedDuel.duel.playerCorrect, 10);
+  assert.equal(submittedDuel.duel.opponentCorrect, 7);
+  assert.equal(submittedDuel.progress.xp, 625);
+  assert.equal(submittedDuel.progress.coins, 180);
+  assert.equal(submittedDuel.progress.duelsPlayed, 1);
+  assert.equal(submittedDuel.progress.duelWins, 1);
+  assert.deepEqual(
+    submittedDuel.engagement.missions.map((mission) => mission.progress),
+    [1, 30, 15],
+  );
+
+  let duplicateDuelBlocked = false;
+  try {
+    await call(
+      "submitClassicDuel",
+      {duelId: startedDuel.duelId, answers: []},
+      auth.idToken,
+    );
+  } catch (error) {
+    duplicateDuelBlocked = error instanceof Error && error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(duplicateDuelBlocked, true);
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 3,
     questionsAnswered: 30,
     correctAnswers: 30,
-    finalProgress,
+    finalProgress: submittedDuel.progress,
     duplicateClaimsBlocked: true,
+    duelValidated: true,
+    duplicateDuelBlocked,
   }, null, 2));
 }
 

@@ -4,6 +4,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
   DailyReward,
+  DuelOpponent,
+  DuelResult,
   Mission,
   PlayerProfile,
   Question,
@@ -20,6 +22,8 @@ import {
   readableFirebaseError,
   startAnonymousSession,
   startQuickQuizRemote,
+  startClassicDuelRemote,
+  submitClassicDuelRemote,
   submitQuizSessionRemote,
 } from '@/core/firebase/firebaseClient';
 import {
@@ -37,8 +41,10 @@ import {
   scoreQuickMatch,
 } from '@/features/quiz/domain/scoring';
 import { seedQuestions } from '@/features/quiz/data/seedQuestions';
+import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/duel';
 
 type BackendMode = 'local' | 'firebase';
+type ActiveGameMode = 'quick' | 'duel';
 
 type AppStore = {
   hydrated: boolean;
@@ -46,12 +52,17 @@ type AppStore = {
   profile: PlayerProfile | null;
   activeQuestions: Question[];
   activeSessionId: string | null;
+  activeGameMode: ActiveGameMode;
+  activeDuelOpponent: DuelOpponent | null;
+  activeStartedAt: number | null;
   selectedAnswers: Record<string, string | null>;
   questionStats: Record<string, UserQuestionStat>;
   dailyReward: DailyReward | null;
   missions: Mission[];
   lastResult: QuizResult | null;
+  lastDuelResult: DuelResult | null;
   isStartingQuiz: boolean;
+  isStartingDuel: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
@@ -61,6 +72,7 @@ type AppStore = {
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
+  startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
   startErrorReview: () => number;
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
@@ -78,12 +90,17 @@ export const useAppStore = create<AppStore>()(
       profile: null,
       activeQuestions: [],
       activeSessionId: null,
+      activeGameMode: 'quick',
+      activeDuelOpponent: null,
+      activeStartedAt: null,
       selectedAnswers: {},
       questionStats: {},
       dailyReward: null,
       missions: [],
       lastResult: null,
+      lastDuelResult: null,
       isStartingQuiz: false,
+      isStartingDuel: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
@@ -122,11 +139,15 @@ export const useAppStore = create<AppStore>()(
           profile,
           activeQuestions: [],
           activeSessionId: null,
+          activeGameMode: 'quick',
+          activeDuelOpponent: null,
+          activeStartedAt: null,
           selectedAnswers: {},
           questionStats: {},
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           lastResult: null,
+          lastDuelResult: null,
           quizError: null,
           engagementError: null,
         });
@@ -150,10 +171,14 @@ export const useAppStore = create<AppStore>()(
           set({
             activeQuestions,
             activeSessionId,
+            activeGameMode: 'quick',
+            activeDuelOpponent: null,
+            activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
               activeQuestions.map((question) => [question.id, null]),
             ),
             lastResult: null,
+            lastDuelResult: null,
           });
           return activeQuestions.length;
         } catch (error) {
@@ -161,6 +186,45 @@ export const useAppStore = create<AppStore>()(
           return 0;
         } finally {
           set({ isStartingQuiz: false });
+        }
+      },
+      startClassicDuel: async (opponent) => {
+        const { profile, backendMode } = get();
+        if (!profile) return 0;
+        set({ isStartingDuel: true, quizError: null });
+
+        try {
+          let activeQuestions: Question[];
+          let activeSessionId: string;
+          let activeOpponent = opponent;
+          if (backendMode === 'firebase') {
+            const remote = await startClassicDuelRemote(opponent.id);
+            activeQuestions = remote.questions;
+            activeSessionId = remote.duelId;
+            activeOpponent = remote.opponent;
+          } else {
+            activeQuestions = eligibleForQuickMatch(profile, seedQuestions);
+            activeSessionId = `local_${Date.now()}`;
+          }
+
+          set({
+            activeQuestions,
+            activeSessionId,
+            activeGameMode: 'duel',
+            activeDuelOpponent: activeOpponent,
+            activeStartedAt: Date.now(),
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+            lastDuelResult: null,
+          });
+          return activeQuestions.length;
+        } catch (error) {
+          set({ quizError: readableFirebaseError(error) });
+          return 0;
+        } finally {
+          set({ isStartingDuel: false });
         }
       },
       startErrorReview: () => {
@@ -180,10 +244,14 @@ export const useAppStore = create<AppStore>()(
         set({
           activeQuestions,
           activeSessionId: null,
+          activeGameMode: 'quick',
+          activeDuelOpponent: null,
+          activeStartedAt: Date.now(),
           selectedAnswers: Object.fromEntries(
             activeQuestions.map((question) => [question.id, null]),
           ),
           lastResult: null,
+          lastDuelResult: null,
           quizError: null,
         });
         return activeQuestions.length;
@@ -205,15 +273,22 @@ export const useAppStore = create<AppStore>()(
           let profile: PlayerProfile;
           let dailyReward = state.dailyReward;
           let missions: Mission[];
+          let duelResult: DuelResult | null = null;
 
-          if (state.backendMode === 'firebase' && state.activeSessionId) {
-            const submission = state.activeQuestions.map((question) => ({
-              questionId: question.id,
-              selectedAnswerId:
-                state.selectedAnswers[question.id] === BLANK_ANSWER_ID
-                  ? null
-                  : (state.selectedAnswers[question.id] ?? null),
-            }));
+          if (
+            state.backendMode === 'firebase' &&
+            state.activeSessionId &&
+            state.activeGameMode === 'duel'
+          ) {
+            const submission = quizSubmission(state);
+            const remote = await submitClassicDuelRemote(state.activeSessionId, submission);
+            result = remote.result;
+            duelResult = remote.duel;
+            profile = { ...state.profile, ...remote.progress };
+            dailyReward = remote.engagement.dailyReward;
+            missions = remote.engagement.missions;
+          } else if (state.backendMode === 'firebase' && state.activeSessionId) {
+            const submission = quizSubmission(state);
             const remote = await submitQuizSessionRemote(state.activeSessionId, submission);
             result = remote.result;
             profile = { ...state.profile, ...remote.progress };
@@ -221,10 +296,52 @@ export const useAppStore = create<AppStore>()(
             missions = remote.engagement.missions;
           } else {
             result = scoreQuickMatch(state.activeQuestions, state.selectedAnswers);
+            if (state.activeGameMode === 'duel' && state.activeDuelOpponent) {
+              const opponent = localOpponentPerformance(state.activeDuelOpponent.id);
+              const elapsedMs = Math.min(
+                Math.max(0, Date.now() - (state.activeStartedAt ?? Date.now())),
+                3_600_000,
+              );
+              const outcome = duelOutcome(
+                result.correct,
+                elapsedMs,
+                Math.min(opponent.correct, state.activeQuestions.length),
+                opponent.elapsedMs,
+              );
+              const bonusXp = outcome === 'win' ? 20 : outcome === 'draw' ? 10 : 0;
+              const bonusCoins = outcome === 'win' ? 10 : outcome === 'draw' ? 5 : 0;
+              result = {
+                ...result,
+                xpEarned: result.xpEarned + bonusXp,
+                coinsEarned: result.coinsEarned + bonusCoins,
+              };
+              duelResult = {
+                duelId: state.activeSessionId ?? `local_${Date.now()}`,
+                opponent: state.activeDuelOpponent,
+                outcome,
+                playerCorrect: result.correct,
+                opponentCorrect: Math.min(opponent.correct, state.activeQuestions.length),
+                playerElapsedMs: elapsedMs,
+                opponentElapsedMs: opponent.elapsedMs,
+              };
+            }
             profile = applyResult(state.profile, result);
+            if (duelResult) {
+              profile = {
+                ...profile,
+                duelsPlayed: (profile.duelsPlayed ?? 0) + 1,
+                duelWins: (profile.duelWins ?? 0) + (duelResult.outcome === 'win' ? 1 : 0),
+                duelLosses: (profile.duelLosses ?? 0) + (duelResult.outcome === 'loss' ? 1 : 0),
+                duelDraws: (profile.duelDraws ?? 0) + (duelResult.outcome === 'draw' ? 1 : 0),
+              };
+            }
             const engagement = localDailyEngagement(state.dailyReward, state.missions);
             dailyReward = engagement.dailyReward;
-            missions = progressLocalMissions(engagement.missions, result);
+            missions = progressLocalMissions(
+              engagement.missions,
+              result,
+              state.activeGameMode !== 'duel',
+            );
           }
 
           set({
@@ -233,6 +350,7 @@ export const useAppStore = create<AppStore>()(
             dailyReward,
             missions,
             lastResult: result,
+            lastDuelResult: duelResult,
             activeSessionId: null,
           });
           return result;
@@ -361,7 +479,21 @@ function localGuestProfile(uid: string, territory: TerritorySelection): PlayerPr
     totalQuestions: 0,
     correctAnswers: 0,
     testsCompleted: 0,
+    duelsPlayed: 0,
+    duelWins: 0,
+    duelLosses: 0,
+    duelDraws: 0,
   };
+}
+
+function quizSubmission(state: AppStore) {
+  return state.activeQuestions.map((question) => ({
+    questionId: question.id,
+    selectedAnswerId:
+      state.selectedAnswers[question.id] === BLANK_ANSWER_ID
+        ? null
+        : (state.selectedAnswers[question.id] ?? null),
+  }));
 }
 
 function applyQuestionStats(

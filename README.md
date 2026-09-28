@@ -20,7 +20,7 @@ npm run web
 
 For Android, install Expo Go or use an Android emulator, then run `npm run android`.
 
-The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, and missions.
+The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, missions, and training duels.
 
 Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
 
@@ -48,5 +48,6 @@ npm run verify:emulator
 4. Answer or leave blank 10 questions.
 5. Finish the match.
 6. Check result, XP, coins, streak, and updated Home/Profile progress.
+7. Open `Duelo`, choose a training rival, finish the shared ten-question challenge, and compare score and time.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

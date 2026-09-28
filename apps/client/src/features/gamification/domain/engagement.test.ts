@@ -49,4 +49,11 @@ describe('local daily engagement', () => {
 
     expect(missions.map((mission) => mission.progress)).toEqual([1, 10, 7]);
   });
+
+  it('does not count a duel as a quick match', () => {
+    const engagement = localDailyEngagement(null, [], new Date('2026-09-28T10:00:00Z'));
+    const missions = progressLocalMissions(engagement.missions, result, false);
+
+    expect(missions.map((mission) => mission.progress)).toEqual([0, 10, 7]);
+  });
 });
