@@ -11,12 +11,22 @@ import { StatTile } from '@/shared/components/StatTile';
 export default function ResultsScreen() {
   const result = useAppStore((state) => state.lastResult);
   const duel = useAppStore((state) => state.lastDuelResult);
+  const pendingFriendDuel = useAppStore((state) => state.lastPendingFriendDuel);
+  const friends = useAppStore((state) => state.friends);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
+  const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
   const isStartingDuel = useAppStore((state) => state.isStartingDuel);
   if (!result) return <Redirect href="/(tabs)" />;
 
   const rematch = async () => {
     if (!duel) return;
+    if (duel.kind === 'friend') {
+      const friend = friends.find((item) => item.uid === duel.opponent.id);
+      if (friend && await sendFriendDuelInvitation(friend)) {
+        router.replace('/(tabs)/social');
+      }
+      return;
+    }
     const count = await startClassicDuel(duel.opponent);
     if (count > 0) router.replace('/quiz');
   };
@@ -39,23 +49,35 @@ export default function ResultsScreen() {
             color={colors.surface}
           />
         </View>
-        <Text style={styles.eyebrow}>{duel ? 'DUELO COMPLETADO' : 'PARTIDA COMPLETADA'}</Text>
-        <Text style={styles.score}>{outcomeCopy?.title ?? `${Math.round(result.percentage * 100)}%`}</Text>
+        <Text style={styles.eyebrow}>
+          {duel ? 'DUELO COMPLETADO' : pendingFriendDuel ? 'RESULTADO ENVIADO' : 'PARTIDA COMPLETADA'}
+        </Text>
+        <Text style={styles.score}>
+          {outcomeCopy?.title ?? (pendingFriendDuel
+            ? 'En espera'
+            : `${Math.round(result.percentage * 100)}%`)}
+        </Text>
         <Text style={styles.scoreLabel}>{result.correct} de {result.attempts.length} correctas</Text>
       </View>
 
-      {duel ? (
+      {duel || pendingFriendDuel ? (
         <View style={styles.versus}>
           <View style={styles.competitor}>
             <Text style={styles.competitorName}>Tú</Text>
-            <Text style={styles.competitorScore}>{duel.playerCorrect}</Text>
-            <Text style={styles.competitorTime}>{formatTime(duel.playerElapsedMs)}</Text>
+            <Text style={styles.competitorScore}>{duel?.playerCorrect ?? result.correct}</Text>
+            <Text style={styles.competitorTime}>
+              {duel ? formatTime(duel.playerElapsedMs) : 'Completado'}
+            </Text>
           </View>
           <Text style={styles.versusLabel}>VS</Text>
           <View style={styles.competitor}>
-            <Text style={styles.competitorName}>{duel.opponent.name}</Text>
-            <Text style={styles.competitorScore}>{duel.opponentCorrect}</Text>
-            <Text style={styles.competitorTime}>{formatTime(duel.opponentElapsedMs)}</Text>
+            <Text style={styles.competitorName}>
+              {duel?.opponent.name ?? pendingFriendDuel?.opponent.name}
+            </Text>
+            <Text style={styles.competitorScore}>{duel?.opponentCorrect ?? '···'}</Text>
+            <Text style={styles.competitorTime}>
+              {duel ? formatTime(duel.opponentElapsedMs) : 'Pendiente'}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -110,10 +132,17 @@ export default function ResultsScreen() {
       <View style={styles.actions}>
         {duel ? (
           <PrimaryButton
-            label="Revancha"
+            label={duel.kind === 'friend' ? 'Pedir revancha' : 'Revancha'}
             icon="refresh"
             loading={isStartingDuel}
             onPress={() => void rematch()}
+          />
+        ) : null}
+        {pendingFriendDuel ? (
+          <PrimaryButton
+            label="Volver a Social"
+            icon="account-group-outline"
+            onPress={() => router.replace('/(tabs)/social')}
           />
         ) : null}
         <PrimaryButton label="Volver al inicio" icon="home-variant-outline" onPress={() => router.replace('/(tabs)')} />

@@ -62,11 +62,13 @@ export default function QuizScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {activeGameMode === 'duel' && duelOpponent ? (
+        {activeGameMode !== 'quick' && duelOpponent ? (
           <View style={styles.duelBand}>
             <MaterialCommunityIcons name="sword-cross" size={20} color={colors.aqua} />
             <View style={styles.duelCopy}>
-              <Text style={styles.duelLabel}>DUELO CLÁSICO</Text>
+              <Text style={styles.duelLabel}>
+                {activeGameMode === 'friend-duel' ? 'DUELO ENTRE AMIGOS' : 'DUELO CLÁSICO'}
+              </Text>
               <Text style={styles.duelOpponent}>Tú vs. {duelOpponent.name}</Text>
             </View>
             <Text style={styles.duelLevel}>Nv. {duelOpponent.level}</Text>

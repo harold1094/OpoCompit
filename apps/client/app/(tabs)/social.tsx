@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
-import { SocialUser } from '@/core/domain/types';
+import { FriendDuelInvitation, SocialUser } from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { trainingOpponents } from '@/features/duels/domain/duel';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -23,6 +23,7 @@ export default function SocialScreen() {
   const friends = useAppStore((state) => state.friends);
   const incomingRequests = useAppStore((state) => state.incomingRequests);
   const outgoingRequests = useAppStore((state) => state.outgoingRequests);
+  const duelInvitations = useAppStore((state) => state.duelInvitations);
   const searchResults = useAppStore((state) => state.socialSearchResults);
   const socialError = useAppStore((state) => state.socialError);
   const isLoadingSocial = useAppStore((state) => state.isLoadingSocial);
@@ -35,11 +36,22 @@ export default function SocialScreen() {
   const sendFriendRequest = useAppStore((state) => state.sendFriendRequest);
   const respondFriendRequest = useAppStore((state) => state.respondFriendRequest);
   const removeFriend = useAppStore((state) => state.removeFriend);
+  const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
+  const respondFriendDuelInvitation = useAppStore((state) => state.respondFriendDuelInvitation);
+  const openFriendDuel = useAppStore((state) => state.openFriendDuel);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
   const [showSearch, setShowSearch] = useState(false);
   const [username, setUsername] = useState('');
   const [query, setQuery] = useState('');
   const [startingOpponentId, setStartingOpponentId] = useState<string | null>(null);
+
+  const incomingDuelInvitations = duelInvitations.filter(
+    (invitation) => invitation.status === 'pending' && invitation.direction === 'incoming',
+  );
+  const outgoingDuelInvitations = duelInvitations.filter(
+    (invitation) => invitation.status === 'pending' && invitation.direction === 'outgoing',
+  );
+  const playableDuels = duelInvitations.filter((invitation) => invitation.status !== 'pending');
 
   useFocusEffect(
     useCallback(() => {
@@ -78,6 +90,18 @@ export default function SocialScreen() {
     ]);
   };
 
+  const challengeFriend = async (friend: SocialUser) => {
+    if (await sendFriendDuelInvitation(friend)) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const openInvitation = async (invitation: FriendDuelInvitation) => {
+    const destination = await openFriendDuel(invitation);
+    if (destination === 'quiz') router.push('/quiz');
+    if (destination === 'results' || destination === 'waiting') router.push('/results');
+  };
+
   return (
     <AppScreen>
       <View style={styles.heading}>
@@ -111,7 +135,7 @@ export default function SocialScreen() {
         <View style={styles.socialBandCopy}>
           <Text style={styles.socialBandTitle}>Tu círculo</Text>
           <Text style={styles.socialBandText}>
-            {friends.length} amigos · {incomingRequests.length} solicitudes
+            {friends.length} amigos · {incomingRequests.length + incomingDuelInvitations.length} avisos
           </Text>
         </View>
         <Text style={styles.socialBandValue}>{friends.length}</Text>
@@ -230,25 +254,124 @@ export default function SocialScreen() {
         </View>
       ) : null}
 
+      {incomingDuelInvitations.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Retos recibidos</Text>
+          <View style={styles.list}>
+            {incomingDuelInvitations.map((invitation) => (
+              <SocialRow
+                action={
+                  <View style={styles.requestActions}>
+                    <IconAction
+                      accessibilityLabel={`Rechazar reto de ${invitation.opponent.username}`}
+                      icon="close"
+                      disabled={socialActionId === invitation.id}
+                      onPress={() => void respondFriendDuelInvitation(invitation.id, false)}
+                      variant="neutral"
+                    />
+                    <IconAction
+                      accessibilityLabel={`Aceptar reto de ${invitation.opponent.username}`}
+                      icon="sword-cross"
+                      loading={socialActionId === invitation.id}
+                      onPress={() => void respondFriendDuelInvitation(invitation.id, true)}
+                      variant="soft"
+                    />
+                  </View>
+                }
+                key={invitation.id}
+                meta="Duelo clásico · pendiente"
+                user={invitation.opponent}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {outgoingDuelInvitations.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Retos enviados</Text>
+          <View style={styles.list}>
+            {outgoingDuelInvitations.map((invitation) => (
+              <SocialRow
+                action={<Text style={styles.pendingLabel}>Enviado</Text>}
+                key={invitation.id}
+                meta="Esperando respuesta"
+                user={invitation.opponent}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {playableDuels.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Duelos con amigos</Text>
+          <View style={styles.list}>
+            {playableDuels.map((invitation) => (
+              <SocialRow
+                action={
+                  invitation.status === 'waiting' ? (
+                    <Text style={styles.pendingLabel}>Esperando</Text>
+                  ) : (
+                    <IconAction
+                      accessibilityLabel={
+                        invitation.status === 'completed'
+                          ? `Ver resultado contra ${invitation.opponent.username}`
+                          : `Jugar contra ${invitation.opponent.username}`
+                      }
+                      icon={invitation.status === 'completed' ? 'trophy-outline' : 'play'}
+                      loading={isStartingDuel && socialActionId === invitation.id}
+                      onPress={() => void openInvitation(invitation)}
+                      variant="soft"
+                    />
+                  )
+                }
+                key={invitation.id}
+                meta={duelInvitationMeta(invitation)}
+                user={invitation.opponent}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {friends.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Amigos</Text>
           <View style={styles.list}>
-            {friends.map((friend) => (
-              <SocialRow
-                action={
-                  <IconAction
-                    accessibilityLabel={`Eliminar a ${friend.username}`}
-                    icon="account-remove-outline"
-                    loading={socialActionId === friend.uid}
-                    onPress={() => remove(friend)}
-                    variant="neutral"
-                  />
-                }
-                key={friend.uid}
-                user={friend}
-              />
-            ))}
+            {friends.map((friend) => {
+              const hasOpenDuel = duelInvitations.some(
+                (invitation) => invitation.opponent.uid === friend.uid &&
+                  ['pending', 'active', 'waiting'].includes(invitation.status),
+              );
+              return (
+                <SocialRow
+                  action={
+                    <View style={styles.requestActions}>
+                      <IconAction
+                        accessibilityLabel={
+                          hasOpenDuel ? `Reto activo con ${friend.username}` : `Retar a ${friend.username}`
+                        }
+                        disabled={hasOpenDuel}
+                        icon={hasOpenDuel ? 'timer-sand' : 'sword-cross'}
+                        loading={socialActionId === `duel_${friend.uid}`}
+                        onPress={() => void challengeFriend(friend)}
+                        variant="soft"
+                      />
+                      <IconAction
+                        accessibilityLabel={`Eliminar a ${friend.username}`}
+                        icon="account-remove-outline"
+                        loading={socialActionId === friend.uid}
+                        onPress={() => remove(friend)}
+                        variant="neutral"
+                      />
+                    </View>
+                  }
+                  key={friend.uid}
+                  user={friend}
+                />
+              );
+            })}
           </View>
         </View>
       ) : null}
@@ -275,26 +398,38 @@ export default function SocialScreen() {
         </View>
       </View>
 
-      <Text style={styles.localNote}>
-        Los retos entre amigos se habilitarán en el siguiente bloque competitivo.
-      </Text>
     </AppScreen>
   );
 }
 
-function SocialRow({ user, action }: { user: SocialUser; action: React.ReactNode }) {
+function SocialRow({
+  user,
+  action,
+  meta,
+}: {
+  user: SocialUser;
+  action: React.ReactNode;
+  meta?: string;
+}) {
   return (
     <View style={styles.row}>
       <Avatar />
       <View style={styles.rowCopy}>
         <Text style={styles.rowName}>{user.username}</Text>
         <Text style={styles.rowMeta}>
-          Nivel {user.level} · {user.territoryLabel} · {user.currentStreak} días
+          {meta ?? `Nivel ${user.level} · ${user.territoryLabel} · ${user.currentStreak} días`}
         </Text>
       </View>
       {action}
     </View>
   );
+}
+
+function duelInvitationMeta(invitation: FriendDuelInvitation): string {
+  if (invitation.status === 'completed') return 'Resultado disponible';
+  if (invitation.status === 'waiting') return 'Has terminado · falta tu rival';
+  if (invitation.opponentSubmitted) return 'Tu rival ya ha terminado';
+  return 'Duelo clásico · listo para jugar';
 }
 
 function Avatar() {
@@ -308,12 +443,14 @@ function Avatar() {
 
 function IconAction({
   accessibilityLabel,
+  disabled = false,
   icon,
   loading = false,
   onPress,
   variant = 'solid',
 }: {
   accessibilityLabel: string;
+  disabled?: boolean;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   loading?: boolean;
   onPress: () => void;
@@ -329,9 +466,14 @@ function IconAction({
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      disabled={loading}
+      disabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [styles.iconAction, { backgroundColor }, pressed && styles.iconPressed]}
+      style={({ pressed }) => [
+        styles.iconAction,
+        { backgroundColor },
+        disabled && styles.disabledButton,
+        pressed && styles.iconPressed,
+      ]}
     >
       {loading ? (
         <ActivityIndicator color={color} size="small" />
@@ -373,5 +515,4 @@ const styles = StyleSheet.create({
   iconAction: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   requestActions: { flexDirection: 'row', gap: 6 },
   pendingLabel: { color: colors.muted, fontSize: 11, fontWeight: '800' },
-  localNote: { color: colors.muted, fontSize: 11, lineHeight: 17, marginVertical: spacing.lg, textAlign: 'center' },
 });

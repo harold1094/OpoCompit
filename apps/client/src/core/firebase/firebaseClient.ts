@@ -21,6 +21,7 @@ import {
   DailyReward,
   DuelOpponent,
   DuelResult,
+  FriendDuelInvitation,
   FriendRequest,
   Mission,
   PlayerProfile,
@@ -71,6 +72,22 @@ type ClaimMissionResponse = {
 type SocialUserResponse = { user: SocialUser };
 type SocialSearchResponse = { users: SocialUser[] };
 type FriendRequestResponse = { request: FriendRequest };
+type FriendDuelInvitationResponse = { invitation: FriendDuelInvitation };
+
+export type OpenFriendDuelResponse = {
+  duelId: string;
+  status: 'active' | 'waiting' | 'completed';
+  opponent: DuelOpponent;
+  questions: Question[];
+  result: QuizResult | null;
+  duel: DuelResult | null;
+  progress: PlayerProgress;
+};
+
+export type SubmitFriendDuelResponse = SubmitQuizResponse & {
+  status: 'waiting' | 'completed';
+  duel: DuelResult | null;
+};
 
 function firebaseApp(): FirebaseApp | null {
   if (!firebaseEnabled) return null;
@@ -276,6 +293,50 @@ export async function removeFriendRemote(friendUid: string): Promise<void> {
   await startAnonymousSession();
   const invoke = callable<{ friendUid: string }, unknown>('removeFriend');
   await invoke({ friendUid });
+}
+
+export async function sendFriendDuelInvitationRemote(
+  friendUid: string,
+): Promise<FriendDuelInvitation> {
+  await startAnonymousSession();
+  const invoke = callable<{ friendUid: string }, FriendDuelInvitationResponse>(
+    'sendFriendDuelInvitation',
+  );
+  const response = await invoke({ friendUid });
+  return response.data.invitation;
+}
+
+export async function respondFriendDuelInvitationRemote(
+  invitationId: string,
+  accept: boolean,
+): Promise<FriendDuelInvitation | null> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { invitationId: string; accept: boolean },
+    FriendDuelInvitationResponse | { declined: true }
+  >('respondFriendDuelInvitation');
+  const response = await invoke({ invitationId, accept });
+  return 'invitation' in response.data ? response.data.invitation : null;
+}
+
+export async function openFriendDuelRemote(duelId: string): Promise<OpenFriendDuelResponse> {
+  await startAnonymousSession();
+  const invoke = callable<{ duelId: string }, OpenFriendDuelResponse>('openFriendDuel');
+  const response = await invoke({ duelId });
+  return response.data;
+}
+
+export async function submitFriendDuelRemote(
+  duelId: string,
+  answers: QuizAnswerSubmission[],
+): Promise<SubmitFriendDuelResponse> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { duelId: string; answers: QuizAnswerSubmission[] },
+    SubmitFriendDuelResponse
+  >('submitFriendDuel');
+  const response = await invoke({ duelId, answers });
+  return response.data;
 }
 
 export function isFirebaseEnabled(): boolean {

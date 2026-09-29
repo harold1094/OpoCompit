@@ -139,6 +139,7 @@ export type DuelOutcome = 'win' | 'loss' | 'draw';
 
 export type DuelResult = {
   duelId: string;
+  kind: 'training' | 'friend';
   opponent: DuelOpponent;
   outcome: DuelOutcome;
   playerCorrect: number;
@@ -164,8 +165,27 @@ export type FriendRequest = {
   createdAt: string;
 };
 
+export type FriendDuelInvitationStatus = 'pending' | 'active' | 'waiting' | 'completed';
+
+export type FriendDuelInvitation = {
+  id: string;
+  direction: 'incoming' | 'outgoing';
+  status: FriendDuelInvitationStatus;
+  duelId: string | null;
+  opponent: SocialUser;
+  viewerSubmitted: boolean;
+  opponentSubmitted: boolean;
+  createdAt: string;
+};
+
+export type PendingFriendDuel = {
+  duelId: string;
+  opponent: DuelOpponent;
+};
+
 export type SocialOverview = {
   friends: SocialUser[];
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
+  duelInvitations: FriendDuelInvitation[];
 };

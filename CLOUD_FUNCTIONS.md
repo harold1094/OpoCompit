@@ -81,8 +81,12 @@ Responsibilities:
 - `sendFriendRequest`: creates one deterministic pending request per pair of users.
 - `respondFriendRequest`: accepts or declines a request and creates the friendship atomically.
 - `removeFriend`: removes a friendship after validating participation.
+- `sendFriendDuelInvitation`: creates one active challenge per accepted friend pair.
+- `respondFriendDuelInvitation`: accepts or declines a challenge and selects shared eligible questions.
+- `openFriendDuel`: starts the authenticated player's individual timer and returns public questions.
+- `submitFriendDuel`: validates one player's answers, waits when necessary, and atomically closes the duel when both players finish.
 
-User documents and username reservations remain private. All social mutations run through callable Functions.
+Friend duels use identical questions, opposition compatibility, shared territorial scopes, and accuracy-before-time tie breaking. User documents and username reservations remain private. All social mutations run through callable Functions.
 
 ## callable: `updateProfileSelection`
 

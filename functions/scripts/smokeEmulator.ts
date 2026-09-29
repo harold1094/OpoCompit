@@ -23,6 +23,13 @@ type SocialOverview = {
   friends: SocialUser[];
   incomingRequests: Array<{id: string; user: SocialUser}>;
   outgoingRequests: Array<{id: string; user: SocialUser}>;
+  duelInvitations: Array<{
+    id: string;
+    duelId: string | null;
+    status: string;
+    opponent: SocialUser;
+    opponentSubmitted: boolean;
+  }>;
 };
 
 async function call<T>(name: string, data: unknown, idToken: string): Promise<T> {
@@ -294,6 +301,131 @@ async function main() {
   assert.equal(firstOverview.outgoingRequests.length, 0);
   assert.equal(secondOverview.incomingRequests.length, 0);
 
+  const sentDuelInvitation = await call<{
+    invitation: {id: string; status: string};
+  }>(
+    "sendFriendDuelInvitation",
+    {friendUid: friendAuth.localId},
+    auth.idToken,
+  );
+  assert.equal(sentDuelInvitation.invitation.status, "pending");
+  const duelInbox = await call<SocialOverview>("getSocialOverview", {}, friendAuth.idToken);
+  assert.equal(duelInbox.duelInvitations[0].opponent.username, "HaroldCT");
+  assert.equal(duelInbox.duelInvitations[0].status, "pending");
+
+  const acceptedDuelInvitation = await call<{
+    invitation: {duelId: string; status: string};
+  }>(
+    "respondFriendDuelInvitation",
+    {invitationId: sentDuelInvitation.invitation.id, accept: true},
+    friendAuth.idToken,
+  );
+  assert.equal(acceptedDuelInvitation.invitation.status, "active");
+  assert.ok(acceptedDuelInvitation.invitation.duelId);
+  const friendDuelId = acceptedDuelInvitation.invitation.duelId;
+
+  const [firstFriendDuel, secondFriendDuel] = await Promise.all([
+    call<{
+      questions: Array<{id: string; correctAnswerId?: string}>;
+      opponent: {name: string};
+      status: string;
+    }>("openFriendDuel", {duelId: friendDuelId}, auth.idToken),
+    call<{
+      questions: Array<{id: string; correctAnswerId?: string}>;
+      opponent: {name: string};
+      status: string;
+    }>("openFriendDuel", {duelId: friendDuelId}, friendAuth.idToken),
+  ]);
+  assert.equal(firstFriendDuel.status, "active");
+  assert.equal(firstFriendDuel.opponent.name, "LuciaReal");
+  assert.deepEqual(
+    firstFriendDuel.questions.map((question) => question.id),
+    secondFriendDuel.questions.map((question) => question.id),
+  );
+  assert.equal(
+    firstFriendDuel.questions.every((question) => question.correctAnswerId === undefined),
+    true,
+  );
+
+  const firstFriendSubmission = await call<{
+    status: string;
+    result: {correct: number};
+    duel: null;
+  }>(
+    "submitFriendDuel",
+    {
+      duelId: friendDuelId,
+      answers: firstFriendDuel.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: answersByQuestion.get(question.id),
+      })),
+    },
+    auth.idToken,
+  );
+  assert.equal(firstFriendSubmission.status, "waiting");
+  assert.equal(firstFriendSubmission.result.correct, 10);
+  assert.equal(firstFriendSubmission.duel, null);
+
+  const waitingOverview = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
+  assert.equal(waitingOverview.duelInvitations[0].status, "waiting");
+  const opponentTurnOverview = await call<SocialOverview>(
+    "getSocialOverview",
+    {},
+    friendAuth.idToken,
+  );
+  assert.equal(opponentTurnOverview.duelInvitations[0].status, "active");
+  assert.equal(opponentTurnOverview.duelInvitations[0].opponentSubmitted, true);
+
+  const secondFriendSubmission = await call<{
+    status: string;
+    duel: {outcome: string; playerCorrect: number; opponentCorrect: number};
+    progress: Progress;
+  }>(
+    "submitFriendDuel",
+    {
+      duelId: friendDuelId,
+      answers: secondFriendDuel.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: null,
+      })),
+    },
+    friendAuth.idToken,
+  );
+  assert.equal(secondFriendSubmission.status, "completed");
+  assert.equal(secondFriendSubmission.duel.outcome, "loss");
+  assert.equal(secondFriendSubmission.duel.playerCorrect, 0);
+  assert.equal(secondFriendSubmission.duel.opponentCorrect, 10);
+  assert.equal(secondFriendSubmission.progress.duelsPlayed, 1);
+  assert.equal(secondFriendSubmission.progress.duelLosses, 1);
+
+  const completedFriendDuel = await call<{
+    status: string;
+    result: {correct: number; xpEarned: number; coinsEarned: number};
+    duel: {outcome: string; playerCorrect: number; opponentCorrect: number};
+    progress: Progress;
+  }>("openFriendDuel", {duelId: friendDuelId}, auth.idToken);
+  assert.equal(completedFriendDuel.status, "completed");
+  assert.equal(completedFriendDuel.duel.outcome, "win");
+  assert.equal(completedFriendDuel.result.xpEarned, 150);
+  assert.equal(completedFriendDuel.result.coinsEarned, 35);
+  assert.equal(completedFriendDuel.progress.xp, 775);
+  assert.equal(completedFriendDuel.progress.coins, 215);
+  assert.equal(completedFriendDuel.progress.duelsPlayed, 2);
+  assert.equal(completedFriendDuel.progress.duelWins, 2);
+
+  let duplicateFriendDuelBlocked = false;
+  try {
+    await call(
+      "submitFriendDuel",
+      {duelId: friendDuelId, answers: []},
+      auth.idToken,
+    );
+  } catch (error) {
+    duplicateFriendDuelBlocked = error instanceof Error &&
+      error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(duplicateFriendDuelBlocked, true);
+
   await call("removeFriend", {friendUid: friendAuth.localId}, auth.idToken);
   const afterRemoval = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
   assert.equal(afterRemoval.friends.length, 0);
@@ -308,6 +440,8 @@ async function main() {
     duelValidated: true,
     duplicateDuelBlocked,
     friendshipRoundTripValidated: true,
+    asynchronousFriendDuelValidated: true,
+    duplicateFriendDuelBlocked,
     duplicateUsernameBlocked,
   }, null, 2));
 }

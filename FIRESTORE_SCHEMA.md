@@ -193,20 +193,19 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 
 ```json
 {
-  "uid": "player uid",
-  "participantUids": ["player uid"],
-  "mode": "classic_training",
-  "opponent": {"id": "training_mario", "name": "MarioCT", "level": 8},
+  "participantUids": ["first uid", "second uid"],
+  "mode": "classic_training|classic_friend",
+  "players": [{"uid": "player uid", "username": "player"}],
   "questionIds": [],
-  "status": "started|completed",
-  "result": null,
-  "reward": null,
+  "starts": [{"uid": "player uid", "startedAt": "serverTimestamp"}],
+  "submissions": [{"uid": "player uid", "correct": 8, "elapsedMs": 76000}],
+  "status": "started|active|completed",
   "createdAt": "serverTimestamp",
   "completedAt": null
 }
 ```
 
-Started duels are only exposed through callable Functions. Direct Firestore reads are limited to completed duels owned by the participant.
+Training duels retain their server-defined opponent snapshot. Friend duels expire after seven days while active, start a separate trusted timer for each player, and remain readable after completion. Started duels are only exposed through callable Functions. Direct Firestore reads are limited to completed duels owned by the participant.
 
 ## Economy
 
@@ -230,6 +229,7 @@ Started duels are only exposed through callable Functions. Direct Firestore read
 - `usernames/{normalizedUsername}`: private unique username reservation owned by Functions.
 - `friends/{sortedUidPair}`: accepted friendship edge with public member snapshots.
 - `friendRequests/{sortedUidPair}`: one pending, accepted, or declined request per user pair.
+- `duelInvitations/{sortedUidPair}`: the current pending, active, declined, or completed challenge for a friend pair.
 - `groups/{groupId}` and `groups/{groupId}/members/{uid}`.
 - `duels/{duelId}`: classic duel sessions.
 - `matchmakingQueues/{queueId}/entries/{uid}`: transactional queue entries.
@@ -241,4 +241,4 @@ Started duels are only exposed through callable Functions. Direct Firestore read
 - `subscriptions/{uid}`.
 - `appConfig/{configId}`.
 
-Friend and request identifiers are deterministic from the two sorted user IDs. Clients can read only relationships in which they participate and cannot write them directly.
+Friend, request, and active duel invitation identifiers are deterministic from the two sorted user IDs. Clients can read only relationships in which they participate and cannot write them directly.

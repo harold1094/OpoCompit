@@ -16,6 +16,11 @@ import {
   MissionTemplate,
 } from "./engagement.js";
 import {duelOutcome, trainingOpponent} from "./duel.js";
+import {
+  commonTerritoryKeys,
+  friendDuelViewStatus,
+  oppositeOutcome,
+} from "./friendDuel.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 
 initializeApp();
@@ -23,6 +28,7 @@ initializeApp();
 const db = getFirestore();
 const maxQuestionCount = 25;
 const sessionLifetimeMs = 24 * 60 * 60 * 1000;
+const friendDuelLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
 type TerritorySelection = {
   label: string;
@@ -101,6 +107,24 @@ type RespondFriendRequestInput = {
 
 type RemoveFriendInput = {
   friendUid: string;
+};
+
+type SendFriendDuelInvitationInput = {
+  friendUid: string;
+};
+
+type RespondFriendDuelInvitationInput = {
+  invitationId: string;
+  accept: boolean;
+};
+
+type OpenFriendDuelInput = {
+  duelId: string;
+};
+
+type SubmitFriendDuelInput = {
+  duelId: string;
+  answers: Answer[];
 };
 
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
@@ -809,6 +833,7 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
     };
     const duelResult = {
       duelId,
+      kind: "training",
       opponent: {
         id: opponent.id,
         name: opponent.name,
@@ -1043,6 +1068,496 @@ export const removeFriend = onCall<RemoveFriendInput>(async (request) => {
   return {removedUid: friendUid};
 });
 
+export const sendFriendDuelInvitation = onCall<SendFriendDuelInvitationInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const friendUid = requireString(request.data?.friendUid, "friendUid", 160);
+  if (uid === friendUid) {
+    throw new HttpsError("invalid-argument", "You cannot challenge yourself.");
+  }
+
+  const invitationId = socialEdgeId(uid, friendUid);
+  const friendRef = db.collection("friends").doc(invitationId);
+  const invitationRef = db.collection("duelInvitations").doc(invitationId);
+  const fromRef = db.collection("users").doc(uid);
+  const toRef = db.collection("users").doc(friendUid);
+
+  return db.runTransaction(async (transaction) => {
+    const [friendship, existingInvitation, fromUser, toUser] = await Promise.all([
+      transaction.get(friendRef),
+      transaction.get(invitationRef),
+      transaction.get(fromRef),
+      transaction.get(toRef),
+    ]);
+    if (!friendship.exists || !parseStringArray(friendship.data()?.uids).includes(uid)) {
+      throw new HttpsError("failed-precondition", "Only friends can challenge each other.");
+    }
+    if (!fromUser.exists || !toUser.exists) {
+      throw new HttpsError("failed-precondition", "Friend profile missing.");
+    }
+    const now = Timestamp.now();
+    const existingData = existingInvitation.data() ?? {};
+    const existingExpiresAt = existingData.expiresAt;
+    const existingIsOpen = ["pending", "active"].includes(String(existingData.status)) &&
+      (!(existingExpiresAt instanceof Timestamp) || existingExpiresAt.toMillis() > now.toMillis());
+    if (existingIsOpen) {
+      throw new HttpsError("already-exists", "There is already an active challenge.");
+    }
+
+    const data = {
+      fromUid: uid,
+      toUid: friendUid,
+      fromUser: serializeSocialUser(uid, fromUser.data() ?? {}),
+      toUser: serializeSocialUser(friendUid, toUser.data() ?? {}),
+      status: "pending",
+      duelId: null,
+      submittedUids: [],
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: Timestamp.fromMillis(now.toMillis() + friendDuelLifetimeMs),
+    };
+    transaction.set(invitationRef, data);
+    return {invitation: serializeDuelInvitation(invitationId, data, uid)};
+  });
+});
+
+export const respondFriendDuelInvitation = onCall<RespondFriendDuelInvitationInput>(
+  async (request) => {
+    const uid = requireUid(request.auth?.uid);
+    const invitationId = requireString(request.data?.invitationId, "invitationId", 340);
+    if (typeof request.data?.accept !== "boolean") {
+      throw new HttpsError("invalid-argument", "Invalid duel invitation response.");
+    }
+    const invitationRef = db.collection("duelInvitations").doc(invitationId);
+
+    if (!request.data.accept) {
+      return db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(invitationRef);
+        if (!snapshot.exists || snapshot.data()?.toUid !== uid) {
+          throw new HttpsError("permission-denied", "This invitation is not for you.");
+        }
+        if (snapshot.data()?.status !== "pending") {
+          throw new HttpsError("failed-precondition", "Invitation already resolved.");
+        }
+        transaction.update(invitationRef, {
+          status: "declined",
+          updatedAt: Timestamp.now(),
+        });
+        return {declined: true};
+      });
+    }
+
+    const initialInvitation = await invitationRef.get();
+    if (!initialInvitation.exists || initialInvitation.data()?.toUid !== uid) {
+      throw new HttpsError("permission-denied", "This invitation is not for you.");
+    }
+    if (initialInvitation.data()?.status !== "pending") {
+      throw new HttpsError("failed-precondition", "Invitation already resolved.");
+    }
+    if (duelInvitationExpired(initialInvitation.data() ?? {})) {
+      throw new HttpsError("deadline-exceeded", "Invitation expired.");
+    }
+    const fromUid = requireString(initialInvitation.data()?.fromUid, "stored fromUid", 160);
+    const [fromUser, toUser] = await Promise.all([
+      db.collection("users").doc(fromUid).get(),
+      db.collection("users").doc(uid).get(),
+    ]);
+    if (!fromUser.exists || !toUser.exists) {
+      throw new HttpsError("failed-precondition", "Friend profile missing.");
+    }
+    const fromData = fromUser.data() ?? {};
+    const toData = toUser.data() ?? {};
+    const oppositionId = requireString(fromData.oppositionId, "stored oppositionId", 80);
+    if (toData.oppositionId !== oppositionId) {
+      throw new HttpsError("failed-precondition", "Both players must prepare the same opposition.");
+    }
+    const sharedTerritoryKeys = commonTerritoryKeys(
+      buildTerritoryKeys(parseTerritory(fromData.territorySelection)),
+      buildTerritoryKeys(parseTerritory(toData.territorySelection)),
+    );
+    if (sharedTerritoryKeys.length === 0) {
+      throw new HttpsError("failed-precondition", "The players have no compatible content.");
+    }
+    const questions = await db.collection("questions")
+      .where("oppositionId", "==", oppositionId)
+      .where("status", "==", "published")
+      .where("verified", "==", true)
+      .where("territoryKeys", "array-contains-any", sharedTerritoryKeys.slice(0, 10))
+      .orderBy("difficulty", "asc")
+      .limit(10)
+      .get();
+    if (questions.empty) {
+      throw new HttpsError("not-found", "No compatible questions found.");
+    }
+
+    const duelRef = db.collection("duels").doc();
+    const friendRef = db.collection("friends").doc(socialEdgeId(fromUid, uid));
+    const now = Timestamp.now();
+    const accepted = await db.runTransaction(async (transaction) => {
+      const [invitation, friendship, freshFromUser, freshToUser] = await Promise.all([
+        transaction.get(invitationRef),
+        transaction.get(friendRef),
+        transaction.get(db.collection("users").doc(fromUid)),
+        transaction.get(db.collection("users").doc(uid)),
+      ]);
+      if (!invitation.exists || invitation.data()?.toUid !== uid) {
+        throw new HttpsError("permission-denied", "This invitation is not for you.");
+      }
+      if (invitation.data()?.status !== "pending") {
+        throw new HttpsError("failed-precondition", "Invitation already resolved.");
+      }
+      if (duelInvitationExpired(invitation.data() ?? {})) {
+        throw new HttpsError("deadline-exceeded", "Invitation expired.");
+      }
+      if (!friendship.exists || !freshFromUser.exists || !freshToUser.exists) {
+        throw new HttpsError("failed-precondition", "Friendship is no longer available.");
+      }
+      const friendshipUids = parseStringArray(friendship.data()?.uids);
+      if (!friendshipUids.includes(fromUid) || !friendshipUids.includes(uid)) {
+        throw new HttpsError("failed-precondition", "Friendship is no longer available.");
+      }
+      const freshFromData = freshFromUser.data() ?? {};
+      const freshToData = freshToUser.data() ?? {};
+      if (freshFromData.oppositionId !== oppositionId || freshToData.oppositionId !== oppositionId) {
+        throw new HttpsError("failed-precondition", "Player opposition changed.");
+      }
+      const freshSharedTerritoryKeys = commonTerritoryKeys(
+        buildTerritoryKeys(parseTerritory(freshFromData.territorySelection)),
+        buildTerritoryKeys(parseTerritory(freshToData.territorySelection)),
+      );
+      if (freshSharedTerritoryKeys.join("|") !== sharedTerritoryKeys.join("|")) {
+        throw new HttpsError("failed-precondition", "Player territory changed.");
+      }
+      const players = [
+        serializeSocialUser(fromUid, freshFromData),
+        serializeSocialUser(uid, freshToData),
+      ];
+      transaction.set(duelRef, {
+        participantUids: [fromUid, uid],
+        mode: "classic_friend",
+        invitationId,
+        players,
+        oppositionId,
+        territoryKeys: sharedTerritoryKeys,
+        questionIds: questions.docs.map((document) => document.id),
+        starts: [],
+        submissions: [],
+        status: "active",
+        createdAt: invitation.data()?.createdAt ?? now,
+        acceptedAt: now,
+        completedAt: null,
+      });
+      const update = {
+        status: "active",
+        duelId: duelRef.id,
+        submittedUids: [],
+        updatedAt: now,
+        expiresAt: Timestamp.fromMillis(now.toMillis() + friendDuelLifetimeMs),
+      };
+      transaction.update(invitationRef, update);
+      return serializeDuelInvitation(
+        invitationId,
+        {...(invitation.data() ?? {}), ...update},
+        uid,
+      );
+    });
+    return {invitation: accepted};
+  },
+);
+
+export const openFriendDuel = onCall<OpenFriendDuelInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const duelId = requireString(request.data?.duelId, "duelId", 160);
+  const duelRef = db.collection("duels").doc(duelId);
+
+  const duel = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(duelRef);
+    if (!snapshot.exists) throw new HttpsError("not-found", "Duel not found.");
+    const data = snapshot.data() ?? {};
+    if (data.mode !== "classic_friend" || !parseStringArray(data.participantUids).includes(uid)) {
+      throw new HttpsError("permission-denied", "Not your duel.");
+    }
+    if (!["active", "completed"].includes(String(data.status))) {
+      throw new HttpsError("failed-precondition", "Duel is not available.");
+    }
+    const acceptedAt = data.acceptedAt;
+    if (!(acceptedAt instanceof Timestamp) ||
+      (data.status === "active" && Date.now() - acceptedAt.toMillis() > friendDuelLifetimeMs)) {
+      throw new HttpsError("deadline-exceeded", "Duel expired.");
+    }
+    const starts = friendDuelEntries(data.starts);
+    if (data.status === "active" && !starts.some((entry) => entry.uid === uid)) {
+      const updatedStarts = [...starts, {uid, startedAt: Timestamp.now()}];
+      transaction.update(duelRef, {starts: updatedStarts});
+      return {...data, starts: updatedStarts};
+    }
+    return data;
+  });
+
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) throw new HttpsError("failed-precondition", "User profile missing.");
+  const submissions = friendDuelEntries(duel.submissions);
+  const viewerSubmission = submissions.find((entry) => entry.uid === uid);
+  const opponentSubmission = submissions.find((entry) => entry.uid !== uid);
+  const questionIds = parseQuestionIds(duel.questionIds);
+  const questionSnapshots = viewerSubmission ? [] : await Promise.all(
+    questionIds.map((id) => db.collection("questions").doc(id).get()),
+  );
+  const questions = questionSnapshots.map((snapshot) => {
+    if (!snapshot.exists) throw new HttpsError("failed-precondition", "Question missing.");
+    return publicQuestion(snapshot.id, snapshot.data() as QuestionDoc);
+  });
+
+  return {
+    duelId,
+    status: friendDuelViewStatus(duel.status, Boolean(viewerSubmission), Boolean(opponentSubmission)),
+    opponent: friendDuelOpponent(duel.players, uid),
+    questions,
+    result: viewerSubmission?.result ?? null,
+    duel: duel.status === "completed" ? serializeCompletedFriendDuel(duelId, duel, uid) : null,
+    progress: serializeProgress(userSnapshot.data() ?? {}),
+  };
+});
+
+export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const duelId = requireString(request.data?.duelId, "duelId", 160);
+  const submittedAnswers = parseAnswers(request.data?.answers);
+  const duelRef = db.collection("duels").doc(duelId);
+
+  return db.runTransaction(async (transaction) => {
+    const duelSnapshot = await transaction.get(duelRef);
+    if (!duelSnapshot.exists) throw new HttpsError("not-found", "Duel not found.");
+    const duel = duelSnapshot.data() ?? {};
+    const participantUids = parseStringArray(duel.participantUids);
+    if (duel.mode !== "classic_friend" || !participantUids.includes(uid)) {
+      throw new HttpsError("permission-denied", "Not your duel.");
+    }
+    if (duel.status !== "active") {
+      throw new HttpsError("failed-precondition", "Duel already completed.");
+    }
+    const acceptedAt = duel.acceptedAt;
+    if (!(acceptedAt instanceof Timestamp) ||
+      Date.now() - acceptedAt.toMillis() > friendDuelLifetimeMs) {
+      throw new HttpsError("deadline-exceeded", "Duel expired.");
+    }
+    const submissions = friendDuelEntries(duel.submissions);
+    if (submissions.some((entry) => entry.uid === uid)) {
+      throw new HttpsError("failed-precondition", "Duel already submitted.");
+    }
+    const start = friendDuelEntries(duel.starts).find((entry) => entry.uid === uid)?.startedAt;
+    if (!(start instanceof Timestamp)) {
+      throw new HttpsError("failed-precondition", "Open the duel before submitting it.");
+    }
+
+    const opponentUid = participantUids.find((participantUid) => participantUid !== uid);
+    if (!opponentUid) throw new HttpsError("failed-precondition", "Opponent missing.");
+    const questionIds = parseQuestionIds(duel.questionIds);
+    const allowedQuestionIds = new Set(questionIds);
+    if (submittedAnswers.some((answer) => !allowedQuestionIds.has(answer.questionId))) {
+      throw new HttpsError("invalid-argument", "Answer contains an unknown question.");
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const opponentRef = db.collection("users").doc(opponentUid);
+    const questionRefs = questionIds.map((id) => db.collection("questions").doc(id));
+    const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
+    const completedAt = Timestamp.now();
+    const date = madridDay(completedAt.toDate());
+    const missionRefs = dailyMissionTemplates.map((mission) =>
+      userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
+    );
+    const [userSnapshot, opponentSnapshot, questionSnapshots, statSnapshots, missionSnapshots] =
+      await Promise.all([
+        transaction.get(userRef),
+        transaction.get(opponentRef),
+        Promise.all(questionRefs.map((reference) => transaction.get(reference))),
+        Promise.all(statRefs.map((reference) => transaction.get(reference))),
+        Promise.all(missionRefs.map((reference) => transaction.get(reference))),
+      ]);
+    if (!userSnapshot.exists || !opponentSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "Player profile missing.");
+    }
+
+    const questions = questionSnapshots.map((snapshot) => {
+      if (!snapshot.exists) throw new HttpsError("failed-precondition", "Question missing.");
+      return {id: snapshot.id, data: snapshot.data() as QuestionDoc};
+    });
+    const scored = scoreStoredQuestions(questions, submittedAnswers);
+    const elapsedMs = Math.min(Math.max(0, completedAt.toMillis() - start.toMillis()), 3_600_000);
+    const previousSubmission = submissions.find((entry) => entry.uid === opponentUid);
+    const isCompleted = Boolean(previousSubmission);
+    const outcome = previousSubmission ? duelOutcome(
+      scored.correct,
+      elapsedMs,
+      numberValue(previousSubmission.correct),
+      numberValue(previousSubmission.elapsedMs),
+    ) : null;
+    const outcomeXp = outcome === "win" ? 20 : outcome === "draw" ? 10 : 0;
+    const outcomeCoins = outcome === "win" ? 10 : outcome === "draw" ? 5 : 0;
+    const baseXp = scored.correct * 10 + 20 + (scored.percentage >= 0.8 ? 10 : 0);
+    const baseCoins = scored.correct * 2 + 5;
+    const xpEarned = baseXp + outcomeXp;
+    const coinsEarned = baseCoins + outcomeCoins;
+    const user = userSnapshot.data() ?? {};
+    const previousStreak = numberValue(user.currentStreak);
+    const streak = nextStreak(previousStreak, user.lastValidActivityDate, completedAt);
+    const xp = numberValue(user.xp) + xpEarned;
+    const coins = numberValue(user.coins) + coinsEarned;
+    const profileUpdate = {
+      xp,
+      level: Math.floor(Math.sqrt(xp / 100)) + 1,
+      coins,
+      currentStreak: streak,
+      bestStreak: Math.max(numberValue(user.bestStreak), streak),
+      totalQuestions: numberValue(user.totalQuestions) + questions.length,
+      correctAnswers: numberValue(user.correctAnswers) + scored.correct,
+      testsCompleted: numberValue(user.testsCompleted) + 1,
+      duelsPlayed: numberValue(user.duelsPlayed) + (isCompleted ? 1 : 0),
+      duelWins: numberValue(user.duelWins) + (outcome === "win" ? 1 : 0),
+      duelLosses: numberValue(user.duelLosses) + (outcome === "loss" ? 1 : 0),
+      duelDraws: numberValue(user.duelDraws) + (outcome === "draw" ? 1 : 0),
+      lastValidActivityDate: completedAt,
+      updatedAt: completedAt,
+    };
+    transaction.update(userRef, profileUpdate);
+
+    statSnapshots.forEach((snapshot, index) => {
+      const attempt = scored.attempts[index];
+      const previous = snapshot.data() ?? {};
+      transaction.set(statRefs[index], {
+        questionId: attempt.question.id,
+        timesSeen: numberValue(previous.timesSeen) + 1,
+        correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
+        incorrectCount: numberValue(previous.incorrectCount) +
+          (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
+        blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        lastAnswerId: attempt.selectedAnswerId,
+        lastAnsweredAt: completedAt,
+      }, {merge: true});
+    });
+
+    const missions = dailyMissionTemplates.map((template, index) => {
+      const previous = missionSnapshots[index].data() ?? {};
+      const progress = Math.min(
+        template.target,
+        numberValue(previous.progress) +
+          missionProgressIncrement(template.type, questions.length, scored.correct, false),
+      );
+      const updated = {
+        ...missionDocument(template, date, completedAt),
+        progress,
+        claimed: previous.claimed === true,
+        createdAt: previous.createdAt ?? completedAt,
+        updatedAt: completedAt,
+      };
+      transaction.set(missionRefs[index], updated);
+      return serializeMission(template, updated, date);
+    });
+
+    const result = {
+      attempts: scored.attempts,
+      correct: scored.correct,
+      incorrect: scored.incorrect,
+      blank: scored.blank,
+      points: scored.correct,
+      percentage: scored.percentage,
+      xpEarned,
+      coinsEarned,
+      completedAt: completedAt.toDate().toISOString(),
+    };
+    let updatedSubmissions = [...submissions, {
+      uid,
+      correct: scored.correct,
+      elapsedMs,
+      result,
+      submittedAt: completedAt,
+    }];
+    let duelResult = null;
+    if (previousSubmission && outcome) {
+      const opponentOutcome = oppositeOutcome(outcome);
+      const opponentBonusXp = opponentOutcome === "win" ? 20 : opponentOutcome === "draw" ? 10 : 0;
+      const opponentBonusCoins = opponentOutcome === "win" ? 10 :
+        opponentOutcome === "draw" ? 5 : 0;
+      const opponent = opponentSnapshot.data() ?? {};
+      const opponentXp = numberValue(opponent.xp) + opponentBonusXp;
+      transaction.update(opponentRef, {
+        xp: opponentXp,
+        level: Math.floor(Math.sqrt(opponentXp / 100)) + 1,
+        coins: numberValue(opponent.coins) + opponentBonusCoins,
+        duelsPlayed: numberValue(opponent.duelsPlayed) + 1,
+        duelWins: numberValue(opponent.duelWins) + (opponentOutcome === "win" ? 1 : 0),
+        duelLosses: numberValue(opponent.duelLosses) + (opponentOutcome === "loss" ? 1 : 0),
+        duelDraws: numberValue(opponent.duelDraws) + (opponentOutcome === "draw" ? 1 : 0),
+        updatedAt: completedAt,
+      });
+      const previousResult = storedRecord(previousSubmission.result);
+      updatedSubmissions = updatedSubmissions.map((submission) => submission.uid === opponentUid ? {
+        ...submission,
+        outcome: opponentOutcome,
+        result: {
+          ...previousResult,
+          xpEarned: numberValue(previousResult.xpEarned) + opponentBonusXp,
+          coinsEarned: numberValue(previousResult.coinsEarned) + opponentBonusCoins,
+        },
+      } : submission.uid === uid ? {...submission, outcome} : submission);
+      duelResult = {
+        duelId,
+        kind: "friend",
+        opponent: friendDuelOpponent(duel.players, uid),
+        outcome,
+        playerCorrect: scored.correct,
+        opponentCorrect: numberValue(previousSubmission.correct),
+        playerElapsedMs: elapsedMs,
+        opponentElapsedMs: numberValue(previousSubmission.elapsedMs),
+      };
+      if (opponentBonusCoins > 0) {
+        transaction.set(db.collection("currencyTransactions").doc(), {
+          uid: opponentUid,
+          type: "duel_reward",
+          currency: "coins",
+          amount: opponentBonusCoins,
+          balanceAfter: numberValue(opponent.coins) + opponentBonusCoins,
+          sourceId: `${duelId}_outcome`,
+          createdAt: completedAt,
+        });
+      }
+    }
+
+    transaction.update(duelRef, {
+      submissions: updatedSubmissions,
+      status: isCompleted ? "completed" : "active",
+      completedAt: isCompleted ? completedAt : null,
+      updatedAt: completedAt,
+    });
+    const invitationId = requireString(duel.invitationId, "stored invitationId", 340);
+    transaction.update(db.collection("duelInvitations").doc(invitationId), {
+      status: isCompleted ? "completed" : "active",
+      submittedUids: updatedSubmissions.map((submission) => submission.uid),
+      updatedAt: completedAt,
+    });
+    transaction.set(db.collection("currencyTransactions").doc(), {
+      uid,
+      type: "duel_reward",
+      currency: "coins",
+      amount: coinsEarned,
+      balanceAfter: coins,
+      sourceId: duelId,
+      createdAt: completedAt,
+    });
+
+    return {
+      status: isCompleted ? "completed" : "waiting",
+      result,
+      duel: duelResult,
+      progress: serializeProgress({...user, ...profileUpdate}),
+      engagement: {
+        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        missions,
+      },
+    };
+  });
+});
+
 function requireUid(uid: string | undefined): string {
   if (!uid) throw new HttpsError("unauthenticated", "Authentication required.");
   return uid;
@@ -1211,10 +1726,18 @@ function serializeProgress(data: Record<string, unknown>) {
 }
 
 async function socialOverview(uid: string) {
-  const [incomingSnapshot, outgoingSnapshot, friendsSnapshot] = await Promise.all([
+  const [
+    incomingSnapshot,
+    outgoingSnapshot,
+    friendsSnapshot,
+    incomingDuelsSnapshot,
+    outgoingDuelsSnapshot,
+  ] = await Promise.all([
     db.collection("friendRequests").where("toUid", "==", uid).limit(50).get(),
     db.collection("friendRequests").where("fromUid", "==", uid).limit(50).get(),
     db.collection("friends").where("uids", "array-contains", uid).limit(50).get(),
+    db.collection("duelInvitations").where("toUid", "==", uid).limit(50).get(),
+    db.collection("duelInvitations").where("fromUid", "==", uid).limit(50).get(),
   ]);
 
   const incomingRequests = incomingSnapshot.docs
@@ -1232,8 +1755,12 @@ async function socialOverview(uid: string) {
     );
     return friend ? [serializeStoredSocialUser(friend)] : [];
   });
+  const duelInvitations = [...incomingDuelsSnapshot.docs, ...outgoingDuelsSnapshot.docs]
+    .filter((document) => document.data().status !== "declined" &&
+      !duelInvitationExpired(document.data()))
+    .map((document) => serializeDuelInvitation(document.id, document.data(), uid));
 
-  return {friends, incomingRequests, outgoingRequests};
+  return {friends, incomingRequests, outgoingRequests, duelInvitations};
 }
 
 function serializeSocialUser(uid: string, data: Record<string, unknown>) {
@@ -1283,6 +1810,128 @@ function serializeFriendRequest(
 
 function parseStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function storedRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+}
+
+function friendDuelEntries(value: unknown): Array<Record<string, unknown> & {uid: string}> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const data = storedRecord(entry);
+    return typeof data.uid === "string" ? [{...data, uid: data.uid}] : [];
+  });
+}
+
+function serializeDuelInvitation(
+  id: string,
+  data: Record<string, unknown>,
+  viewerUid: string,
+) {
+  const incoming = data.toUid === viewerUid;
+  const opponentUid = incoming ? data.fromUid : data.toUid;
+  const submittedUids = parseStringArray(data.submittedUids);
+  const viewerSubmitted = submittedUids.includes(viewerUid);
+  const opponentSubmitted = typeof opponentUid === "string" && submittedUids.includes(opponentUid);
+  return {
+    id,
+    direction: incoming ? "incoming" : "outgoing",
+    status: friendDuelViewStatus(data.status, viewerSubmitted, opponentSubmitted),
+    duelId: typeof data.duelId === "string" ? data.duelId : null,
+    opponent: serializeStoredSocialUser(incoming ? data.fromUser : data.toUser),
+    viewerSubmitted,
+    opponentSubmitted,
+    createdAt: data.createdAt instanceof Timestamp ?
+      data.createdAt.toDate().toISOString() : new Date(0).toISOString(),
+  };
+}
+
+function duelInvitationExpired(data: Record<string, unknown>): boolean {
+  if (!["pending", "active"].includes(String(data.status))) return false;
+  return data.expiresAt instanceof Timestamp && data.expiresAt.toMillis() <= Date.now();
+}
+
+function friendDuelOpponent(value: unknown, viewerUid: string) {
+  const players = Array.isArray(value) ? value : [];
+  const opponent = serializeStoredSocialUser(players.find((player) =>
+    storedRecord(player).uid !== viewerUid,
+  ));
+  return {
+    id: opponent.uid,
+    name: opponent.username,
+    level: opponent.level,
+    territoryLabel: opponent.territoryLabel,
+  };
+}
+
+function serializeCompletedFriendDuel(
+  duelId: string,
+  duel: Record<string, unknown>,
+  viewerUid: string,
+) {
+  const submissions = friendDuelEntries(duel.submissions);
+  const viewer = submissions.find((submission) => submission.uid === viewerUid);
+  const opponent = submissions.find((submission) => submission.uid !== viewerUid);
+  if (!viewer || !opponent) {
+    throw new HttpsError("failed-precondition", "Duel result is incomplete.");
+  }
+  const calculatedOutcome = duelOutcome(
+    numberValue(viewer.correct),
+    numberValue(viewer.elapsedMs),
+    numberValue(opponent.correct),
+    numberValue(opponent.elapsedMs),
+  );
+  const outcome = ["win", "loss", "draw"].includes(String(viewer.outcome)) ?
+    String(viewer.outcome) : calculatedOutcome;
+  return {
+    duelId,
+    kind: "friend",
+    opponent: friendDuelOpponent(duel.players, viewerUid),
+    outcome,
+    playerCorrect: numberValue(viewer.correct),
+    opponentCorrect: numberValue(opponent.correct),
+    playerElapsedMs: numberValue(viewer.elapsedMs),
+    opponentElapsedMs: numberValue(opponent.elapsedMs),
+  };
+}
+
+function scoreStoredQuestions(
+  questions: Array<{id: string; data: QuestionDoc}>,
+  submittedAnswers: Answer[],
+) {
+  const answersByQuestion = new Map(
+    submittedAnswers.map((answer) => [answer.questionId, answer]),
+  );
+  let correct = 0;
+  let blank = 0;
+  let incorrect = 0;
+  const attempts = questions.map((question) => {
+    const answer = answersByQuestion.get(question.id);
+    const selectedAnswerId = answer?.selectedAnswerId ?? null;
+    if (selectedAnswerId !== null &&
+      !question.data.answers.some((option) => option.id === selectedAnswerId)) {
+      throw new HttpsError("invalid-argument", "Invalid answer option.");
+    }
+    const isBlank = selectedAnswerId === null;
+    const isCorrect = selectedAnswerId === question.data.correctAnswerId;
+    if (isBlank) blank++;
+    else if (isCorrect) correct++;
+    else incorrect++;
+    return {
+      question: reviewQuestion(question.id, question.data),
+      selectedAnswerId,
+      isBlank,
+      isCorrect,
+    };
+  });
+  return {
+    attempts,
+    correct,
+    blank,
+    incorrect,
+    percentage: correct / questions.length,
+  };
 }
 
 function missionDocument(template: MissionTemplate, date: string, now: Timestamp) {
