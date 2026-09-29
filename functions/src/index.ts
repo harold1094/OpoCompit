@@ -8,6 +8,10 @@ import {
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import {
+  AdminImportValidationError,
+  parseQuestionBatch,
+} from "./adminImport.js";
+import {
   dailyMissionTemplates,
   dailyRewardFor,
   madridDay,
@@ -138,6 +142,107 @@ type SubmitFriendDuelInput = {
 type GetRankingInput = {
   scope: "global" | "territory" | "friends";
 };
+
+export const importQuestionBatch = onCall<unknown>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  let importedBatch;
+  try {
+    importedBatch = parseQuestionBatch(request.data);
+  } catch (error) {
+    if (error instanceof AdminImportValidationError) {
+      throw new HttpsError("invalid-argument", error.message);
+    }
+    throw error;
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const batchRef = db.collection("questionImportBatches").doc(importedBatch.batchId);
+  const questionRefs = importedBatch.questions.map((question) =>
+    db.collection("questions").doc(question.id),
+  );
+  const oppositionIds = [...new Set(importedBatch.questions.map(
+    (question) => question.oppositionId,
+  ))];
+  const oppositionRefs = oppositionIds.map((oppositionId) =>
+    db.collection("oppositions").doc(oppositionId),
+  );
+
+  return db.runTransaction(async (transaction) => {
+    const userSnapshot = await transaction.get(userRef);
+    if (!userSnapshot.exists || userSnapshot.data()?.role !== "admin") {
+      throw new HttpsError("permission-denied", "Administrator role required.");
+    }
+
+    const existingBatch = await transaction.get(batchRef);
+    if (existingBatch.exists) {
+      const data = existingBatch.data() ?? {};
+      if (data.createdBy !== uid || data.contentFingerprint !== importedBatch.contentFingerprint) {
+        throw new HttpsError("already-exists", "Import batch id is already in use.");
+      }
+      return {
+        batchId: importedBatch.batchId,
+        importedCount: Number(data.importedCount ?? 0),
+        questionIds: Array.isArray(data.questionIds) ? data.questionIds : [],
+        status: "completed",
+        idempotent: true,
+      };
+    }
+
+    const [oppositionSnapshots, questionSnapshots] = await Promise.all([
+      transaction.getAll(...oppositionRefs),
+      transaction.getAll(...questionRefs),
+    ]);
+    oppositionSnapshots.forEach((snapshot, index) => {
+      if (!snapshot.exists || snapshot.data()?.active !== true) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Opposition ${oppositionIds[index]} does not exist or is inactive.`,
+        );
+      }
+    });
+    const existingQuestionIds = questionSnapshots
+      .filter((snapshot) => snapshot.exists)
+      .map((snapshot) => snapshot.id);
+    if (existingQuestionIds.length > 0) {
+      throw new HttpsError(
+        "already-exists",
+        `Question ids already exist: ${existingQuestionIds.join(", ")}.`,
+      );
+    }
+
+    const now = Timestamp.now();
+    importedBatch.questions.forEach((question, index) => {
+      const questionData: Partial<typeof question> = {...question};
+      delete questionData.id;
+      transaction.create(questionRefs[index], {
+        ...questionData,
+        createdBy: uid,
+        createdAt: now,
+        updatedAt: now,
+        lastReviewedAt: null,
+      });
+    });
+    const questionIds = importedBatch.questions.map((question) => question.id);
+    transaction.create(batchRef, {
+      contentFingerprint: importedBatch.contentFingerprint,
+      sourceDocument: importedBatch.sourceDocument,
+      createdBy: uid,
+      importedCount: questionIds.length,
+      questionIds,
+      status: "completed",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      batchId: importedBatch.batchId,
+      importedCount: questionIds.length,
+      questionIds,
+      status: "completed",
+      idempotent: false,
+    };
+  });
+});
 
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);

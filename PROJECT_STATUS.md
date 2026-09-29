@@ -56,6 +56,8 @@
 - Callable friend-duel API for invitations, acceptance, play, submission, and final server-owned results.
 - Callable matchmaking API for joining, polling, cancelling, transactional pairing, and Elo updates.
 - Callable ranking API with server-owned XP, public snapshots, tie handling, and bounded reads.
+- Admin-only JSON question imports with strict validation, stable identifiers, audit batches, and idempotent retries.
+- Emulator import command and sample batch for reviewing the complete ingestion path without Blaze.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -66,10 +68,11 @@
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
 - Shared friend streaks and social activity feed.
-- Admin import.
+- Admin review/publication interface and CSV conversion.
 
 ## Next Implementation Steps
 
-1. Add the first functional admin import flow against the emulator.
-2. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-3. Remove Flutter only after React reaches verified feature parity.
+1. Add the admin review and publication workflow against the emulator.
+2. Add shared friend streaks and the bounded social activity feed.
+3. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+4. Remove Flutter only after React reaches verified feature parity.

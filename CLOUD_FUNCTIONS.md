@@ -125,6 +125,13 @@ Admin-only.
 
 Responsibilities:
 
-- Validate JSON/CSV import payload.
-- Create questions as `pending_review`.
-- Store source metadata and duplicate candidates.
+- Require an authenticated user whose private profile has the `admin` role.
+- Validate JSON batches of up to 100 questions, answer options, sources, dates, and territorial scope.
+- Reject verified or published content and inactive or missing oppositions.
+- Generate stable identifiers and content fingerprints when identifiers are omitted.
+- Create all questions transactionally as `draft` or `pending_review`, always with `verified: false`.
+- Store an immutable `questionImportBatches/{batchId}` audit record and make exact retries idempotent.
+- Reject existing question identifiers and a reused batch identifier whose content has changed.
+
+The first implementation accepts JSON. CSV conversion belongs in the future admin interface and
+must produce this same validated JSON contract before calling the Function.

@@ -45,7 +45,12 @@ service cloud.firestore {
       // Quiz questions are served by callable Functions so answer fields never
       // become readable before a session has been validated.
       allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow write: if false;
+    }
+
+    match /questionImportBatches/{batchId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /oppositions/{oppositionId} {

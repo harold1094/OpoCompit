@@ -155,6 +155,24 @@ Indexes:
 }
 ```
 
+## questionImportBatches/{batchId}
+
+Immutable audit record written only by `importQuestionBatch`. Admins may read it directly, while
+all client writes are denied.
+
+```json
+{
+  "contentFingerprint": "sha256",
+  "sourceDocument": "document.pdf",
+  "createdBy": "admin uid",
+  "importedCount": 25,
+  "questionIds": ["question-id"],
+  "status": "completed",
+  "createdAt": "serverTimestamp",
+  "updatedAt": "serverTimestamp"
+}
+```
+
 ## quizSessions/{sessionId}
 
 ```json

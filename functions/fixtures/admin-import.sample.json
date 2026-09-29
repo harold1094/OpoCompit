@@ -1,0 +1,36 @@
+{
+  "batchId": "sample-firefighter-import-2026",
+  "sourceDocument": "sample-manual.pdf",
+  "questions": [
+    {
+      "id": "sample-import-water-pressure",
+      "oppositionId": "firefighters_es",
+      "statement": "What should be checked before using a pressurized hose?",
+      "answers": [
+        {"id": "a", "text": "Only its color"},
+        {"id": "b", "text": "Its condition and connections"},
+        {"id": "c", "text": "Only its length"},
+        {"id": "d", "text": "Nothing"}
+      ],
+      "correctAnswerId": "b",
+      "explanation": "The hose and its connections must be inspected before use.",
+      "categoryId": "equipment",
+      "subcategoryId": null,
+      "difficulty": 1,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": null,
+      "officialExamId": null,
+      "year": 2026,
+      "source": "Sample training manual",
+      "sourcePage": 1,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    }
+  ]
+}

@@ -6,6 +6,7 @@
     "build": "tsc",
     "test": "npm run build && node --test lib/*.test.js",
     "seed:emulator": "node --experimental-strip-types scripts/seedEmulator.ts",
+    "import:emulator": "node --experimental-strip-types scripts/importQuestionsEmulator.ts",
     "smoke:emulator": "node --experimental-strip-types scripts/smokeEmulator.ts",
     "serve": "npm run build && firebase emulators:start --config ../firebase.json --project opocompit-dev --only auth,firestore,functions",
     "verify:emulator": "npm run build && firebase emulators:exec --config ../firebase.json --project opocompit-dev --only auth,firestore,functions \"npm run seed:emulator && npm run smoke:emulator\"",

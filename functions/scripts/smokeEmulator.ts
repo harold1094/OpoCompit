@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import {deleteApp, initializeApp} from "firebase-admin/app";
+import {getFirestore} from "firebase-admin/firestore";
 
 import {seedQuestions} from "../../apps/client/src/features/quiz/data/seedQuestions.ts";
 
@@ -68,6 +70,14 @@ async function createAnonymousAuth() {
   return auth;
 }
 
+async function setEmulatorUserRole(uid: string, role: string) {
+  process.env.GCLOUD_PROJECT = projectId;
+  process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
+  const app = initializeApp({projectId}, `smoke-admin-${uid}`);
+  await getFirestore(app).collection("users").doc(uid).update({role});
+  await deleteApp(app);
+}
+
 async function main() {
   const auth = await createAnonymousAuth();
 
@@ -89,6 +99,72 @@ async function main() {
   );
   assert.equal(bootstrap.profile.xp, 0);
   assert.equal(bootstrap.profile.coins, 0);
+
+  const importPayload = {
+    batchId: "smoke-admin-import",
+    sourceDocument: "smoke-manual.pdf",
+    questions: [{
+      id: "admin-import-smoke-question",
+      oppositionId: "firefighters_es",
+      statement: "Which review state must an imported question use?",
+      answers: [
+        {id: "a", text: "Published"},
+        {id: "b", text: "Pending review"},
+      ],
+      correctAnswerId: "b",
+      explanation: "Imported content requires human review before publication.",
+      categoryId: "platform_rules",
+      difficulty: 1,
+      scopeType: "national",
+      country: "ES",
+      source: "OpoCompit import policy",
+      status: "pending_review",
+      verified: false,
+    }],
+  };
+  let nonAdminImportBlocked = false;
+  try {
+    await call("importQuestionBatch", importPayload, auth.idToken);
+  } catch (error) {
+    nonAdminImportBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminImportBlocked, true);
+
+  await setEmulatorUserRole(auth.localId, "admin");
+  const firstImport = await call<{
+    importedCount: number;
+    questionIds: string[];
+    status: string;
+    idempotent: boolean;
+  }>("importQuestionBatch", importPayload, auth.idToken);
+  assert.equal(firstImport.importedCount, 1);
+  assert.deepEqual(firstImport.questionIds, ["admin-import-smoke-question"]);
+  assert.equal(firstImport.status, "completed");
+  assert.equal(firstImport.idempotent, false);
+
+  const repeatedImport = await call<typeof firstImport>(
+    "importQuestionBatch",
+    importPayload,
+    auth.idToken,
+  );
+  assert.equal(repeatedImport.idempotent, true);
+  assert.deepEqual(repeatedImport.questionIds, firstImport.questionIds);
+
+  let publishedImportBlocked = false;
+  try {
+    await call(
+      "importQuestionBatch",
+      {...importPayload, batchId: "invalid-published-import", questions: [{
+        ...importPayload.questions[0],
+        id: "invalid-published-question",
+        status: "published",
+      }]},
+      auth.idToken,
+    );
+  } catch (error) {
+    publishedImportBlocked = error instanceof Error && error.message.includes("INVALID_ARGUMENT");
+  }
+  assert.equal(publishedImportBlocked, true);
 
   const initialEngagement = await call<{
     dailyReward: {day: number; claimed: boolean};
@@ -122,6 +198,10 @@ async function main() {
       questions: Array<{id: string; correctAnswerId?: string; explanation?: string}>;
     }>("startQuickQuiz", {questionCount: 10}, auth.idToken);
     assert.equal(started.questions.length, 10);
+    assert.equal(
+      started.questions.some((question) => question.id === "admin-import-smoke-question"),
+      false,
+    );
     assert.equal(
       started.questions.every((question) => question.correctAnswerId === undefined),
       true,
@@ -670,6 +750,9 @@ async function main() {
     compatibleMatchmakingValidated: true,
     duplicateMatchmakingDuelBlocked,
     serverAuthoritativeRankingsValidated: true,
+    adminQuestionImportValidated: true,
+    nonAdminImportBlocked,
+    publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));
 }

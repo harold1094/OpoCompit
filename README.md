@@ -40,6 +40,17 @@ npm install
 npm run verify:emulator
 ```
 
+Import a validated sample question batch while `npm run serve` is running:
+
+```bash
+cd functions
+npm run seed:emulator
+npm run import:emulator -- --file fixtures/admin-import.sample.json
+```
+
+The importer is restricted to the local emulators, creates content as `pending_review`, and never
+publishes questions automatically. See `ADMIN_IMPORT_FORMAT.md` for the complete JSON contract.
+
 ## Vertical Slice Ready To Test
 
 1. Open the app.
