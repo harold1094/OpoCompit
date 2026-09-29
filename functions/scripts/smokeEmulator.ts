@@ -18,6 +18,12 @@ type Progress = {
   duelDraws: number;
 };
 type MissionState = {id: string; progress: number; target: number; claimed: boolean};
+type SocialUser = {uid: string; username: string};
+type SocialOverview = {
+  friends: SocialUser[];
+  incomingRequests: Array<{id: string; user: SocialUser}>;
+  outgoingRequests: Array<{id: string; user: SocialUser}>;
+};
 
 async function call<T>(name: string, data: unknown, idToken: string): Promise<T> {
   const response = await fetch(`${functionsBaseUrl}/${name}`, {
@@ -38,8 +44,8 @@ async function call<T>(name: string, data: unknown, idToken: string): Promise<T>
   return body.result;
 }
 
-async function main() {
-  const authResponse = await fetch(
+async function createAnonymousAuth() {
+  const response = await fetch(
     `${authBaseUrl}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-key`,
     {
       method: "POST",
@@ -47,11 +53,16 @@ async function main() {
       body: JSON.stringify({returnSecureToken: true}),
     },
   );
-  const authBody = await authResponse.text();
-  assert.equal(authResponse.ok, true, `Anonymous Auth failed: ${authBody}`);
-  const auth = JSON.parse(authBody) as {idToken: string; localId: string};
+  const text = await response.text();
+  assert.equal(response.ok, true, `Anonymous Auth failed: ${text}`);
+  const auth = JSON.parse(text) as {idToken: string; localId: string};
   assert.ok(auth.idToken);
   assert.ok(auth.localId);
+  return auth;
+}
+
+async function main() {
+  const auth = await createAnonymousAuth();
 
   const bootstrap = await call<{profile: Progress}>(
     "bootstrapGuestProfile",
@@ -217,6 +228,76 @@ async function main() {
   }
   assert.equal(duplicateDuelBlocked, true);
 
+  const firstUsername = await call<{user: SocialUser}>(
+    "setPublicUsername",
+    {username: "HaroldCT"},
+    auth.idToken,
+  );
+  assert.equal(firstUsername.user.username, "HaroldCT");
+
+  const friendAuth = await createAnonymousAuth();
+  await call(
+    "bootstrapGuestProfile",
+    {
+      oppositionId: "firefighters_es",
+      oppositionName: "Bomberos",
+      territory: {
+        label: "Región de Murcia",
+        country: "ES",
+        autonomousCommunity: "Murcia",
+      },
+    },
+    friendAuth.idToken,
+  );
+
+  let duplicateUsernameBlocked = false;
+  try {
+    await call("setPublicUsername", {username: "haroldct"}, friendAuth.idToken);
+  } catch (error) {
+    duplicateUsernameBlocked = error instanceof Error && error.message.includes("ALREADY_EXISTS");
+  }
+  assert.equal(duplicateUsernameBlocked, true);
+  await call("setPublicUsername", {username: "LuciaReal"}, friendAuth.idToken);
+
+  const search = await call<{users: SocialUser[]}>(
+    "searchUsers",
+    {query: "luciareal"},
+    auth.idToken,
+  );
+  assert.equal(search.users.length, 1);
+  assert.equal(search.users[0].uid, friendAuth.localId);
+
+  const sentRequest = await call<{request: {id: string}}>(
+    "sendFriendRequest",
+    {targetUid: friendAuth.localId},
+    auth.idToken,
+  );
+  const friendBeforeAccept = await call<SocialOverview>(
+    "getSocialOverview",
+    {},
+    friendAuth.idToken,
+  );
+  assert.equal(friendBeforeAccept.incomingRequests.length, 1);
+  assert.equal(friendBeforeAccept.incomingRequests[0].user.username, "HaroldCT");
+
+  await call(
+    "respondFriendRequest",
+    {requestId: sentRequest.request.id, accept: true},
+    friendAuth.idToken,
+  );
+  const [firstOverview, secondOverview] = await Promise.all([
+    call<SocialOverview>("getSocialOverview", {}, auth.idToken),
+    call<SocialOverview>("getSocialOverview", {}, friendAuth.idToken),
+  ]);
+  assert.equal(firstOverview.friends[0].username, "LuciaReal");
+  assert.equal(secondOverview.friends[0].username, "HaroldCT");
+  assert.equal(firstOverview.outgoingRequests.length, 0);
+  assert.equal(secondOverview.incomingRequests.length, 0);
+
+  await call("removeFriend", {friendUid: friendAuth.localId}, auth.idToken);
+  const afterRemoval = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
+  assert.equal(afterRemoval.friends.length, 0);
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 3,
@@ -226,6 +307,8 @@ async function main() {
     duplicateClaimsBlocked: true,
     duelValidated: true,
     duplicateDuelBlocked,
+    friendshipRoundTripValidated: true,
+    duplicateUsernameBlocked,
   }, null, 2));
 }
 

@@ -86,16 +86,17 @@ service cloud.firestore {
     match /friendRequests/{requestId} {
       allow read: if signedIn()
         && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
-      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
-      allow update: if signedIn() && resource.data.toUid == request.auth.uid;
-      allow delete: if signedIn()
-        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
     }
 
     match /friends/{edgeId} {
       allow read: if signedIn()
         && (resource.data.uids.hasAny([request.auth.uid]) || isAdmin());
       allow write: if false;
+    }
+
+    match /usernames/{usernameKey} {
+      allow read, write: if false;
     }
 
     match /groups/{groupId} {

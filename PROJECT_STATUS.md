@@ -12,7 +12,7 @@
 - Server-owned daily rewards, daily mission progress, and mission claims.
 - Auth and Functions connect to local emulators on web and Android when emulator mode is enabled.
 - Reproducible emulator seed with the 12 existing development questions.
-- End-to-end emulator smoke test for guest Auth, quizzes, classic duels, rewards, and duplicate-claim protection.
+- End-to-end emulator smoke test for guest Auth, quizzes, classic duels, rewards, friendships, and duplicate protection.
 - Quiz questions hide answers and explanations until the server validates the submission.
 - Guest onboarding, game-first home, quick quiz, results, errors, rankings, social, and profile screens ported.
 - Flutter remains in place as a reference until React feature parity is verified.
@@ -33,6 +33,8 @@
 - Local social friends.
 - Local global, territorial, and friends rankings.
 - React classic 1v1 training duel with local fallback and server-authoritative Firebase validation.
+- Unique public usernames with exact user search.
+- Friend requests with accept, decline, list, and remove flows.
 - GitHub repository pushed.
 
 ## Firebase Prepared
@@ -48,6 +50,7 @@
 - Callable `claimMission`.
 - Callable `startClassicDuel`.
 - Callable `submitClassicDuel`.
+- Callable social API for username reservation, search, requests, friendships, and removal.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -58,13 +61,14 @@
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
 - Rankings, real-player matchmaking, and duel invitations.
-- Friends and social graph.
+- Shared friend streaks and social activity feed.
 - Admin import.
 
 ## Next Implementation Steps
 
-1. Add real-player friendships, duel invitations, and matchmaking.
-2. Move rankings and the remaining social graph to server-authoritative Functions.
-3. Add the first functional admin import flow against the emulator.
-4. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-5. Remove Flutter only after React reaches verified feature parity.
+1. Add asynchronous duel invitations between accepted friends.
+2. Add compatible real-player matchmaking.
+3. Move rankings to server-authoritative Functions.
+4. Add the first functional admin import flow against the emulator.
+5. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+6. Remove Flutter only after React reaches verified feature parity.

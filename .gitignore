@@ -30,3 +30,4 @@ apps/client/.env.local
 artifacts/
 .chrome-capture*/
 .chrome-cdp/
+.chrome-social*/

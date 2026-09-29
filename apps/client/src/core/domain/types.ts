@@ -146,3 +146,26 @@ export type DuelResult = {
   playerElapsedMs: number;
   opponentElapsedMs: number;
 };
+
+export type SocialUser = {
+  uid: string;
+  username: string;
+  level: number;
+  territoryLabel: string;
+  currentStreak: number;
+  duelWins: number;
+};
+
+export type FriendRequest = {
+  id: string;
+  direction: 'incoming' | 'outgoing';
+  status: 'pending' | 'accepted' | 'declined';
+  user: SocialUser;
+  createdAt: string;
+};
+
+export type SocialOverview = {
+  friends: SocialUser[];
+  incomingRequests: FriendRequest[];
+  outgoingRequests: FriendRequest[];
+};

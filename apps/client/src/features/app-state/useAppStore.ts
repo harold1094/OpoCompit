@@ -6,10 +6,12 @@ import {
   DailyReward,
   DuelOpponent,
   DuelResult,
+  FriendRequest,
   Mission,
   PlayerProfile,
   Question,
   QuizResult,
+  SocialUser,
   TerritorySelection,
   UserQuestionStat,
 } from '@/core/domain/types';
@@ -18,8 +20,14 @@ import {
   claimDailyRewardRemote,
   claimMissionRemote,
   getDailyEngagementRemote,
+  getSocialOverviewRemote,
   isFirebaseEnabled,
   readableFirebaseError,
+  removeFriendRemote,
+  respondFriendRequestRemote,
+  searchUsersRemote,
+  sendFriendRequestRemote,
+  setPublicUsernameRemote,
   startAnonymousSession,
   startQuickQuizRemote,
   startClassicDuelRemote,
@@ -42,6 +50,7 @@ import {
 } from '@/features/quiz/domain/scoring';
 import { seedQuestions } from '@/features/quiz/data/seedQuestions';
 import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/duel';
+import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
 type ActiveGameMode = 'quick' | 'duel';
@@ -59,6 +68,10 @@ type AppStore = {
   questionStats: Record<string, UserQuestionStat>;
   dailyReward: DailyReward | null;
   missions: Mission[];
+  friends: SocialUser[];
+  incomingRequests: FriendRequest[];
+  outgoingRequests: FriendRequest[];
+  socialSearchResults: SocialUser[];
   lastResult: QuizResult | null;
   lastDuelResult: DuelResult | null;
   isStartingQuiz: boolean;
@@ -69,6 +82,10 @@ type AppStore = {
   claimingMissionId: string | null;
   quizError: string | null;
   engagementError: string | null;
+  isLoadingSocial: boolean;
+  isSavingUsername: boolean;
+  socialActionId: string | null;
+  socialError: string | null;
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
@@ -80,6 +97,12 @@ type AppStore = {
   refreshDailyEngagement: () => Promise<void>;
   claimDailyReward: () => Promise<boolean>;
   claimMission: (missionId: string) => Promise<boolean>;
+  refreshSocial: () => Promise<void>;
+  setPublicUsername: (username: string) => Promise<boolean>;
+  searchSocialUsers: (query: string) => Promise<void>;
+  sendFriendRequest: (user: SocialUser) => Promise<boolean>;
+  respondFriendRequest: (requestId: string, accept: boolean) => Promise<boolean>;
+  removeFriend: (friendUid: string) => Promise<boolean>;
 };
 
 export const useAppStore = create<AppStore>()(
@@ -97,6 +120,10 @@ export const useAppStore = create<AppStore>()(
       questionStats: {},
       dailyReward: null,
       missions: [],
+      friends: [],
+      incomingRequests: [],
+      outgoingRequests: [],
+      socialSearchResults: [],
       lastResult: null,
       lastDuelResult: null,
       isStartingQuiz: false,
@@ -107,6 +134,10 @@ export const useAppStore = create<AppStore>()(
       claimingMissionId: null,
       quizError: null,
       engagementError: null,
+      isLoadingSocial: false,
+      isSavingUsername: false,
+      socialActionId: null,
+      socialError: null,
       setHydrated: (hydrated) => set({ hydrated }),
       startGuest: async (territory) => {
         let backendMode: BackendMode = 'local';
@@ -146,10 +177,15 @@ export const useAppStore = create<AppStore>()(
           questionStats: {},
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
+          friends: [],
+          incomingRequests: [],
+          outgoingRequests: [],
+          socialSearchResults: [],
           lastResult: null,
           lastDuelResult: null,
           quizError: null,
           engagementError: null,
+          socialError: null,
         });
       },
       startQuickMatch: async () => {
@@ -446,6 +482,159 @@ export const useAppStore = create<AppStore>()(
           set({ claimingMissionId: null });
         }
       },
+      refreshSocial: async () => {
+        const state = get();
+        if (!state.profile || state.isLoadingSocial) return;
+        set({ isLoadingSocial: true, socialError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const overview = await getSocialOverviewRemote();
+            set(overview);
+          }
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingSocial: false });
+        }
+      },
+      setPublicUsername: async (username) => {
+        const state = get();
+        if (!state.profile || state.isSavingUsername) return false;
+        const trimmed = username.trim();
+        if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmed)) {
+          set({ socialError: 'Usa entre 3 y 20 letras, números o guiones bajos.' });
+          return false;
+        }
+        set({ isSavingUsername: true, socialError: null });
+        try {
+          let savedUsername = trimmed;
+          if (state.backendMode === 'firebase') {
+            savedUsername = (await setPublicUsernameRemote(trimmed)).username;
+          } else if (
+            localSocialUsers.some(
+              (user) => user.username.toLowerCase() === trimmed.toLowerCase(),
+            )
+          ) {
+            set({ socialError: 'Ese nombre ya está reservado en la demo local.' });
+            return false;
+          }
+          set({
+            profile: { ...state.profile, username: savedUsername },
+            socialSearchResults: [],
+          });
+          return true;
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isSavingUsername: false });
+        }
+      },
+      searchSocialUsers: async (query) => {
+        const state = get();
+        if (!state.profile) return;
+        const trimmed = query.trim();
+        if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmed)) {
+          set({
+            socialSearchResults: [],
+            socialError: 'Escribe el nombre exacto, con al menos 3 caracteres.',
+          });
+          return;
+        }
+        set({ isLoadingSocial: true, socialError: null, socialSearchResults: [] });
+        try {
+          const users = state.backendMode === 'firebase'
+            ? await searchUsersRemote(trimmed)
+            : localSocialUsers.filter(
+              (user) => user.username.toLowerCase() === trimmed.toLowerCase(),
+            );
+          set({
+            socialSearchResults: users.filter(
+              (user) => !state.friends.some((friend) => friend.uid === user.uid),
+            ),
+            socialError: users.length === 0 ? 'No se ha encontrado ese usuario.' : null,
+          });
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingSocial: false });
+        }
+      },
+      sendFriendRequest: async (user) => {
+        const state = get();
+        if (!state.profile || state.socialActionId) return false;
+        set({ socialActionId: user.uid, socialError: null });
+        try {
+          let request: FriendRequest;
+          if (state.backendMode === 'firebase') {
+            request = await sendFriendRequestRemote(user.uid);
+          } else {
+            if (state.outgoingRequests.some((item) => item.user.uid === user.uid)) {
+              set({ socialError: 'Ya hay una solicitud pendiente.' });
+              return false;
+            }
+            request = {
+              id: `local_${state.profile.uid}_${user.uid}`,
+              direction: 'outgoing',
+              status: 'pending',
+              user,
+              createdAt: new Date().toISOString(),
+            };
+          }
+          set({
+            outgoingRequests: [...state.outgoingRequests, request],
+            socialSearchResults: state.socialSearchResults.filter(
+              (item) => item.uid !== user.uid,
+            ),
+          });
+          return true;
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ socialActionId: null });
+        }
+      },
+      respondFriendRequest: async (requestId, accept) => {
+        const state = get();
+        if (state.socialActionId) return false;
+        const request = state.incomingRequests.find((item) => item.id === requestId);
+        if (!request) return false;
+        set({ socialActionId: requestId, socialError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            await respondFriendRequestRemote(requestId, accept);
+            const overview = await getSocialOverviewRemote();
+            set(overview);
+          } else {
+            set({
+              incomingRequests: state.incomingRequests.filter((item) => item.id !== requestId),
+              friends: accept ? [...state.friends, request.user] : state.friends,
+            });
+          }
+          return true;
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ socialActionId: null });
+        }
+      },
+      removeFriend: async (friendUid) => {
+        const state = get();
+        if (state.socialActionId) return false;
+        set({ socialActionId: friendUid, socialError: null });
+        try {
+          if (state.backendMode === 'firebase') await removeFriendRemote(friendUid);
+          set({ friends: state.friends.filter((friend) => friend.uid !== friendUid) });
+          return true;
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ socialActionId: null });
+        }
+      },
     }),
     {
       name: 'opocompit-client-state',
@@ -456,6 +645,9 @@ export const useAppStore = create<AppStore>()(
         questionStats: state.questionStats,
         dailyReward: state.dailyReward,
         missions: state.missions,
+        friends: state.friends,
+        incomingRequests: state.incomingRequests,
+        outgoingRequests: state.outgoingRequests,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(true),
     },

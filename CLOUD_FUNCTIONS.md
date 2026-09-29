@@ -73,6 +73,17 @@ Responsibilities:
 - Read reward config from Remote Config or `dailyRewards`.
 - Update balances through transaction log.
 
+## Social callables
+
+- `setPublicUsername`: reserves a case-insensitive unique username transactionally.
+- `searchUsers`: resolves an exact username and returns only its public profile snapshot.
+- `getSocialOverview`: returns friends and pending incoming/outgoing requests.
+- `sendFriendRequest`: creates one deterministic pending request per pair of users.
+- `respondFriendRequest`: accepts or declines a request and creates the friendship atomically.
+- `removeFriend`: removes a friendship after validating participation.
+
+User documents and username reservations remain private. All social mutations run through callable Functions.
+
 ## callable: `updateProfileSelection`
 
 Responsibilities:

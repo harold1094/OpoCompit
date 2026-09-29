@@ -21,12 +21,15 @@ import {
   DailyReward,
   DuelOpponent,
   DuelResult,
+  FriendRequest,
   Mission,
   PlayerProfile,
   PlayerProgress,
   Question,
   QuizAnswerSubmission,
   QuizResult,
+  SocialOverview,
+  SocialUser,
 } from '@/core/domain/types';
 
 const firebaseEnabled = process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'true';
@@ -64,6 +67,10 @@ type ClaimMissionResponse = {
   mission: Mission;
   progress: PlayerProgress;
 };
+
+type SocialUserResponse = { user: SocialUser };
+type SocialSearchResponse = { users: SocialUser[] };
+type FriendRequestResponse = { request: FriendRequest };
 
 function firebaseApp(): FirebaseApp | null {
   if (!firebaseEnabled) return null;
@@ -226,6 +233,51 @@ export async function claimMissionRemote(missionId: string): Promise<ClaimMissio
   return response.data;
 }
 
+export async function setPublicUsernameRemote(username: string): Promise<SocialUser> {
+  await startAnonymousSession();
+  const invoke = callable<{ username: string }, SocialUserResponse>('setPublicUsername');
+  const response = await invoke({ username });
+  return response.data.user;
+}
+
+export async function searchUsersRemote(query: string): Promise<SocialUser[]> {
+  await startAnonymousSession();
+  const invoke = callable<{ query: string }, SocialSearchResponse>('searchUsers');
+  const response = await invoke({ query });
+  return response.data.users;
+}
+
+export async function getSocialOverviewRemote(): Promise<SocialOverview> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, SocialOverview>('getSocialOverview');
+  const response = await invoke({});
+  return response.data;
+}
+
+export async function sendFriendRequestRemote(targetUid: string): Promise<FriendRequest> {
+  await startAnonymousSession();
+  const invoke = callable<{ targetUid: string }, FriendRequestResponse>('sendFriendRequest');
+  const response = await invoke({ targetUid });
+  return response.data.request;
+}
+
+export async function respondFriendRequestRemote(
+  requestId: string,
+  accept: boolean,
+): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<{ requestId: string; accept: boolean }, unknown>(
+    'respondFriendRequest',
+  );
+  await invoke({ requestId, accept });
+}
+
+export async function removeFriendRemote(friendUid: string): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<{ friendUid: string }, unknown>('removeFriend');
+  await invoke({ friendUid });
+}
+
 export function isFirebaseEnabled(): boolean {
   return firebaseEnabled;
 }
@@ -237,7 +289,9 @@ export function readableFirebaseError(error: unknown): string {
       unauthenticated: 'La sesión de invitado ha caducado. Vuelve a entrar.',
       'failed-precondition': 'La partida ya no se puede validar.',
       'deadline-exceeded': 'La partida ha caducado. Empieza una nueva.',
-      'not-found': 'Todavía no hay preguntas publicadas para este territorio.',
+      'not-found': 'No se ha encontrado el contenido solicitado.',
+      'already-exists': 'Esa solicitud o nombre de usuario ya existe.',
+      'invalid-argument': 'Revisa los datos introducidos.',
       unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
     };
     return messages[code] ?? 'No se pudo completar la operación con Firebase.';

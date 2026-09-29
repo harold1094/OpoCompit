@@ -1,5 +1,10 @@
 import {initializeApp} from "firebase-admin/app";
-import {Timestamp, getFirestore} from "firebase-admin/firestore";
+import {
+  DocumentReference,
+  DocumentSnapshot,
+  Timestamp,
+  getFirestore,
+} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import {
@@ -11,6 +16,7 @@ import {
   MissionTemplate,
 } from "./engagement.js";
 import {duelOutcome, trainingOpponent} from "./duel.js";
+import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 
 initializeApp();
 
@@ -74,6 +80,27 @@ type StartClassicDuelInput = {
 type SubmitClassicDuelInput = {
   duelId: string;
   answers: Answer[];
+};
+
+type SetPublicUsernameInput = {
+  username: string;
+};
+
+type SearchUsersInput = {
+  query: string;
+};
+
+type SendFriendRequestInput = {
+  targetUid: string;
+};
+
+type RespondFriendRequestInput = {
+  requestId: string;
+  accept: boolean;
+};
+
+type RemoveFriendInput = {
+  friendUid: string;
 };
 
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
@@ -826,6 +853,196 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
   });
 });
 
+export const setPublicUsername = onCall<SetPublicUsernameInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const username = requireString(request.data?.username, "username", 20);
+  if (!isValidUsername(username)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Username must contain 3 to 20 letters, numbers, or underscores.",
+    );
+  }
+
+  const key = usernameKey(username);
+  const userRef = db.collection("users").doc(uid);
+  const usernameRef = db.collection("usernames").doc(key);
+
+  return db.runTransaction(async (transaction) => {
+    const userSnapshot = await transaction.get(userRef);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    const user = userSnapshot.data() ?? {};
+    const reservationSnapshot = await transaction.get(usernameRef);
+    if (reservationSnapshot.exists && reservationSnapshot.data()?.uid !== uid) {
+      throw new HttpsError("already-exists", "Username is already in use.");
+    }
+
+    const previousKey = typeof user.usernameKey === "string" ? user.usernameKey : null;
+    let previousReservation: DocumentSnapshot | null = null;
+    let previousRef: DocumentReference | null = null;
+    if (previousKey && previousKey !== key) {
+      previousRef = db.collection("usernames").doc(previousKey);
+      previousReservation = await transaction.get(previousRef);
+    }
+
+    const now = Timestamp.now();
+    const update = {username, usernameKey: key, updatedAt: now};
+    transaction.update(userRef, update);
+    transaction.set(usernameRef, {uid, username, updatedAt: now});
+    if (previousRef && previousReservation?.data()?.uid === uid) {
+      transaction.delete(previousRef);
+    }
+    return {user: serializeSocialUser(uid, {...user, ...update})};
+  });
+});
+
+export const searchUsers = onCall<SearchUsersInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const query = requireString(request.data?.query, "query", 20);
+  if (!isValidUsername(query)) return {users: []};
+
+  const reservation = await db.collection("usernames").doc(usernameKey(query)).get();
+  if (!reservation.exists || reservation.data()?.uid === uid) return {users: []};
+  const targetUid = requireString(reservation.data()?.uid, "stored uid", 160);
+  const target = await db.collection("users").doc(targetUid).get();
+  if (!target.exists) return {users: []};
+  return {users: [serializeSocialUser(target.id, target.data() ?? {})]};
+});
+
+export const getSocialOverview = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  return socialOverview(uid);
+});
+
+export const sendFriendRequest = onCall<SendFriendRequestInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const targetUid = requireString(request.data?.targetUid, "targetUid", 160);
+  if (uid === targetUid) {
+    throw new HttpsError("invalid-argument", "You cannot add yourself.");
+  }
+
+  const edgeId = socialEdgeId(uid, targetUid);
+  const requesterRef = db.collection("users").doc(uid);
+  const targetRef = db.collection("users").doc(targetUid);
+  const requestRef = db.collection("friendRequests").doc(edgeId);
+  const friendRef = db.collection("friends").doc(edgeId);
+
+  const friendRequest = await db.runTransaction(async (transaction) => {
+    const [requester, target, existingRequest, existingFriend] = await Promise.all([
+      transaction.get(requesterRef),
+      transaction.get(targetRef),
+      transaction.get(requestRef),
+      transaction.get(friendRef),
+    ]);
+    if (!requester.exists || !target.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    if (!requester.data()?.usernameKey) {
+      throw new HttpsError("failed-precondition", "Choose a username before adding friends.");
+    }
+    if (!target.data()?.usernameKey) {
+      throw new HttpsError("not-found", "User is not available for search.");
+    }
+    if (existingFriend.exists) {
+      throw new HttpsError("already-exists", "You are already friends.");
+    }
+    if (existingRequest.data()?.status === "pending") {
+      throw new HttpsError("already-exists", "A friend request is already pending.");
+    }
+
+    const now = Timestamp.now();
+    const data = {
+      fromUid: uid,
+      toUid: targetUid,
+      fromUser: serializeSocialUser(uid, requester.data() ?? {}),
+      toUser: serializeSocialUser(targetUid, target.data() ?? {}),
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    };
+    transaction.set(requestRef, data);
+    return serializeFriendRequest(requestRef.id, data, uid);
+  });
+
+  return {request: friendRequest};
+});
+
+export const respondFriendRequest = onCall<RespondFriendRequestInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const requestId = requireString(request.data?.requestId, "requestId", 340);
+  if (typeof request.data?.accept !== "boolean") {
+    throw new HttpsError("invalid-argument", "Invalid friend request response.");
+  }
+  const requestRef = db.collection("friendRequests").doc(requestId);
+
+  return db.runTransaction(async (transaction) => {
+    const requestSnapshot = await transaction.get(requestRef);
+    if (!requestSnapshot.exists) {
+      throw new HttpsError("not-found", "Friend request not found.");
+    }
+    const friendRequest = requestSnapshot.data() ?? {};
+    if (friendRequest.toUid !== uid) {
+      throw new HttpsError("permission-denied", "This request is not for you.");
+    }
+    if (friendRequest.status !== "pending") {
+      throw new HttpsError("failed-precondition", "Friend request already resolved.");
+    }
+
+    const fromUid = requireString(friendRequest.fromUid, "stored fromUid", 160);
+    const fromRef = db.collection("users").doc(fromUid);
+    const toRef = db.collection("users").doc(uid);
+    const [fromUser, toUser] = await Promise.all([
+      transaction.get(fromRef),
+      transaction.get(toRef),
+    ]);
+    if (!fromUser.exists || !toUser.exists) {
+      throw new HttpsError("failed-precondition", "Friend profile missing.");
+    }
+
+    const now = Timestamp.now();
+    const status = request.data.accept ? "accepted" : "declined";
+    transaction.update(requestRef, {status, updatedAt: now, resolvedAt: now});
+    let friend = null;
+    if (request.data.accept) {
+      const friendRef = db.collection("friends").doc(socialEdgeId(fromUid, uid));
+      const fromSnapshot = serializeSocialUser(fromUid, fromUser.data() ?? {});
+      const toSnapshot = serializeSocialUser(uid, toUser.data() ?? {});
+      transaction.set(friendRef, {
+        uids: [fromUid, uid],
+        members: [fromSnapshot, toSnapshot],
+        createdAt: now,
+        updatedAt: now,
+      });
+      friend = fromSnapshot;
+    }
+
+    return {
+      request: serializeFriendRequest(
+        requestId,
+        {...friendRequest, status, updatedAt: now},
+        uid,
+      ),
+      friend,
+    };
+  });
+});
+
+export const removeFriend = onCall<RemoveFriendInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const friendUid = requireString(request.data?.friendUid, "friendUid", 160);
+  const friendRef = db.collection("friends").doc(socialEdgeId(uid, friendUid));
+
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(friendRef);
+    if (!snapshot.exists || !parseStringArray(snapshot.data()?.uids).includes(uid)) {
+      throw new HttpsError("not-found", "Friendship not found.");
+    }
+    transaction.delete(friendRef);
+  });
+  return {removedUid: friendUid};
+});
+
 function requireUid(uid: string | undefined): string {
   if (!uid) throw new HttpsError("unauthenticated", "Authentication required.");
   return uid;
@@ -848,14 +1065,21 @@ function parseTerritory(value: unknown): TerritorySelection {
     throw new HttpsError("invalid-argument", "Invalid territory.");
   }
   const data = value as Record<string, unknown>;
-  return {
+  const territory: TerritorySelection = {
     label: requireString(data.label, "territory.label", 100),
     country: requireString(data.country, "territory.country", 8),
-    autonomousCommunity: optionalString(data.autonomousCommunity, "territory.autonomousCommunity"),
-    province: optionalString(data.province, "territory.province"),
-    municipality: optionalString(data.municipality, "territory.municipality"),
-    specificBody: optionalString(data.specificBody, "territory.specificBody"),
   };
+  const optionalFields: Array<[keyof TerritorySelection, unknown]> = [
+    ["autonomousCommunity", data.autonomousCommunity],
+    ["province", data.province],
+    ["municipality", data.municipality],
+    ["specificBody", data.specificBody],
+  ];
+  optionalFields.forEach(([field, rawValue]) => {
+    const parsed = optionalString(rawValue, `territory.${field}`);
+    if (parsed !== undefined) territory[field] = parsed;
+  });
+  return territory;
 }
 
 function buildTerritoryKeys(territory: TerritorySelection): string[] {
@@ -984,6 +1208,81 @@ function serializeProgress(data: Record<string, unknown>) {
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
   };
+}
+
+async function socialOverview(uid: string) {
+  const [incomingSnapshot, outgoingSnapshot, friendsSnapshot] = await Promise.all([
+    db.collection("friendRequests").where("toUid", "==", uid).limit(50).get(),
+    db.collection("friendRequests").where("fromUid", "==", uid).limit(50).get(),
+    db.collection("friends").where("uids", "array-contains", uid).limit(50).get(),
+  ]);
+
+  const incomingRequests = incomingSnapshot.docs
+    .filter((document) => document.data().status === "pending")
+    .map((document) => serializeFriendRequest(document.id, document.data(), uid));
+  const outgoingRequests = outgoingSnapshot.docs
+    .filter((document) => document.data().status === "pending")
+    .map((document) => serializeFriendRequest(document.id, document.data(), uid));
+  const friends = friendsSnapshot.docs.flatMap((document) => {
+    const members: unknown[] = Array.isArray(document.data().members) ?
+      document.data().members : [];
+    const friend = members.find((member) =>
+      typeof member === "object" && member !== null &&
+      (member as Record<string, unknown>).uid !== uid,
+    );
+    return friend ? [serializeStoredSocialUser(friend)] : [];
+  });
+
+  return {friends, incomingRequests, outgoingRequests};
+}
+
+function serializeSocialUser(uid: string, data: Record<string, unknown>) {
+  const territory = typeof data.territorySelection === "object" &&
+    data.territorySelection !== null ?
+    data.territorySelection as Record<string, unknown> : {};
+  return {
+    uid,
+    username: typeof data.username === "string" ? data.username : "Invitado",
+    level: Math.max(1, numberValue(data.level)),
+    territoryLabel: typeof territory.label === "string" ? territory.label : "España",
+    currentStreak: numberValue(data.currentStreak),
+    duelWins: numberValue(data.duelWins),
+  };
+}
+
+function serializeStoredSocialUser(value: unknown) {
+  const data = typeof value === "object" && value !== null ?
+    value as Record<string, unknown> : {};
+  return {
+    uid: typeof data.uid === "string" ? data.uid : "",
+    username: typeof data.username === "string" ? data.username : "Invitado",
+    level: Math.max(1, numberValue(data.level)),
+    territoryLabel: typeof data.territoryLabel === "string" ? data.territoryLabel : "España",
+    currentStreak: numberValue(data.currentStreak),
+    duelWins: numberValue(data.duelWins),
+  };
+}
+
+function serializeFriendRequest(
+  id: string,
+  data: Record<string, unknown>,
+  viewerUid: string,
+) {
+  const incoming = data.toUid === viewerUid;
+  const status = data.status === "accepted" || data.status === "declined" ?
+    data.status : "pending";
+  return {
+    id,
+    direction: incoming ? "incoming" : "outgoing",
+    status,
+    user: serializeStoredSocialUser(incoming ? data.fromUser : data.toUser),
+    createdAt: data.createdAt instanceof Timestamp ?
+      data.createdAt.toDate().toISOString() : new Date(0).toISOString(),
+  };
+}
+
+function parseStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 function missionDocument(template: MissionTemplate, date: string, now: Timestamp) {

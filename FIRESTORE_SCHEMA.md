@@ -227,8 +227,9 @@ Started duels are only exposed through callable Functions. Direct Firestore read
 
 ## Other Collections
 
-- `friends/{edgeId}`: accepted friendship edge.
-- `friendRequests/{requestId}`: pending friend request.
+- `usernames/{normalizedUsername}`: private unique username reservation owned by Functions.
+- `friends/{sortedUidPair}`: accepted friendship edge with public member snapshots.
+- `friendRequests/{sortedUidPair}`: one pending, accepted, or declined request per user pair.
 - `groups/{groupId}` and `groups/{groupId}/members/{uid}`.
 - `duels/{duelId}`: classic duel sessions.
 - `matchmakingQueues/{queueId}/entries/{uid}`: transactional queue entries.
@@ -239,3 +240,5 @@ Started duels are only exposed through callable Functions. Direct Firestore read
 - `subscriptionPlans/{planId}`.
 - `subscriptions/{uid}`.
 - `appConfig/{configId}`.
+
+Friend and request identifiers are deterministic from the two sorted user IDs. Clients can read only relationships in which they participate and cannot write them directly.
