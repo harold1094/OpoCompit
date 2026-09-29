@@ -1,7 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
+import { isUsingFirebaseEmulators } from '@/core/firebase/firebaseClient';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { StatTile } from '@/shared/components/StatTile';
@@ -58,6 +60,22 @@ export default function ProfileScreen() {
         <StatTile label="Victorias" value={`${profile.duelWins ?? 0}`} accent={colors.gold} />
       </View>
 
+      {backendMode === 'firebase' && isUsingFirebaseEmulators() ? (
+        <Pressable
+          onPress={() => router.push('/admin')}
+          style={({ pressed }) => [styles.adminLink, pressed && styles.adminLinkPressed]}
+        >
+          <View style={styles.adminIcon}>
+            <MaterialCommunityIcons name="clipboard-edit-outline" size={22} color={colors.brand} />
+          </View>
+          <View style={styles.adminCopy}>
+            <Text style={styles.adminTitle}>Administrar preguntas</Text>
+            <Text style={styles.adminText}>Importación y cola de revisión local</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+        </Pressable>
+      ) : null}
+
       <View style={styles.accountNote}>
         <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.aqua} />
         <View style={styles.accountCopy}>
@@ -90,6 +108,12 @@ const styles = StyleSheet.create({
   levelSubtitle: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginTop: spacing.xl, marginBottom: spacing.sm },
   grid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  adminLinkPressed: { opacity: 0.78 },
+  adminIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softBrand },
+  adminCopy: { flex: 1 },
+  adminTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },
+  adminText: { color: colors.muted, fontSize: 11, marginTop: 3 },
   accountNote: { flexDirection: 'row', gap: 12, padding: spacing.md, marginTop: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.md, backgroundColor: colors.softAqua },
   accountCopy: { flex: 1 },
   accountTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },

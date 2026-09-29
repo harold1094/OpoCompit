@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import {deleteApp, initializeApp} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
 
 import {seedQuestions} from "../../apps/client/src/features/quiz/data/seedQuestions.ts";
 
@@ -70,14 +68,6 @@ async function createAnonymousAuth() {
   return auth;
 }
 
-async function setEmulatorUserRole(uid: string, role: string) {
-  process.env.GCLOUD_PROJECT = projectId;
-  process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
-  const app = initializeApp({projectId}, `smoke-admin-${uid}`);
-  await getFirestore(app).collection("users").doc(uid).update({role});
-  await deleteApp(app);
-}
-
 async function main() {
   const auth = await createAnonymousAuth();
 
@@ -99,6 +89,14 @@ async function main() {
   );
   assert.equal(bootstrap.profile.xp, 0);
   assert.equal(bootstrap.profile.coins, 0);
+
+  let nonAdminReviewBlocked = false;
+  try {
+    await call("getQuestionReviewQueue", {}, auth.idToken);
+  } catch (error) {
+    nonAdminReviewBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminReviewBlocked, true);
 
   const importPayload = {
     batchId: "smoke-admin-import",
@@ -130,7 +128,8 @@ async function main() {
   }
   assert.equal(nonAdminImportBlocked, true);
 
-  await setEmulatorUserRole(auth.localId, "admin");
+  const emulatorAdmin = await call<{role: string}>("bootstrapEmulatorAdmin", {}, auth.idToken);
+  assert.equal(emulatorAdmin.role, "admin");
   const firstImport = await call<{
     importedCount: number;
     questionIds: string[];
@@ -149,6 +148,30 @@ async function main() {
   );
   assert.equal(repeatedImport.idempotent, true);
   assert.deepEqual(repeatedImport.questionIds, firstImport.questionIds);
+
+  type ReviewQuestion = typeof importPayload.questions[0] & {
+    territoryKeys: string[];
+    subcategoryId: string | null;
+    autonomousCommunity: string | null;
+    province: string | null;
+    municipality: string | null;
+    specificCallId: string | null;
+    officialExamId: string | null;
+    year: number | null;
+    sourceDocument: string | null;
+    sourcePage: number | null;
+    validFrom: string | null;
+    validUntil: string | null;
+  };
+  const initialReviewQueue = await call<{questions: ReviewQuestion[]}>(
+    "getQuestionReviewQueue",
+    {limit: 20},
+    auth.idToken,
+  );
+  const importedForReview = initialReviewQueue.questions.find(
+    (question) => question.id === "admin-import-smoke-question",
+  );
+  assert.ok(importedForReview);
 
   let publishedImportBlocked = false;
   try {
@@ -735,6 +758,46 @@ async function main() {
   assert.equal(friendsRankingAfterRemoval.entries.length, 1);
   assert.equal(friendsRankingAfterRemoval.entries[0].uid, auth.localId);
 
+  const savedReview = await call<{question: ReviewQuestion & {status: string; verified: boolean}}>(
+    "reviewQuestion",
+    {
+      questionId: importedForReview.id,
+      decision: "save",
+      question: {
+        ...importedForReview,
+        explanation: "Human-reviewed explanation kept pending before publication.",
+      },
+    },
+    auth.idToken,
+  );
+  assert.equal(savedReview.question.status, "pending_review");
+  assert.equal(savedReview.question.verified, false);
+  assert.equal(
+    savedReview.question.explanation,
+    "Human-reviewed explanation kept pending before publication.",
+  );
+
+  const publishedReview = await call<{question: ReviewQuestion & {status: string; verified: boolean}}>(
+    "reviewQuestion",
+    {
+      questionId: importedForReview.id,
+      decision: "publish",
+      question: savedReview.question,
+    },
+    auth.idToken,
+  );
+  assert.equal(publishedReview.question.status, "published");
+  assert.equal(publishedReview.question.verified, true);
+  const finalReviewQueue = await call<{questions: ReviewQuestion[]}>(
+    "getQuestionReviewQueue",
+    {},
+    auth.idToken,
+  );
+  assert.equal(
+    finalReviewQueue.questions.some((question) => question.id === importedForReview.id),
+    false,
+  );
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 3,
@@ -751,7 +814,9 @@ async function main() {
     duplicateMatchmakingDuelBlocked,
     serverAuthoritativeRankingsValidated: true,
     adminQuestionImportValidated: true,
+    adminQuestionReviewValidated: true,
     nonAdminImportBlocked,
+    nonAdminReviewBlocked,
     publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));

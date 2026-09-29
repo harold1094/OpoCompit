@@ -78,6 +78,49 @@ type FriendRequestResponse = { request: FriendRequest };
 type FriendDuelInvitationResponse = { invitation: FriendDuelInvitation };
 type MatchmakingResponse = { matchmaking: MatchmakingState };
 
+export type AdminQuestion = {
+  id: string;
+  oppositionId: string;
+  statement: string;
+  answers: Array<{ id: string; text: string }>;
+  correctAnswerId: string;
+  explanation: string;
+  categoryId: string;
+  subcategoryId: string | null;
+  difficulty: number;
+  scopeType: string;
+  territoryKeys: string[];
+  country: string;
+  autonomousCommunity: string | null;
+  province: string | null;
+  municipality: string | null;
+  specificCallId: string | null;
+  officialExamId: string | null;
+  year: number | null;
+  source: string;
+  sourceDocument: string | null;
+  sourcePage: number | null;
+  verified: boolean;
+  status: 'draft' | 'pending_review' | 'published' | 'disabled';
+  validFrom: string | null;
+  validUntil: string | null;
+  createdBy: string;
+  reviewedBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  lastReviewedAt: string | null;
+};
+
+export type AdminReviewDecision = 'save' | 'publish' | 'disable';
+
+export type QuestionImportResult = {
+  batchId: string;
+  importedCount: number;
+  questionIds: string[];
+  status: 'completed';
+  idempotent: boolean;
+};
+
 export type OpenFriendDuelResponse = {
   duelId: string;
   status: 'active' | 'waiting' | 'completed';
@@ -371,8 +414,49 @@ export async function getRankingRemote(scope: RankingScope): Promise<RankingSnap
   return response.data;
 }
 
+export async function bootstrapEmulatorAdminRemote(): Promise<void> {
+  if (!usingFirebaseEmulators()) throw new Error('El panel administrativo requiere emuladores.');
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, { role: string }>('bootstrapEmulatorAdmin');
+  await invoke({});
+}
+
+export async function getQuestionReviewQueueRemote(limit = 50): Promise<AdminQuestion[]> {
+  await startAnonymousSession();
+  const invoke = callable<{ limit: number }, { questions: AdminQuestion[] }>(
+    'getQuestionReviewQueue',
+  );
+  const response = await invoke({ limit });
+  return response.data.questions;
+}
+
+export async function reviewQuestionRemote(
+  questionId: string,
+  decision: AdminReviewDecision,
+  question?: AdminQuestion,
+): Promise<AdminQuestion> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { questionId: string; decision: AdminReviewDecision; question?: AdminQuestion },
+    { question: AdminQuestion }
+  >('reviewQuestion');
+  const response = await invoke({ questionId, decision, question });
+  return response.data.question;
+}
+
+export async function importQuestionBatchRemote(batch: unknown): Promise<QuestionImportResult> {
+  await startAnonymousSession();
+  const invoke = callable<unknown, QuestionImportResult>('importQuestionBatch');
+  const response = await invoke(batch);
+  return response.data;
+}
+
 export function isFirebaseEnabled(): boolean {
   return firebaseEnabled;
+}
+
+export function isUsingFirebaseEmulators(): boolean {
+  return usingFirebaseEmulators();
 }
 
 export function readableFirebaseError(error: unknown): string {
@@ -385,6 +469,7 @@ export function readableFirebaseError(error: unknown): string {
       'not-found': 'No se ha encontrado el contenido solicitado.',
       'already-exists': 'Esa solicitud o nombre de usuario ya existe.',
       'invalid-argument': 'Revisa los datos introducidos.',
+      'permission-denied': 'No tienes permisos para completar esta operación.',
       aborted: 'El rival ya no está disponible. Vuelve a buscar.',
       unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
     };

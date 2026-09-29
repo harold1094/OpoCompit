@@ -135,3 +135,12 @@ Responsibilities:
 
 The first implementation accepts JSON. CSV conversion belongs in the future admin interface and
 must produce this same validated JSON contract before calling the Function.
+
+## Admin review callables
+
+- `getQuestionReviewQueue`: returns at most 50 complete `draft` and `pending_review` questions to admins.
+- `reviewQuestion`: validates corrected content and transactionally saves, publishes, or disables it.
+- `bootstrapEmulatorAdmin`: promotes only the current local emulator user; deployed environments always reject it.
+
+Publishing sets `verified: true`, `reviewedBy`, and `lastReviewedAt`. Saving keeps the question out
+of game sessions, while disabling removes it from the active review queue.

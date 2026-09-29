@@ -1,4 +1,5 @@
 import {initializeApp} from "firebase-admin/app";
+import {env} from "node:process";
 import {
   DocumentReference,
   DocumentSnapshot,
@@ -9,6 +10,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import {
   AdminImportValidationError,
+  ImportedQuestion,
   parseQuestionBatch,
 } from "./adminImport.js";
 import {
@@ -142,6 +144,150 @@ type SubmitFriendDuelInput = {
 type GetRankingInput = {
   scope: "global" | "territory" | "friends";
 };
+
+type ReviewQuestionInput = {
+  questionId: string;
+  decision: "save" | "publish" | "disable";
+  question?: unknown;
+};
+
+export const bootstrapEmulatorAdmin = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  if (env.FUNCTIONS_EMULATOR !== "true") {
+    throw new HttpsError("permission-denied", "Emulator-only operation.");
+  }
+
+  const now = Timestamp.now();
+  const userRef = db.collection("users").doc(uid);
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    transaction.set(userRef, {
+      uid,
+      role: "admin",
+      isAnonymous: true,
+      username: "Administrador local",
+      updatedAt: now,
+      ...(snapshot.exists ? {} : {createdAt: now}),
+    }, {merge: true});
+  });
+  return {role: "admin"};
+});
+
+export const getQuestionReviewQueue = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  requireAdmin(userSnapshot);
+
+  const requestedLimit = request.data?.limit;
+  const limit = requestedLimit === undefined ? 50 : Math.min(
+    requireInteger(requestedLimit, "limit", 1, 50),
+    50,
+  );
+  const [pendingSnapshot, draftSnapshot] = await Promise.all([
+    db.collection("questions").where("status", "==", "pending_review").limit(limit).get(),
+    db.collection("questions").where("status", "==", "draft").limit(limit).get(),
+  ]);
+  const questions = [...pendingSnapshot.docs, ...draftSnapshot.docs]
+    .sort((first, second) => timestampMillis(second.data().updatedAt) -
+      timestampMillis(first.data().updatedAt))
+    .slice(0, limit)
+    .map((snapshot) => adminQuestion(snapshot.id, snapshot.data()));
+  return {questions};
+});
+
+export const reviewQuestion = onCall<ReviewQuestionInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const questionId = requireString(request.data?.questionId, "questionId", 160);
+  const decision = request.data?.decision;
+  if (!(["save", "publish", "disable"] as unknown[]).includes(decision)) {
+    throw new HttpsError("invalid-argument", "Invalid review decision.");
+  }
+
+  let reviewedQuestion: ImportedQuestion | undefined;
+  if (decision !== "disable") {
+    try {
+      reviewedQuestion = parseQuestionBatch({questions: [request.data?.question]}).questions[0];
+    } catch (error) {
+      if (error instanceof AdminImportValidationError) {
+        throw new HttpsError("invalid-argument", error.message);
+      }
+      throw error;
+    }
+    if (reviewedQuestion.id !== questionId) {
+      throw new HttpsError("invalid-argument", "Question id cannot be changed.");
+    }
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const questionRef = db.collection("questions").doc(questionId);
+  const oppositionRef = reviewedQuestion ?
+    db.collection("oppositions").doc(reviewedQuestion.oppositionId) : null;
+
+  return db.runTransaction(async (transaction) => {
+    const reads = await transaction.getAll(
+      userRef,
+      questionRef,
+      ...(oppositionRef ? [oppositionRef] : []),
+    );
+    const [userSnapshot, questionSnapshot, oppositionSnapshot] = reads;
+    requireAdmin(userSnapshot);
+    if (!questionSnapshot.exists) {
+      throw new HttpsError("not-found", "Question not found.");
+    }
+    const existing = questionSnapshot.data() ?? {};
+    if (!["draft", "pending_review"].includes(String(existing.status))) {
+      throw new HttpsError("failed-precondition", "Question is no longer pending review.");
+    }
+    if (oppositionSnapshot &&
+      (!oppositionSnapshot.exists || oppositionSnapshot.data()?.active !== true)) {
+      throw new HttpsError("failed-precondition", "Question opposition is missing or inactive.");
+    }
+
+    const now = Timestamp.now();
+    if (decision === "disable") {
+      transaction.update(questionRef, {
+        status: "disabled",
+        verified: false,
+        reviewedBy: uid,
+        lastReviewedAt: now,
+        updatedAt: now,
+      });
+      return {question: adminQuestion(questionId, {
+        ...existing,
+        status: "disabled",
+        verified: false,
+        reviewedBy: uid,
+        lastReviewedAt: now,
+        updatedAt: now,
+      })};
+    }
+
+    if (!reviewedQuestion) {
+      throw new HttpsError("invalid-argument", "Question content is required.");
+    }
+    const questionData: Partial<typeof reviewedQuestion> = {...reviewedQuestion};
+    delete questionData.id;
+    const status = decision === "publish" ? "published" : reviewedQuestion.status;
+    const verified = decision === "publish";
+    transaction.update(questionRef, {
+      ...questionData,
+      status,
+      verified,
+      reviewedBy: uid,
+      lastReviewedAt: now,
+      updatedAt: now,
+    });
+    return {question: adminQuestion(questionId, {
+      ...existing,
+      ...questionData,
+      status,
+      verified,
+      reviewedBy: uid,
+      lastReviewedAt: now,
+      updatedAt: now,
+    })};
+  });
+});
 
 export const importQuestionBatch = onCall<unknown>(async (request) => {
   const uid = requireUid(request.auth?.uid);
@@ -609,7 +755,7 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       else incorrect++;
 
       return {
-        question: reviewQuestion(question.id, question.data),
+        question: reviewedQuizQuestion(question.id, question.data),
         selectedAnswerId,
         isBlank,
         isCorrect,
@@ -862,7 +1008,7 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       else if (isCorrect) correct++;
       else incorrect++;
       return {
-        question: reviewQuestion(question.id, question.data),
+        question: reviewedQuizQuestion(question.id, question.data),
         selectedAnswerId,
         isBlank,
         isCorrect,
@@ -2031,6 +2177,12 @@ function requireUid(uid: string | undefined): string {
   return uid;
 }
 
+function requireAdmin(snapshot: DocumentSnapshot): void {
+  if (!snapshot.exists || snapshot.data()?.role !== "admin") {
+    throw new HttpsError("permission-denied", "Administrator role required.");
+  }
+}
+
 function requireString(value: unknown, field: string, maxLength: number): string {
   if (typeof value !== "string" || value.trim().length === 0 || value.length > maxLength) {
     throw new HttpsError("invalid-argument", `Invalid ${field}.`);
@@ -2041,6 +2193,13 @@ function requireString(value: unknown, field: string, maxLength: number): string
 function optionalString(value: unknown, field: string, maxLength = 100): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   return requireString(value, field, maxLength);
+}
+
+function requireInteger(value: unknown, field: string, minimum: number, maximum: number): number {
+  if (!Number.isInteger(value) || Number(value) < minimum || Number(value) > maximum) {
+    throw new HttpsError("invalid-argument", `Invalid ${field}.`);
+  }
+  return Number(value);
 }
 
 function parseTerritory(value: unknown): TerritorySelection {
@@ -2136,7 +2295,7 @@ function publicQuestion(id: string, question: QuestionDoc) {
   };
 }
 
-function reviewQuestion(id: string, question: QuestionDoc) {
+function reviewedQuizQuestion(id: string, question: QuestionDoc) {
   return {
     ...publicQuestion(id, question),
     correctAnswerId: question.correctAnswerId,
@@ -2144,8 +2303,63 @@ function reviewQuestion(id: string, question: QuestionDoc) {
   };
 }
 
+function adminQuestion(id: string, question: Record<string, unknown>) {
+  return {
+    id,
+    oppositionId: stringValue(question.oppositionId),
+    statement: stringValue(question.statement),
+    answers: Array.isArray(question.answers) ? question.answers : [],
+    correctAnswerId: stringValue(question.correctAnswerId),
+    explanation: stringValue(question.explanation),
+    categoryId: stringValue(question.categoryId),
+    subcategoryId: nullableStringValue(question.subcategoryId),
+    difficulty: numberValue(question.difficulty),
+    scopeType: stringValue(question.scopeType),
+    territoryKeys: parseStringArray(question.territoryKeys),
+    country: stringValue(question.country),
+    autonomousCommunity: nullableStringValue(question.autonomousCommunity),
+    province: nullableStringValue(question.province),
+    municipality: nullableStringValue(question.municipality),
+    specificCallId: nullableStringValue(question.specificCallId),
+    officialExamId: nullableStringValue(question.officialExamId),
+    year: nullableNumberValue(question.year),
+    source: stringValue(question.source),
+    sourceDocument: nullableStringValue(question.sourceDocument),
+    sourcePage: nullableNumberValue(question.sourcePage),
+    verified: question.verified === true,
+    status: stringValue(question.status),
+    validFrom: nullableStringValue(question.validFrom),
+    validUntil: nullableStringValue(question.validUntil),
+    createdBy: stringValue(question.createdBy),
+    reviewedBy: nullableStringValue(question.reviewedBy),
+    createdAt: timestampIso(question.createdAt),
+    updatedAt: timestampIso(question.updatedAt),
+    lastReviewedAt: timestampIso(question.lastReviewedAt),
+  };
+}
+
 function numberValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function nullableNumberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function nullableStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function timestampIso(value: unknown): string | null {
+  return value instanceof Timestamp ? value.toDate().toISOString() : null;
+}
+
+function timestampMillis(value: unknown): number {
+  return value instanceof Timestamp ? value.toMillis() : 0;
 }
 
 function nextStreak(current: number, previousValue: unknown, now: Timestamp): number {
@@ -2443,7 +2657,7 @@ function scoreStoredQuestions(
     else if (isCorrect) correct++;
     else incorrect++;
     return {
-      question: reviewQuestion(question.id, question.data),
+      question: reviewedQuizQuestion(question.id, question.data),
       selectedAnswerId,
       isBlank,
       isCorrect,

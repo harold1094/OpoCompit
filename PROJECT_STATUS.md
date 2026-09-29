@@ -58,6 +58,8 @@
 - Callable ranking API with server-owned XP, public snapshots, tie handling, and bounded reads.
 - Admin-only JSON question imports with strict validation, stable identifiers, audit batches, and idempotent retries.
 - Emulator import command and sample batch for reviewing the complete ingestion path without Blaze.
+- Responsive React admin panel for JSON imports, pending-question editing, publication, and rejection.
+- Admin review callables with emulator-only access bootstrap and reviewer audit fields.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -68,11 +70,11 @@
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
 - Shared friend streaks and social activity feed.
-- Admin review/publication interface and CSV conversion.
+- CSV conversion and bulk admin actions.
 
 ## Next Implementation Steps
 
-1. Add the admin review and publication workflow against the emulator.
-2. Add shared friend streaks and the bounded social activity feed.
+1. Add shared friend streaks and the bounded social activity feed.
+2. Add CSV conversion and bulk review actions to the admin panel.
 3. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
 4. Remove Flutter only after React reaches verified feature parity.
