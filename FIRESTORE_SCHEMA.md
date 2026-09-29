@@ -18,6 +18,7 @@ The schema is designed around cheap reads, server-authoritative writes, territor
     "municipality": "Cartagena",
     "specificBody": "Bomberos Cartagena"
   },
+  "territoryKeys": ["ES", "ES-Murcia", "ES-Murcia-Cartagena"],
   "level": 1,
   "xp": 0,
   "coins": 0,
@@ -175,7 +176,10 @@ Indexes:
 
 ## rankings/{rankingId}/entries/{uid}
 
-Precomputed entries for global, territory, opposition, friends, and groups.
+Reserved for future precomputed weekly, monthly, opposition, and group snapshots.
+The MVP all-time global and territorial rankings query the trusted aggregate fields in
+`users` through `getRanking`; friend rankings read at most 50 accepted relationships.
+Clients never read other private user documents directly.
 
 ```json
 {

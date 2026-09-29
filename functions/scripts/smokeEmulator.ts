@@ -576,9 +576,84 @@ async function main() {
   assert.equal(rematchQueue.matchmaking.rating, 1012);
   await call("leaveMatchmaking", {}, auth.idToken);
 
+  const madridAuth = await createAnonymousAuth();
+  await call(
+    "bootstrapGuestProfile",
+    {
+      oppositionId: "firefighters_es",
+      oppositionName: "Bomberos",
+      territory: {
+        label: "Comunidad de Madrid",
+        country: "ES",
+        autonomousCommunity: "Madrid",
+      },
+    },
+    madridAuth.idToken,
+  );
+  await call("setPublicUsername", {username: "MadridZero"}, madridAuth.idToken);
+
+  type RankingSnapshot = {
+    scope: string;
+    territoryLabel: string | null;
+    entries: Array<{
+      uid: string;
+      username: string;
+      score: number;
+      position: number;
+      isViewer: boolean;
+    }>;
+    viewer: {uid: string; position: number; isViewer: boolean} | null;
+  };
+  const globalRanking = await call<RankingSnapshot>(
+    "getRanking",
+    {scope: "global"},
+    auth.idToken,
+  );
+  assert.equal(globalRanking.entries.length, 3);
+  assert.equal(globalRanking.entries[0].uid, auth.localId);
+  assert.equal(globalRanking.viewer?.position, 1);
+  assert.equal(globalRanking.viewer?.isViewer, true);
+  assert.equal(globalRanking.entries.at(-1)?.username, "MadridZero");
+
+  const territoryRanking = await call<RankingSnapshot>(
+    "getRanking",
+    {scope: "territory"},
+    auth.idToken,
+  );
+  assert.equal(territoryRanking.territoryLabel, "Bomberos Cartagena");
+  assert.equal(territoryRanking.entries.length, 1);
+  assert.equal(
+    territoryRanking.entries.some((entry) => entry.uid === madridAuth.localId),
+    false,
+  );
+  const regionalRanking = await call<RankingSnapshot>(
+    "getRanking",
+    {scope: "territory"},
+    friendAuth.idToken,
+  );
+  assert.equal(regionalRanking.territoryLabel, "Región de Murcia");
+  assert.equal(regionalRanking.entries.length, 2);
+  assert.equal(regionalRanking.entries.some((entry) => entry.uid === auth.localId), true);
+  assert.equal(regionalRanking.entries.some((entry) => entry.uid === madridAuth.localId), false);
+
+  const friendsRanking = await call<RankingSnapshot>(
+    "getRanking",
+    {scope: "friends"},
+    auth.idToken,
+  );
+  assert.equal(friendsRanking.entries.length, 2);
+  assert.equal(friendsRanking.entries.some((entry) => entry.uid === friendAuth.localId), true);
+
   await call("removeFriend", {friendUid: friendAuth.localId}, auth.idToken);
   const afterRemoval = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
   assert.equal(afterRemoval.friends.length, 0);
+  const friendsRankingAfterRemoval = await call<RankingSnapshot>(
+    "getRanking",
+    {scope: "friends"},
+    auth.idToken,
+  );
+  assert.equal(friendsRankingAfterRemoval.entries.length, 1);
+  assert.equal(friendsRankingAfterRemoval.entries[0].uid, auth.localId);
 
   console.log(JSON.stringify({
     uid: auth.localId,
@@ -594,6 +669,7 @@ async function main() {
     duplicateFriendDuelBlocked,
     compatibleMatchmakingValidated: true,
     duplicateMatchmakingDuelBlocked,
+    serverAuthoritativeRankingsValidated: true,
     duplicateUsernameBlocked,
   }, null, 2));
 }

@@ -14,6 +14,9 @@ import {
   PendingFriendDuel,
   Question,
   QuizResult,
+  RankingEntry,
+  RankingScope,
+  RankingSnapshot,
   SocialUser,
   TerritorySelection,
   UserQuestionStat,
@@ -24,6 +27,7 @@ import {
   claimMissionRemote,
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
+  getRankingRemote,
   getSocialOverviewRemote,
   isFirebaseEnabled,
   joinMatchmakingRemote,
@@ -83,6 +87,8 @@ type AppStore = {
   outgoingRequests: FriendRequest[];
   duelInvitations: FriendDuelInvitation[];
   matchmaking: MatchmakingState;
+  ranking: RankingSnapshot | null;
+  rankingScope: RankingScope;
   socialSearchResults: SocialUser[];
   lastResult: QuizResult | null;
   lastDuelResult: DuelResult | null;
@@ -97,9 +103,11 @@ type AppStore = {
   engagementError: string | null;
   isLoadingSocial: boolean;
   isMatchmakingLoading: boolean;
+  isLoadingRanking: boolean;
   isSavingUsername: boolean;
   socialActionId: string | null;
   socialError: string | null;
+  rankingError: string | null;
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
@@ -126,6 +134,7 @@ type AppStore = {
   refreshMatchmaking: () => Promise<void>;
   leaveMatchmaking: () => Promise<void>;
   openMatchmakingDuel: () => Promise<'quiz' | 'results' | 'waiting' | null>;
+  loadRanking: (scope: RankingScope) => Promise<void>;
 };
 
 export const useAppStore = create<AppStore>()(
@@ -148,6 +157,8 @@ export const useAppStore = create<AppStore>()(
       outgoingRequests: [],
       duelInvitations: [],
       matchmaking: { status: 'idle', rating: 1000 },
+      ranking: null,
+      rankingScope: 'global',
       socialSearchResults: [],
       lastResult: null,
       lastDuelResult: null,
@@ -162,9 +173,11 @@ export const useAppStore = create<AppStore>()(
       engagementError: null,
       isLoadingSocial: false,
       isMatchmakingLoading: false,
+      isLoadingRanking: false,
       isSavingUsername: false,
       socialActionId: null,
       socialError: null,
+      rankingError: null,
       setHydrated: (hydrated) => set({ hydrated }),
       startGuest: async (territory) => {
         let backendMode: BackendMode = 'local';
@@ -209,6 +222,8 @@ export const useAppStore = create<AppStore>()(
           outgoingRequests: [],
           duelInvitations: [],
           matchmaking: { status: 'idle', rating: 1000 },
+          ranking: null,
+          rankingScope: 'global',
           socialSearchResults: [],
           lastResult: null,
           lastDuelResult: null,
@@ -216,6 +231,7 @@ export const useAppStore = create<AppStore>()(
           quizError: null,
           engagementError: null,
           socialError: null,
+          rankingError: null,
         });
       },
       startQuickMatch: async () => {
@@ -1021,6 +1037,21 @@ export const useAppStore = create<AppStore>()(
           set({ isStartingDuel: false });
         }
       },
+      loadRanking: async (scope) => {
+        const state = get();
+        if (!state.profile || state.isLoadingRanking) return;
+        set({ rankingScope: scope, isLoadingRanking: true, rankingError: null });
+        try {
+          const ranking = state.backendMode === 'firebase'
+            ? await getRankingRemote(scope)
+            : localRankingSnapshot(state.profile, scope, state.friends);
+          set({ ranking });
+        } catch (error) {
+          set({ rankingError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingRanking: false });
+        }
+      },
     }),
     {
       name: 'opocompit-client-state',
@@ -1036,6 +1067,7 @@ export const useAppStore = create<AppStore>()(
         outgoingRequests: state.outgoingRequests,
         duelInvitations: state.duelInvitations,
         matchmaking: state.matchmaking,
+        rankingScope: state.rankingScope,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(true),
     },
@@ -1048,6 +1080,61 @@ function socialUserToDuelOpponent(user: SocialUser): DuelOpponent {
     name: user.username,
     level: user.level,
     territoryLabel: user.territoryLabel,
+  };
+}
+
+function localRankingSnapshot(
+  profile: PlayerProfile,
+  scope: RankingScope,
+  friends: SocialUser[],
+): RankingSnapshot {
+  const scores: Record<string, number> = {
+    local_mario: 3960,
+    local_lucia: 4820,
+    local_alex: 4390,
+  };
+  const candidates = scope === 'friends'
+    ? friends
+    : scope === 'territory'
+      ? localSocialUsers.filter((user) =>
+        profile.territory.label.toLowerCase().includes(user.territoryLabel.toLowerCase()),
+      )
+      : localSocialUsers;
+  const uniqueCandidates = [...new Map(candidates.map((user) => [user.uid, user])).values()];
+  const rawEntries: Omit<RankingEntry, 'position'>[] = [
+    ...uniqueCandidates.map((user) => ({
+      uid: user.uid,
+      username: user.username,
+      level: user.level,
+      territoryLabel: user.territoryLabel,
+      score: scores[user.uid] ?? user.duelWins * 100,
+      isViewer: false,
+    })),
+    {
+      uid: profile.uid,
+      username: profile.username,
+      level: profile.level,
+      territoryLabel: profile.territory.label,
+      score: profile.xp,
+      isViewer: true,
+    },
+  ];
+  const sorted = rawEntries.sort((first, second) =>
+    second.score - first.score || first.uid.localeCompare(second.uid),
+  );
+  let previousScore: number | null = null;
+  let position = 0;
+  const entries = sorted.map((entry, index) => {
+    if (entry.score !== previousScore) position = index + 1;
+    previousScore = entry.score;
+    return { ...entry, position };
+  });
+  return {
+    scope,
+    period: 'all_time',
+    territoryLabel: scope === 'territory' ? profile.territory.label : null,
+    entries,
+    viewer: entries.find((entry) => entry.isViewer) ?? null,
   };
 }
 

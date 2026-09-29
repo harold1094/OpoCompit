@@ -197,6 +197,26 @@ export type MatchmakingState =
     opponentSubmitted: boolean;
   };
 
+export type RankingScope = 'global' | 'territory' | 'friends';
+
+export type RankingEntry = {
+  uid: string;
+  username: string;
+  level: number;
+  territoryLabel: string;
+  score: number;
+  position: number;
+  isViewer: boolean;
+};
+
+export type RankingSnapshot = {
+  scope: RankingScope;
+  period: 'all_time';
+  territoryLabel: string | null;
+  entries: RankingEntry[];
+  viewer: RankingEntry | null;
+};
+
 export type SocialOverview = {
   friends: SocialUser[];
   incomingRequests: FriendRequest[];

@@ -27,6 +27,7 @@ import {
   ratingsAreCompatible,
   updatedRatings,
 } from "./matchmaking.js";
+import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 
 initializeApp();
@@ -134,11 +135,16 @@ type SubmitFriendDuelInput = {
   answers: Answer[];
 };
 
+type GetRankingInput = {
+  scope: "global" | "territory" | "friends";
+};
+
 export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const oppositionId = requireString(request.data?.oppositionId, "oppositionId", 80);
   const oppositionName = requireString(request.data?.oppositionName, "oppositionName", 80);
   const territory = parseTerritory(request.data?.territory);
+  const territoryKeys = buildTerritoryKeys(territory);
   const userRef = db.collection("users").doc(uid);
 
   const profile = await db.runTransaction(async (transaction) => {
@@ -152,12 +158,14 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
         oppositionId,
         oppositionName,
         territorySelection: territory,
+        territoryKeys,
         updatedAt: now,
       };
       transaction.update(userRef, {
         oppositionId,
         oppositionName,
         territorySelection: territory,
+        territoryKeys,
         updatedAt: now,
       });
       return serializeProfile(uid, updated);
@@ -171,6 +179,7 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       oppositionId,
       oppositionName,
       territorySelection: territory,
+      territoryKeys,
       level: 1,
       xp: 0,
       coins: 0,
@@ -945,6 +954,96 @@ export const searchUsers = onCall<SearchUsersInput>(async (request) => {
 export const getSocialOverview = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   return socialOverview(uid);
+});
+
+export const getRanking = onCall<GetRankingInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const scope = request.data?.scope;
+  if (!["global", "territory", "friends"].includes(String(scope))) {
+    throw new HttpsError("invalid-argument", "Invalid ranking scope.");
+  }
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+  const user = userSnapshot.data() ?? {};
+
+  if (scope === "friends") {
+    const friendships = await db.collection("friends")
+      .where("uids", "array-contains", uid)
+      .limit(50)
+      .get();
+    const participantUids = new Set([uid]);
+    friendships.docs.forEach((document) => {
+      parseStringArray(document.data().uids).forEach((participantUid) =>
+        participantUids.add(participantUid),
+      );
+    });
+    const profiles = await db.getAll(...[...participantUids].map((participantUid) =>
+      db.collection("users").doc(participantUid),
+    ));
+    const ranked = rankEntries(profiles.flatMap((profile) => profile.exists ? [{
+      uid: profile.id,
+      score: numberValue(profile.data()?.xp),
+      data: profile.data() ?? {},
+    }] : []));
+    const entries = ranked.map((entry) =>
+      serializeRankingEntry(entry.uid, entry.data, entry.position, uid),
+    );
+    return {
+      scope,
+      period: "all_time",
+      territoryLabel: null,
+      entries,
+      viewer: entries.find((entry) => entry.uid === uid) ?? null,
+    };
+  }
+
+  const territory = parseTerritory(user.territorySelection);
+  const territoryKeys = parseStringArray(user.territoryKeys).length > 0 ?
+    parseStringArray(user.territoryKeys) : buildTerritoryKeys(territory);
+  const territoryKey = mostSpecificTerritoryKey(territoryKeys);
+  const rankingQuery = scope === "territory" ?
+    db.collection("users")
+      .where("territoryKeys", "array-contains", territoryKey)
+      .orderBy("xp", "desc")
+      .limit(25) :
+    db.collection("users").orderBy("xp", "desc").limit(25);
+  const rankingSnapshot = await rankingQuery.get();
+  const ranked = rankEntries(rankingSnapshot.docs.map((document) => ({
+    uid: document.id,
+    score: numberValue(document.data().xp),
+    data: document.data(),
+  })));
+  const entries = ranked.map((entry) =>
+    serializeRankingEntry(entry.uid, entry.data, entry.position, uid),
+  );
+  let viewer = entries.find((entry) => entry.uid === uid) ?? null;
+  if (!viewer) {
+    const higherScores = scope === "territory" ?
+      await db.collection("users")
+        .where("territoryKeys", "array-contains", territoryKey)
+        .where("xp", ">", numberValue(user.xp))
+        .count()
+        .get() :
+      await db.collection("users")
+        .where("xp", ">", numberValue(user.xp))
+        .count()
+        .get();
+    viewer = serializeRankingEntry(
+      uid,
+      user,
+      higherScores.data().count + 1,
+      uid,
+    );
+  }
+  return {
+    scope,
+    period: "all_time",
+    territoryLabel: scope === "territory" ? territory.label : null,
+    entries,
+    viewer,
+  };
 });
 
 export const sendFriendRequest = onCall<SendFriendRequestInput>(async (request) => {
@@ -2038,6 +2137,24 @@ function serializeSocialUser(uid: string, data: Record<string, unknown>) {
     territoryLabel: typeof territory.label === "string" ? territory.label : "España",
     currentStreak: numberValue(data.currentStreak),
     duelWins: numberValue(data.duelWins),
+  };
+}
+
+function serializeRankingEntry(
+  uid: string,
+  data: Record<string, unknown>,
+  position: number,
+  viewerUid: string,
+) {
+  const territory = storedRecord(data.territorySelection);
+  return {
+    uid,
+    username: typeof data.username === "string" ? data.username : "Invitado",
+    level: Math.max(1, numberValue(data.level)),
+    territoryLabel: typeof territory.label === "string" ? territory.label : "España",
+    score: numberValue(data.xp),
+    position,
+    isViewer: uid === viewerUid,
   };
 }
 

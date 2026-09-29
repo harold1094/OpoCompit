@@ -30,6 +30,8 @@ import {
   Question,
   QuizAnswerSubmission,
   QuizResult,
+  RankingScope,
+  RankingSnapshot,
   SocialOverview,
   SocialUser,
 } from '@/core/domain/types';
@@ -360,6 +362,13 @@ export async function leaveMatchmakingRemote(): Promise<MatchmakingState> {
   const invoke = callable<Record<string, never>, MatchmakingResponse>('leaveMatchmaking');
   const response = await invoke({});
   return response.data.matchmaking;
+}
+
+export async function getRankingRemote(scope: RankingScope): Promise<RankingSnapshot> {
+  await startAnonymousSession();
+  const invoke = callable<{ scope: RankingScope }, RankingSnapshot>('getRanking');
+  const response = await invoke({ scope });
+  return response.data;
 }
 
 export function isFirebaseEnabled(): boolean {

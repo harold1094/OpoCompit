@@ -91,6 +91,12 @@ Responsibilities:
 
 Friend and matchmaking duels use identical questions, opposition compatibility, shared territorial scopes, and accuracy-before-time tie breaking. Matchmaking starts at a 100-point Elo range and widens with waiting time; the final result updates both ratings atomically. User documents, username reservations, and queue entries remain private. All social mutations run through callable Functions.
 
+## Ranking callable
+
+- `getRanking`: returns the all-time global, most-specific territorial, or friends ranking using server-owned XP aggregates.
+
+The callable returns at most 25 public entries, calculates the viewer's position even when it falls outside the top, and limits friend reads to 50 accepted relationships. Scheduled snapshots remain a future optimization for weekly and monthly rankings.
+
 ## callable: `updateProfileSelection`
 
 Responsibilities:
@@ -99,7 +105,7 @@ Responsibilities:
 - Update user profile.
 - Recompute territory keys.
 
-## scheduled: `rebuildLeaderboards`
+## future scheduled: `rebuildLeaderboards`
 
 Responsibilities:
 

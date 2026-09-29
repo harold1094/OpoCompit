@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "territoryKeys", "arrayConfig": "CONTAINS"},
+        {"fieldPath": "xp", "order": "DESCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "matchmakingEntries",
       "queryScope": "COLLECTION",
       "fields": [

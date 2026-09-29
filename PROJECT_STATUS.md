@@ -31,7 +31,7 @@
 - Daily reward with a seven-day local fallback calendar.
 - Daily missions with automatic Madrid-day reset.
 - Local social friends.
-- Local global, territorial, and friends rankings.
+- Global, hierarchical territorial, and friends rankings with local fallback.
 - React classic 1v1 training duel with local fallback and server-authoritative Firebase validation.
 - Unique public usernames with exact user search.
 - Friend requests with accept, decline, list, and remove flows.
@@ -55,6 +55,7 @@
 - Callable social API for username reservation, search, requests, friendships, and removal.
 - Callable friend-duel API for invitations, acceptance, play, submission, and final server-owned results.
 - Callable matchmaking API for joining, polling, cancelling, transactional pairing, and Elo updates.
+- Callable ranking API with server-owned XP, public snapshots, tie handling, and bounded reads.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -64,13 +65,11 @@
 ## Still Local / Not Production-Safe Yet
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
-- Rankings.
 - Shared friend streaks and social activity feed.
 - Admin import.
 
 ## Next Implementation Steps
 
-1. Move rankings to server-authoritative Functions.
-2. Add the first functional admin import flow against the emulator.
-3. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-4. Remove Flutter only after React reaches verified feature parity.
+1. Add the first functional admin import flow against the emulator.
+2. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+3. Remove Flutter only after React reaches verified feature parity.
