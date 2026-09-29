@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
-import { FriendDuelInvitation, SocialUser } from '@/core/domain/types';
+import { FriendDuelInvitation, MatchmakingState, SocialUser } from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { trainingOpponents } from '@/features/duels/domain/duel';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -24,12 +24,14 @@ export default function SocialScreen() {
   const incomingRequests = useAppStore((state) => state.incomingRequests);
   const outgoingRequests = useAppStore((state) => state.outgoingRequests);
   const duelInvitations = useAppStore((state) => state.duelInvitations);
+  const matchmaking = useAppStore((state) => state.matchmaking);
   const searchResults = useAppStore((state) => state.socialSearchResults);
   const socialError = useAppStore((state) => state.socialError);
   const isLoadingSocial = useAppStore((state) => state.isLoadingSocial);
   const isSavingUsername = useAppStore((state) => state.isSavingUsername);
   const socialActionId = useAppStore((state) => state.socialActionId);
   const isStartingDuel = useAppStore((state) => state.isStartingDuel);
+  const isMatchmakingLoading = useAppStore((state) => state.isMatchmakingLoading);
   const refreshSocial = useAppStore((state) => state.refreshSocial);
   const setPublicUsername = useAppStore((state) => state.setPublicUsername);
   const searchSocialUsers = useAppStore((state) => state.searchSocialUsers);
@@ -39,6 +41,10 @@ export default function SocialScreen() {
   const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
   const respondFriendDuelInvitation = useAppStore((state) => state.respondFriendDuelInvitation);
   const openFriendDuel = useAppStore((state) => state.openFriendDuel);
+  const joinMatchmaking = useAppStore((state) => state.joinMatchmaking);
+  const refreshMatchmaking = useAppStore((state) => state.refreshMatchmaking);
+  const leaveMatchmaking = useAppStore((state) => state.leaveMatchmaking);
+  const openMatchmakingDuel = useAppStore((state) => state.openMatchmakingDuel);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
   const [showSearch, setShowSearch] = useState(false);
   const [username, setUsername] = useState('');
@@ -56,8 +62,15 @@ export default function SocialScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshSocial();
-    }, [refreshSocial]),
+      void refreshMatchmaking();
+    }, [refreshMatchmaking, refreshSocial]),
   );
+
+  useEffect(() => {
+    if (matchmaking.status !== 'waiting') return;
+    const interval = setInterval(() => void refreshMatchmaking(), 5000);
+    return () => clearInterval(interval);
+  }, [matchmaking.status, refreshMatchmaking]);
 
   if (!profile) return null;
   const needsUsername = profile.username === 'Invitado';
@@ -102,6 +115,12 @@ export default function SocialScreen() {
     if (destination === 'results' || destination === 'waiting') router.push('/results');
   };
 
+  const openMatch = async () => {
+    const destination = await openMatchmakingDuel();
+    if (destination === 'quiz') router.push('/quiz');
+    if (destination === 'results' || destination === 'waiting') router.push('/results');
+  };
+
   return (
     <AppScreen>
       <View style={styles.heading}>
@@ -139,6 +158,64 @@ export default function SocialScreen() {
           </Text>
         </View>
         <Text style={styles.socialBandValue}>{friends.length}</Text>
+      </View>
+
+      <View style={styles.matchPanel}>
+        <View style={styles.matchHeader}>
+          <View style={styles.matchIcon}>
+            <MaterialCommunityIcons name="access-point" size={22} color={colors.aqua} />
+          </View>
+          <View style={styles.rowCopy}>
+            <Text style={styles.panelTitle}>Buscar rival</Text>
+            <Text style={styles.rowMeta}>Rating {matchmaking.rating}</Text>
+          </View>
+          {matchmaking.status === 'idle' ? (
+            <IconAction
+              accessibilityLabel="Buscar rival compatible"
+              disabled={needsUsername}
+              icon="magnify"
+              loading={isMatchmakingLoading}
+              onPress={() => void joinMatchmaking()}
+            />
+          ) : null}
+          {matchmaking.status === 'waiting' ? (
+            <IconAction
+              accessibilityLabel="Cancelar búsqueda de rival"
+              icon="close"
+              loading={isMatchmakingLoading}
+              onPress={() => void leaveMatchmaking()}
+              variant="neutral"
+            />
+          ) : null}
+          {matchmaking.status === 'matched' && matchmaking.duelStatus !== 'waiting' ? (
+            <IconAction
+              accessibilityLabel={matchmaking.duelStatus === 'completed'
+                ? `Ver resultado contra ${matchmaking.opponent.username}`
+                : `Jugar contra ${matchmaking.opponent.username}`}
+              icon={matchmaking.duelStatus === 'completed' ? 'trophy-outline' : 'play'}
+              loading={isStartingDuel}
+              onPress={() => void openMatch()}
+              variant="soft"
+            />
+          ) : null}
+        </View>
+        {matchmaking.status === 'waiting' ? (
+          <View style={styles.matchStatus}>
+            <ActivityIndicator color={colors.aqua} size="small" />
+            <Text style={styles.matchStatusText}>
+              Buscando · rango ±{matchmaking.range}
+            </Text>
+          </View>
+        ) : null}
+        {matchmaking.status === 'matched' ? (
+          <View style={styles.matchStatus}>
+            <Avatar />
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowName}>{matchmaking.opponent.username}</Text>
+              <Text style={styles.rowMeta}>{matchmakingMeta(matchmaking)}</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {needsUsername ? (
@@ -432,6 +509,15 @@ function duelInvitationMeta(invitation: FriendDuelInvitation): string {
   return 'Duelo clásico · listo para jugar';
 }
 
+function matchmakingMeta(
+  matchmaking: Extract<MatchmakingState, { status: 'matched' }>,
+): string {
+  if (matchmaking.duelStatus === 'completed') return 'Resultado disponible';
+  if (matchmaking.duelStatus === 'waiting') return 'Has terminado · falta tu rival';
+  if (matchmaking.opponentSubmitted) return 'Tu rival ya ha terminado';
+  return `Nivel ${matchmaking.opponent.level} · ${matchmaking.opponent.territoryLabel}`;
+}
+
 function Avatar() {
   return (
     <View style={styles.avatar}>
@@ -497,6 +583,11 @@ const styles = StyleSheet.create({
   socialBandTitle: { color: colors.surface, fontSize: 15, fontWeight: '900' },
   socialBandText: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   socialBandValue: { color: colors.gold, fontSize: 31, fontWeight: '900' },
+  matchPanel: { marginTop: spacing.xl, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
+  matchHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  matchIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
+  matchStatus: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.line },
+  matchStatusText: { flex: 1, color: colors.muted, fontSize: 12, fontWeight: '800' },
   setupPanel: { marginTop: spacing.xl },
   searchPanel: { marginTop: spacing.xl, gap: spacing.sm },
   panelTitle: { color: colors.ink, fontSize: 16, fontWeight: '900' },

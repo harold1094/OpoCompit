@@ -21,6 +21,12 @@ import {
   friendDuelViewStatus,
   oppositeOutcome,
 } from "./friendDuel.js";
+import {
+  matchmakingRange,
+  normalizedRating,
+  ratingsAreCompatible,
+  updatedRatings,
+} from "./matchmaking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 
 initializeApp();
@@ -29,6 +35,7 @@ const db = getFirestore();
 const maxQuestionCount = 25;
 const sessionLifetimeMs = 24 * 60 * 60 * 1000;
 const friendDuelLifetimeMs = 7 * 24 * 60 * 60 * 1000;
+const matchmakingLifetimeMs = 10 * 60 * 1000;
 
 type TerritorySelection = {
   label: string;
@@ -1264,6 +1271,244 @@ export const respondFriendDuelInvitation = onCall<RespondFriendDuelInvitationInp
   },
 );
 
+export const joinMatchmaking = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const entryRef = db.collection("matchmakingEntries").doc(uid);
+  const [userSnapshot, existingEntry] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    entryRef.get(),
+  ]);
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+  const user = userSnapshot.data() ?? {};
+  if (!user.usernameKey) {
+    throw new HttpsError("failed-precondition", "Choose a username before finding a rival.");
+  }
+  const rating = normalizedRating(user.duelRating);
+  const now = Timestamp.now();
+  const existingData = existingEntry.data() ?? {};
+  if (existingData.status === "matched" &&
+    !matchmakingEntryExpired(existingData)) {
+    return {matchmaking: serializeMatchmakingEntry(existingData, uid, rating)};
+  }
+
+  const oppositionId = requireString(user.oppositionId, "stored oppositionId", 80);
+  const territoryKeys = buildTerritoryKeys(parseTerritory(user.territorySelection));
+  const candidatesSnapshot = await db.collection("matchmakingEntries")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "waiting")
+    .orderBy("createdAt", "asc")
+    .limit(50)
+    .get();
+  const candidates = candidatesSnapshot.docs
+    .filter((document) => document.id !== uid && !matchmakingEntryExpired(document.data()))
+    .map((document) => ({id: document.id, data: document.data()}))
+    .filter((candidate) => {
+      const candidateCreatedAt = candidate.data.createdAt;
+      const waitMs = candidateCreatedAt instanceof Timestamp ?
+        Math.max(0, now.toMillis() - candidateCreatedAt.toMillis()) : 0;
+      const ownCreatedAt = existingData.status === "waiting" &&
+        !matchmakingEntryExpired(existingData) &&
+        existingData.createdAt instanceof Timestamp ? existingData.createdAt : now;
+      const ownWaitMs = Math.max(0, now.toMillis() - ownCreatedAt.toMillis());
+      return commonTerritoryKeys(territoryKeys, parseStringArray(candidate.data.territoryKeys))
+        .length > 0 && ratingsAreCompatible(
+        rating,
+        normalizedRating(candidate.data.rating),
+        ownWaitMs,
+        waitMs,
+      );
+    })
+    .sort((first, second) => {
+      const firstDifference = Math.abs(rating - normalizedRating(first.data.rating));
+      const secondDifference = Math.abs(rating - normalizedRating(second.data.rating));
+      return firstDifference - secondDifference;
+    });
+
+  const candidate = candidates[0];
+  if (!candidate) {
+    const waiting = await db.runTransaction(async (transaction) => {
+      const freshEntry = await transaction.get(entryRef);
+      const freshData = freshEntry.data() ?? {};
+      if (freshData.status === "matched" &&
+        !matchmakingEntryExpired(freshData)) {
+        return freshData;
+      }
+      const createdAt = freshData.status === "waiting" &&
+        !matchmakingEntryExpired(freshData) &&
+        freshData.createdAt instanceof Timestamp ? freshData.createdAt : now;
+      const data = {
+        uid,
+        status: "waiting",
+        oppositionId,
+        territoryKeys,
+        rating,
+        user: serializeSocialUser(uid, user),
+        duelId: null,
+        opponent: null,
+        submittedUids: [],
+        createdAt,
+        updatedAt: now,
+        expiresAt: Timestamp.fromMillis(createdAt.toMillis() + matchmakingLifetimeMs),
+      };
+      transaction.set(entryRef, data);
+      return data;
+    });
+    return {matchmaking: serializeMatchmakingEntry(waiting, uid, rating)};
+  }
+
+  const candidateRef = db.collection("matchmakingEntries").doc(candidate.id);
+  const candidateUserRef = db.collection("users").doc(candidate.id);
+  const candidateUserSnapshot = await candidateUserRef.get();
+  if (!candidateUserSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Rival profile missing.");
+  }
+  const candidateUser = candidateUserSnapshot.data() ?? {};
+  const sharedTerritoryKeys = commonTerritoryKeys(
+    territoryKeys,
+    buildTerritoryKeys(parseTerritory(candidateUser.territorySelection)),
+  );
+  if (sharedTerritoryKeys.length === 0) {
+    throw new HttpsError("aborted", "The rival is no longer compatible. Try again.");
+  }
+  const questions = await db.collection("questions")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "published")
+    .where("verified", "==", true)
+    .where("territoryKeys", "array-contains-any", sharedTerritoryKeys.slice(0, 10))
+    .orderBy("difficulty", "asc")
+    .limit(10)
+    .get();
+  if (questions.empty) {
+    throw new HttpsError("not-found", "No compatible questions found.");
+  }
+
+  const duelRef = db.collection("duels").doc();
+  const matched = await db.runTransaction(async (transaction) => {
+    const [freshEntry, freshCandidate, freshUser, freshCandidateUser] = await Promise.all([
+      transaction.get(entryRef),
+      transaction.get(candidateRef),
+      transaction.get(db.collection("users").doc(uid)),
+      transaction.get(candidateUserRef),
+    ]);
+    const freshEntryData = freshEntry.data() ?? {};
+    if (freshEntryData.status === "matched" &&
+      !matchmakingEntryExpired(freshEntryData)) {
+      return freshEntryData;
+    }
+    const freshCandidateData = freshCandidate.data() ?? {};
+    if (!freshCandidate.exists || freshCandidateData.status !== "waiting" ||
+      matchmakingEntryExpired(freshCandidateData) || !freshUser.exists ||
+      !freshCandidateUser.exists) {
+      throw new HttpsError("aborted", "The rival is no longer available. Try again.");
+    }
+    const freshUserData = freshUser.data() ?? {};
+    const freshCandidateUserData = freshCandidateUser.data() ?? {};
+    if (freshUserData.oppositionId !== oppositionId ||
+      freshCandidateUserData.oppositionId !== oppositionId) {
+      throw new HttpsError("failed-precondition", "Player opposition changed.");
+    }
+    const freshSharedTerritoryKeys = commonTerritoryKeys(
+      buildTerritoryKeys(parseTerritory(freshUserData.territorySelection)),
+      buildTerritoryKeys(parseTerritory(freshCandidateUserData.territorySelection)),
+    );
+    const candidateCreatedAt = freshCandidateData.createdAt;
+    const ownCreatedAt = freshEntryData.status === "waiting" &&
+      !matchmakingEntryExpired(freshEntryData) &&
+      freshEntryData.createdAt instanceof Timestamp ? freshEntryData.createdAt : now;
+    if (freshSharedTerritoryKeys.join("|") !== sharedTerritoryKeys.join("|") ||
+      !(candidateCreatedAt instanceof Timestamp) ||
+      !ratingsAreCompatible(
+        normalizedRating(freshUserData.duelRating),
+        normalizedRating(freshCandidateUserData.duelRating),
+        Math.max(0, now.toMillis() - ownCreatedAt.toMillis()),
+        Math.max(0, now.toMillis() - candidateCreatedAt.toMillis()),
+      )) {
+      throw new HttpsError("aborted", "The rival is no longer compatible. Try again.");
+    }
+
+    const players = [
+      serializeSocialUser(uid, freshUserData),
+      serializeSocialUser(candidate.id, freshCandidateUserData),
+    ];
+    transaction.set(duelRef, {
+      participantUids: [uid, candidate.id],
+      mode: "classic_matchmaking",
+      players,
+      oppositionId,
+      territoryKeys: freshSharedTerritoryKeys,
+      questionIds: questions.docs.map((document) => document.id),
+      starts: [],
+      submissions: [],
+      status: "active",
+      createdAt: now,
+      acceptedAt: now,
+      completedAt: null,
+    });
+    const expiresAt = Timestamp.fromMillis(now.toMillis() + friendDuelLifetimeMs);
+    const ownData = {
+      uid,
+      status: "matched",
+      oppositionId,
+      territoryKeys: freshSharedTerritoryKeys,
+      rating: normalizedRating(freshUserData.duelRating),
+      user: players[0],
+      duelId: duelRef.id,
+      opponent: players[1],
+      submittedUids: [],
+      createdAt: ownCreatedAt,
+      matchedAt: now,
+      updatedAt: now,
+      expiresAt,
+    };
+    const candidateData = {
+      uid: candidate.id,
+      status: "matched",
+      oppositionId,
+      territoryKeys: freshSharedTerritoryKeys,
+      rating: normalizedRating(freshCandidateUserData.duelRating),
+      user: players[1],
+      duelId: duelRef.id,
+      opponent: players[0],
+      submittedUids: [],
+      createdAt: candidateCreatedAt,
+      matchedAt: now,
+      updatedAt: now,
+      expiresAt,
+    };
+    transaction.set(entryRef, ownData);
+    transaction.set(candidateRef, candidateData);
+    return ownData;
+  });
+  return {matchmaking: serializeMatchmakingEntry(matched, uid, rating)};
+});
+
+export const getMatchmakingStatus = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const [entry, user] = await Promise.all([
+    db.collection("matchmakingEntries").doc(uid).get(),
+    db.collection("users").doc(uid).get(),
+  ]);
+  const rating = normalizedRating(user.data()?.duelRating);
+  if (!entry.exists || matchmakingEntryExpired(entry.data() ?? {})) {
+    return {matchmaking: {status: "idle", rating}};
+  }
+  return {matchmaking: serializeMatchmakingEntry(entry.data() ?? {}, uid, rating)};
+});
+
+export const leaveMatchmaking = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const entryRef = db.collection("matchmakingEntries").doc(uid);
+  await db.runTransaction(async (transaction) => {
+    const entry = await transaction.get(entryRef);
+    if (!entry.exists || entry.data()?.status !== "waiting") return;
+    transaction.update(entryRef, {status: "cancelled", updatedAt: Timestamp.now()});
+  });
+  const user = await db.collection("users").doc(uid).get();
+  return {matchmaking: {status: "idle", rating: normalizedRating(user.data()?.duelRating)}};
+});
+
 export const openFriendDuel = onCall<OpenFriendDuelInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const duelId = requireString(request.data?.duelId, "duelId", 160);
@@ -1273,7 +1518,8 @@ export const openFriendDuel = onCall<OpenFriendDuelInput>(async (request) => {
     const snapshot = await transaction.get(duelRef);
     if (!snapshot.exists) throw new HttpsError("not-found", "Duel not found.");
     const data = snapshot.data() ?? {};
-    if (data.mode !== "classic_friend" || !parseStringArray(data.participantUids).includes(uid)) {
+    if (!["classic_friend", "classic_matchmaking"].includes(String(data.mode)) ||
+      !parseStringArray(data.participantUids).includes(uid)) {
       throw new HttpsError("permission-denied", "Not your duel.");
     }
     if (!["active", "completed"].includes(String(data.status))) {
@@ -1329,7 +1575,8 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
     if (!duelSnapshot.exists) throw new HttpsError("not-found", "Duel not found.");
     const duel = duelSnapshot.data() ?? {};
     const participantUids = parseStringArray(duel.participantUids);
-    if (duel.mode !== "classic_friend" || !participantUids.includes(uid)) {
+    if (!["classic_friend", "classic_matchmaking"].includes(String(duel.mode)) ||
+      !participantUids.includes(uid)) {
       throw new HttpsError("permission-denied", "Not your duel.");
     }
     if (duel.status !== "active") {
@@ -1403,7 +1650,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
     const streak = nextStreak(previousStreak, user.lastValidActivityDate, completedAt);
     const xp = numberValue(user.xp) + xpEarned;
     const coins = numberValue(user.coins) + coinsEarned;
-    const profileUpdate = {
+    const profileUpdate: Record<string, unknown> = {
       xp,
       level: Math.floor(Math.sqrt(xp / 100)) + 1,
       coins,
@@ -1480,7 +1727,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
         opponentOutcome === "draw" ? 5 : 0;
       const opponent = opponentSnapshot.data() ?? {};
       const opponentXp = numberValue(opponent.xp) + opponentBonusXp;
-      transaction.update(opponentRef, {
+      const opponentUpdate: Record<string, unknown> = {
         xp: opponentXp,
         level: Math.floor(Math.sqrt(opponentXp / 100)) + 1,
         coins: numberValue(opponent.coins) + opponentBonusCoins,
@@ -1489,7 +1736,14 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
         duelLosses: numberValue(opponent.duelLosses) + (opponentOutcome === "loss" ? 1 : 0),
         duelDraws: numberValue(opponent.duelDraws) + (opponentOutcome === "draw" ? 1 : 0),
         updatedAt: completedAt,
-      });
+      };
+      if (duel.mode === "classic_matchmaking") {
+        const ratings = updatedRatings(user.duelRating, opponent.duelRating, outcome);
+        profileUpdate.duelRating = ratings.first;
+        opponentUpdate.duelRating = ratings.second;
+      }
+      transaction.update(userRef, profileUpdate);
+      transaction.update(opponentRef, opponentUpdate);
       const previousResult = storedRecord(previousSubmission.result);
       updatedSubmissions = updatedSubmissions.map((submission) => submission.uid === opponentUid ? {
         ...submission,
@@ -1502,7 +1756,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       } : submission.uid === uid ? {...submission, outcome} : submission);
       duelResult = {
         duelId,
-        kind: "friend",
+        kind: duel.mode === "classic_matchmaking" ? "matchmaking" : "friend",
         opponent: friendDuelOpponent(duel.players, uid),
         outcome,
         playerCorrect: scored.correct,
@@ -1529,12 +1783,22 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       completedAt: isCompleted ? completedAt : null,
       updatedAt: completedAt,
     });
-    const invitationId = requireString(duel.invitationId, "stored invitationId", 340);
-    transaction.update(db.collection("duelInvitations").doc(invitationId), {
-      status: isCompleted ? "completed" : "active",
-      submittedUids: updatedSubmissions.map((submission) => submission.uid),
-      updatedAt: completedAt,
-    });
+    if (duel.mode === "classic_friend") {
+      const invitationId = requireString(duel.invitationId, "stored invitationId", 340);
+      transaction.update(db.collection("duelInvitations").doc(invitationId), {
+        status: isCompleted ? "completed" : "active",
+        submittedUids: updatedSubmissions.map((submission) => submission.uid),
+        updatedAt: completedAt,
+      });
+    } else {
+      participantUids.forEach((participantUid) => {
+        transaction.update(db.collection("matchmakingEntries").doc(participantUid), {
+          status: isCompleted ? "completed" : "matched",
+          submittedUids: updatedSubmissions.map((submission) => submission.uid),
+          updatedAt: completedAt,
+        });
+      });
+    }
     transaction.set(db.collection("currencyTransactions").doc(), {
       uid,
       type: "duel_reward",
@@ -1852,6 +2116,44 @@ function duelInvitationExpired(data: Record<string, unknown>): boolean {
   return data.expiresAt instanceof Timestamp && data.expiresAt.toMillis() <= Date.now();
 }
 
+function matchmakingEntryExpired(data: Record<string, unknown>): boolean {
+  return data.expiresAt instanceof Timestamp && data.expiresAt.toMillis() <= Date.now();
+}
+
+function serializeMatchmakingEntry(
+  data: Record<string, unknown>,
+  viewerUid: string,
+  currentRating: number,
+) {
+  if (data.status === "waiting") {
+    const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.now();
+    return {
+      status: "waiting",
+      rating: currentRating,
+      range: matchmakingRange(Math.max(0, Date.now() - createdAt.toMillis())),
+      queuedAt: createdAt.toDate().toISOString(),
+    };
+  }
+  if (["matched", "completed"].includes(String(data.status))) {
+    const submittedUids = parseStringArray(data.submittedUids);
+    const opponent = serializeStoredSocialUser(data.opponent);
+    return {
+      status: "matched",
+      rating: currentRating,
+      duelId: typeof data.duelId === "string" ? data.duelId : "",
+      opponent,
+      duelStatus: friendDuelViewStatus(
+        data.status,
+        submittedUids.includes(viewerUid),
+        submittedUids.includes(opponent.uid),
+      ),
+      viewerSubmitted: submittedUids.includes(viewerUid),
+      opponentSubmitted: submittedUids.includes(opponent.uid),
+    };
+  }
+  return {status: "idle", rating: currentRating};
+}
+
 function friendDuelOpponent(value: unknown, viewerUid: string) {
   const players = Array.isArray(value) ? value : [];
   const opponent = serializeStoredSocialUser(players.find((player) =>
@@ -1886,7 +2188,7 @@ function serializeCompletedFriendDuel(
     String(viewer.outcome) : calculatedOutcome;
   return {
     duelId,
-    kind: "friend",
+    kind: duel.mode === "classic_matchmaking" ? "matchmaking" : "friend",
     opponent: friendDuelOpponent(duel.players, viewerUid),
     outcome,
     playerCorrect: numberValue(viewer.correct),

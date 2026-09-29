@@ -67,7 +67,11 @@ export default function QuizScreen() {
             <MaterialCommunityIcons name="sword-cross" size={20} color={colors.aqua} />
             <View style={styles.duelCopy}>
               <Text style={styles.duelLabel}>
-                {activeGameMode === 'friend-duel' ? 'DUELO ENTRE AMIGOS' : 'DUELO CLÁSICO'}
+                {activeGameMode === 'friend-duel'
+                  ? 'DUELO ENTRE AMIGOS'
+                  : activeGameMode === 'matchmaking-duel'
+                    ? 'DUELO COMPETITIVO'
+                    : 'DUELO CLÁSICO'}
               </Text>
               <Text style={styles.duelOpponent}>Tú vs. {duelOpponent.name}</Text>
             </View>

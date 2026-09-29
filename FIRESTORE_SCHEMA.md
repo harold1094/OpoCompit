@@ -194,7 +194,7 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 ```json
 {
   "participantUids": ["first uid", "second uid"],
-  "mode": "classic_training|classic_friend",
+  "mode": "classic_training|classic_friend|classic_matchmaking",
   "players": [{"uid": "player uid", "username": "player"}],
   "questionIds": [],
   "starts": [{"uid": "player uid", "startedAt": "serverTimestamp"}],
@@ -205,7 +205,11 @@ Precomputed entries for global, territory, opposition, friends, and groups.
 }
 ```
 
-Training duels retain their server-defined opponent snapshot. Friend duels expire after seven days while active, start a separate trusted timer for each player, and remain readable after completion. Started duels are only exposed through callable Functions. Direct Firestore reads are limited to completed duels owned by the participant.
+Training duels retain their server-defined opponent snapshot. Friend and matchmaking duels expire after seven days while active, start a separate trusted timer for each player, and remain readable after completion. Started duels are only exposed through callable Functions. Direct Firestore reads are limited to completed duels owned by the participant.
+
+## matchmakingEntries/{uid}
+
+Private server-owned queue entry with opposition, compatible territory keys, Elo rating, opponent snapshot, duel identifier, submission state, and expiry. Waiting entries expire after ten minutes. Clients can read only their own entry and mutate it exclusively through callable Functions.
 
 ## Economy
 
@@ -232,7 +236,7 @@ Training duels retain their server-defined opponent snapshot. Friend duels expir
 - `duelInvitations/{sortedUidPair}`: the current pending, active, declined, or completed challenge for a friend pair.
 - `groups/{groupId}` and `groups/{groupId}/members/{uid}`.
 - `duels/{duelId}`: classic duel sessions.
-- `matchmakingQueues/{queueId}/entries/{uid}`: transactional queue entries.
+- `matchmakingEntries/{uid}`: private transactional queue entries.
 - `missions/{missionId}` and `users/{uid}/missions/{missionId}`.
 - `dailyRewards/{calendarId}`.
 - `achievements/{achievementId}`.

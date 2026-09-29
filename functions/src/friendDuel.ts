@@ -19,7 +19,8 @@ export function friendDuelViewStatus(
   opponentSubmitted: boolean,
 ): FriendDuelViewStatus {
   if (storedStatus === "completed") return "completed";
-  if (storedStatus === "active" && viewerSubmitted && !opponentSubmitted) return "waiting";
-  if (storedStatus === "active") return "active";
+  if (["active", "matched"].includes(String(storedStatus)) &&
+    viewerSubmitted && !opponentSubmitted) return "waiting";
+  if (["active", "matched"].includes(String(storedStatus))) return "active";
   return "pending";
 }

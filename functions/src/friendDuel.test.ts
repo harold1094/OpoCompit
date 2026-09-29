@@ -29,6 +29,7 @@ describe("asynchronous friend duel rules", () => {
     assert.equal(friendDuelViewStatus("pending", false, false), "pending");
     assert.equal(friendDuelViewStatus("active", false, true), "active");
     assert.equal(friendDuelViewStatus("active", true, false), "waiting");
+    assert.equal(friendDuelViewStatus("matched", true, false), "waiting");
     assert.equal(friendDuelViewStatus("completed", true, true), "completed");
   });
 });

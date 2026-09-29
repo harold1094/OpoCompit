@@ -15,7 +15,9 @@ export default function ResultsScreen() {
   const friends = useAppStore((state) => state.friends);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
   const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
+  const joinMatchmaking = useAppStore((state) => state.joinMatchmaking);
   const isStartingDuel = useAppStore((state) => state.isStartingDuel);
+  const isMatchmakingLoading = useAppStore((state) => state.isMatchmakingLoading);
   if (!result) return <Redirect href="/(tabs)" />;
 
   const rematch = async () => {
@@ -25,6 +27,11 @@ export default function ResultsScreen() {
       if (friend && await sendFriendDuelInvitation(friend)) {
         router.replace('/(tabs)/social');
       }
+      return;
+    }
+    if (duel.kind === 'matchmaking') {
+      await joinMatchmaking();
+      router.replace('/(tabs)/social');
       return;
     }
     const count = await startClassicDuel(duel.opponent);
@@ -132,9 +139,13 @@ export default function ResultsScreen() {
       <View style={styles.actions}>
         {duel ? (
           <PrimaryButton
-            label={duel.kind === 'friend' ? 'Pedir revancha' : 'Revancha'}
+            label={duel.kind === 'friend'
+              ? 'Pedir revancha'
+              : duel.kind === 'matchmaking'
+                ? 'Buscar otro rival'
+                : 'Revancha'}
             icon="refresh"
-            loading={isStartingDuel}
+            loading={isStartingDuel || isMatchmakingLoading}
             onPress={() => void rematch()}
           />
         ) : null}

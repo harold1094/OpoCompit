@@ -426,6 +426,156 @@ async function main() {
   }
   assert.equal(duplicateFriendDuelBlocked, true);
 
+  type MatchmakingState = {
+    status: string;
+    rating: number;
+    range?: number;
+    duelId?: string;
+    duelStatus?: string;
+    opponent?: SocialUser;
+    viewerSubmitted?: boolean;
+    opponentSubmitted?: boolean;
+  };
+  const firstQueue = await call<{matchmaking: MatchmakingState}>(
+    "joinMatchmaking",
+    {},
+    auth.idToken,
+  );
+  assert.equal(firstQueue.matchmaking.status, "waiting");
+  assert.equal(firstQueue.matchmaking.rating, 1000);
+  assert.equal(firstQueue.matchmaking.range, 100);
+
+  const leftQueue = await call<{matchmaking: MatchmakingState}>(
+    "leaveMatchmaking",
+    {},
+    auth.idToken,
+  );
+  assert.equal(leftQueue.matchmaking.status, "idle");
+  const queueAfterLeaving = await call<{matchmaking: MatchmakingState}>(
+    "getMatchmakingStatus",
+    {},
+    auth.idToken,
+  );
+  assert.equal(queueAfterLeaving.matchmaking.status, "idle");
+
+  await call("joinMatchmaking", {}, auth.idToken);
+  const secondQueue = await call<{matchmaking: MatchmakingState}>(
+    "joinMatchmaking",
+    {},
+    friendAuth.idToken,
+  );
+  assert.equal(secondQueue.matchmaking.status, "matched");
+  assert.equal(secondQueue.matchmaking.opponent?.username, "HaroldCT");
+  assert.ok(secondQueue.matchmaking.duelId);
+  const matchmakingDuelId = secondQueue.matchmaking.duelId;
+  const firstMatchedQueue = await call<{matchmaking: MatchmakingState}>(
+    "getMatchmakingStatus",
+    {},
+    auth.idToken,
+  );
+  assert.equal(firstMatchedQueue.matchmaking.status, "matched");
+  assert.equal(firstMatchedQueue.matchmaking.duelId, matchmakingDuelId);
+  assert.equal(firstMatchedQueue.matchmaking.opponent?.username, "LuciaReal");
+
+  const [firstMatchmakingDuel, secondMatchmakingDuel] = await Promise.all([
+    call<{questions: Array<{id: string}>; status: string}>(
+      "openFriendDuel",
+      {duelId: matchmakingDuelId},
+      auth.idToken,
+    ),
+    call<{questions: Array<{id: string}>; status: string}>(
+      "openFriendDuel",
+      {duelId: matchmakingDuelId},
+      friendAuth.idToken,
+    ),
+  ]);
+  assert.equal(firstMatchmakingDuel.questions.length, 10);
+  assert.deepEqual(
+    firstMatchmakingDuel.questions.map((question) => question.id),
+    secondMatchmakingDuel.questions.map((question) => question.id),
+  );
+
+  const firstMatchmakingSubmission = await call<{
+    status: string;
+    result: {correct: number};
+  }>(
+    "submitFriendDuel",
+    {
+      duelId: matchmakingDuelId,
+      answers: firstMatchmakingDuel.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: answersByQuestion.get(question.id),
+      })),
+    },
+    auth.idToken,
+  );
+  assert.equal(firstMatchmakingSubmission.status, "waiting");
+  assert.equal(firstMatchmakingSubmission.result.correct, 10);
+  const waitingMatchmaking = await call<{matchmaking: MatchmakingState}>(
+    "getMatchmakingStatus",
+    {},
+    auth.idToken,
+  );
+  assert.equal(waitingMatchmaking.matchmaking.duelStatus, "waiting");
+  assert.equal(waitingMatchmaking.matchmaking.viewerSubmitted, true);
+
+  const secondMatchmakingSubmission = await call<{
+    status: string;
+    duel: {kind: string; outcome: string};
+  }>(
+    "submitFriendDuel",
+    {
+      duelId: matchmakingDuelId,
+      answers: secondMatchmakingDuel.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: null,
+      })),
+    },
+    friendAuth.idToken,
+  );
+  assert.equal(secondMatchmakingSubmission.status, "completed");
+  assert.equal(secondMatchmakingSubmission.duel.kind, "matchmaking");
+  assert.equal(secondMatchmakingSubmission.duel.outcome, "loss");
+
+  const [winnerQueue, loserQueue] = await Promise.all([
+    call<{matchmaking: MatchmakingState}>("getMatchmakingStatus", {}, auth.idToken),
+    call<{matchmaking: MatchmakingState}>("getMatchmakingStatus", {}, friendAuth.idToken),
+  ]);
+  assert.equal(winnerQueue.matchmaking.duelStatus, "completed");
+  assert.equal(loserQueue.matchmaking.duelStatus, "completed");
+  assert.equal(winnerQueue.matchmaking.rating, 1012);
+  assert.equal(loserQueue.matchmaking.rating, 988);
+
+  const completedMatchmakingDuel = await call<{
+    status: string;
+    duel: {kind: string; outcome: string};
+  }>("openFriendDuel", {duelId: matchmakingDuelId}, auth.idToken);
+  assert.equal(completedMatchmakingDuel.status, "completed");
+  assert.equal(completedMatchmakingDuel.duel.kind, "matchmaking");
+  assert.equal(completedMatchmakingDuel.duel.outcome, "win");
+
+  let duplicateMatchmakingDuelBlocked = false;
+  try {
+    await call(
+      "submitFriendDuel",
+      {duelId: matchmakingDuelId, answers: []},
+      auth.idToken,
+    );
+  } catch (error) {
+    duplicateMatchmakingDuelBlocked = error instanceof Error &&
+      error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(duplicateMatchmakingDuelBlocked, true);
+
+  const rematchQueue = await call<{matchmaking: MatchmakingState}>(
+    "joinMatchmaking",
+    {},
+    auth.idToken,
+  );
+  assert.equal(rematchQueue.matchmaking.status, "waiting");
+  assert.equal(rematchQueue.matchmaking.rating, 1012);
+  await call("leaveMatchmaking", {}, auth.idToken);
+
   await call("removeFriend", {friendUid: friendAuth.localId}, auth.idToken);
   const afterRemoval = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
   assert.equal(afterRemoval.friends.length, 0);
@@ -442,6 +592,8 @@ async function main() {
     friendshipRoundTripValidated: true,
     asynchronousFriendDuelValidated: true,
     duplicateFriendDuelBlocked,
+    compatibleMatchmakingValidated: true,
+    duplicateMatchmakingDuelBlocked,
     duplicateUsernameBlocked,
   }, null, 2));
 }

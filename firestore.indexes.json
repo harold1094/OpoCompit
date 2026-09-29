@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "matchmakingEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "oppositionId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "ASCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "questions",
       "queryScope": "COLLECTION",
       "fields": [

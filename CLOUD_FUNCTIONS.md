@@ -85,8 +85,11 @@ Responsibilities:
 - `respondFriendDuelInvitation`: accepts or declines a challenge and selects shared eligible questions.
 - `openFriendDuel`: starts the authenticated player's individual timer and returns public questions.
 - `submitFriendDuel`: validates one player's answers, waits when necessary, and atomically closes the duel when both players finish.
+- `joinMatchmaking`: joins a private queue or transactionally pairs compatible players.
+- `getMatchmakingStatus`: returns only the authenticated player's queue and duel state.
+- `leaveMatchmaking`: cancels a waiting entry without interrupting an already matched duel.
 
-Friend duels use identical questions, opposition compatibility, shared territorial scopes, and accuracy-before-time tie breaking. User documents and username reservations remain private. All social mutations run through callable Functions.
+Friend and matchmaking duels use identical questions, opposition compatibility, shared territorial scopes, and accuracy-before-time tie breaking. Matchmaking starts at a 100-point Elo range and widens with waiting time; the final result updates both ratings atomically. User documents, username reservations, and queue entries remain private. All social mutations run through callable Functions.
 
 ## callable: `updateProfileSelection`
 

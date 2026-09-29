@@ -8,6 +8,7 @@ import {
   DuelResult,
   FriendDuelInvitation,
   FriendRequest,
+  MatchmakingState,
   Mission,
   PlayerProfile,
   PendingFriendDuel,
@@ -22,8 +23,11 @@ import {
   claimDailyRewardRemote,
   claimMissionRemote,
   getDailyEngagementRemote,
+  getMatchmakingStatusRemote,
   getSocialOverviewRemote,
   isFirebaseEnabled,
+  joinMatchmakingRemote,
+  leaveMatchmakingRemote,
   readableFirebaseError,
   removeFriendRemote,
   respondFriendRequestRemote,
@@ -59,7 +63,7 @@ import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/d
 import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
-type ActiveGameMode = 'quick' | 'duel' | 'friend-duel';
+type ActiveGameMode = 'quick' | 'duel' | 'friend-duel' | 'matchmaking-duel';
 
 type AppStore = {
   hydrated: boolean;
@@ -78,6 +82,7 @@ type AppStore = {
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
   duelInvitations: FriendDuelInvitation[];
+  matchmaking: MatchmakingState;
   socialSearchResults: SocialUser[];
   lastResult: QuizResult | null;
   lastDuelResult: DuelResult | null;
@@ -91,6 +96,7 @@ type AppStore = {
   quizError: string | null;
   engagementError: string | null;
   isLoadingSocial: boolean;
+  isMatchmakingLoading: boolean;
   isSavingUsername: boolean;
   socialActionId: string | null;
   socialError: string | null;
@@ -116,6 +122,10 @@ type AppStore = {
   openFriendDuel: (
     invitation: FriendDuelInvitation,
   ) => Promise<'quiz' | 'results' | 'waiting' | null>;
+  joinMatchmaking: () => Promise<void>;
+  refreshMatchmaking: () => Promise<void>;
+  leaveMatchmaking: () => Promise<void>;
+  openMatchmakingDuel: () => Promise<'quiz' | 'results' | 'waiting' | null>;
 };
 
 export const useAppStore = create<AppStore>()(
@@ -137,6 +147,7 @@ export const useAppStore = create<AppStore>()(
       incomingRequests: [],
       outgoingRequests: [],
       duelInvitations: [],
+      matchmaking: { status: 'idle', rating: 1000 },
       socialSearchResults: [],
       lastResult: null,
       lastDuelResult: null,
@@ -150,6 +161,7 @@ export const useAppStore = create<AppStore>()(
       quizError: null,
       engagementError: null,
       isLoadingSocial: false,
+      isMatchmakingLoading: false,
       isSavingUsername: false,
       socialActionId: null,
       socialError: null,
@@ -196,6 +208,7 @@ export const useAppStore = create<AppStore>()(
           incomingRequests: [],
           outgoingRequests: [],
           duelInvitations: [],
+          matchmaking: { status: 'idle', rating: 1000 },
           socialSearchResults: [],
           lastResult: null,
           lastDuelResult: null,
@@ -332,11 +345,12 @@ export const useAppStore = create<AppStore>()(
           let duelResult: DuelResult | null = null;
           let pendingFriendDuel: PendingFriendDuel | null = null;
           let duelInvitations = state.duelInvitations;
+          let matchmaking = state.matchmaking;
 
           if (
             state.backendMode === 'firebase' &&
             state.activeSessionId &&
-            state.activeGameMode === 'friend-duel'
+            ['friend-duel', 'matchmaking-duel'].includes(state.activeGameMode)
           ) {
             const submission = quizSubmission(state);
             const remote = await submitFriendDuelRemote(state.activeSessionId, submission);
@@ -346,18 +360,31 @@ export const useAppStore = create<AppStore>()(
             dailyReward = remote.engagement.dailyReward;
             missions = remote.engagement.missions;
             pendingFriendDuel = remote.status === 'waiting' && state.activeDuelOpponent
-              ? { duelId: state.activeSessionId, opponent: state.activeDuelOpponent }
+              ? {
+                duelId: state.activeSessionId,
+                opponent: state.activeDuelOpponent,
+                kind: state.activeGameMode === 'matchmaking-duel' ? 'matchmaking' : 'friend',
+              }
               : null;
-            duelInvitations = state.duelInvitations.map((invitation) =>
-              invitation.duelId === state.activeSessionId
-                ? {
-                  ...invitation,
-                  status: remote.status,
-                  viewerSubmitted: true,
-                  opponentSubmitted: remote.status === 'completed',
-                }
-                : invitation,
-            );
+            if (state.activeGameMode === 'friend-duel') {
+              duelInvitations = state.duelInvitations.map((invitation) =>
+                invitation.duelId === state.activeSessionId
+                  ? {
+                    ...invitation,
+                    status: remote.status,
+                    viewerSubmitted: true,
+                    opponentSubmitted: remote.status === 'completed',
+                  }
+                  : invitation,
+              );
+            } else if (matchmaking.status === 'matched') {
+              matchmaking = {
+                ...matchmaking,
+                duelStatus: remote.status,
+                viewerSubmitted: true,
+                opponentSubmitted: remote.status === 'completed',
+              };
+            }
           } else if (
             state.backendMode === 'firebase' &&
             state.activeSessionId &&
@@ -400,7 +427,11 @@ export const useAppStore = create<AppStore>()(
               };
               duelResult = {
                 duelId: state.activeSessionId ?? `local_${Date.now()}`,
-                kind: state.activeGameMode === 'friend-duel' ? 'friend' : 'training',
+                kind: state.activeGameMode === 'friend-duel'
+                  ? 'friend'
+                  : state.activeGameMode === 'matchmaking-duel'
+                    ? 'matchmaking'
+                    : 'training',
                 opponent: state.activeDuelOpponent,
                 outcome,
                 playerCorrect: result.correct,
@@ -419,6 +450,15 @@ export const useAppStore = create<AppStore>()(
                     }
                     : invitation,
                 );
+              } else if (state.activeGameMode === 'matchmaking-duel' &&
+                matchmaking.status === 'matched') {
+                matchmaking = {
+                  ...matchmaking,
+                  rating: matchmaking.rating + (outcome === 'win' ? 12 : outcome === 'loss' ? -12 : 0),
+                  duelStatus: 'completed',
+                  viewerSubmitted: true,
+                  opponentSubmitted: true,
+                };
               }
             }
             profile = applyResult(state.profile, result);
@@ -449,6 +489,7 @@ export const useAppStore = create<AppStore>()(
             lastDuelResult: duelResult,
             lastPendingFriendDuel: pendingFriendDuel,
             duelInvitations,
+            matchmaking,
             activeSessionId: null,
           });
           return result;
@@ -813,7 +854,11 @@ export const useAppStore = create<AppStore>()(
                 profile,
                 lastResult: remote.result,
                 lastDuelResult: null,
-                lastPendingFriendDuel: { duelId: remote.duelId, opponent: remote.opponent },
+                lastPendingFriendDuel: {
+                  duelId: remote.duelId,
+                  opponent: remote.opponent,
+                  kind: 'friend',
+                },
               });
               return 'waiting';
             }
@@ -842,6 +887,140 @@ export const useAppStore = create<AppStore>()(
           set({ isStartingDuel: false, socialActionId: null });
         }
       },
+      joinMatchmaking: async () => {
+        const state = get();
+        if (!state.profile || state.isMatchmakingLoading || state.profile.username === 'Invitado') {
+          return;
+        }
+        set({ isMatchmakingLoading: true, socialError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            set({ matchmaking: await joinMatchmakingRemote() });
+            return;
+          }
+          const queuedAt = new Date().toISOString();
+          set({ matchmaking: { status: 'waiting', rating: 1000, range: 100, queuedAt } });
+          await new Promise((resolve) => setTimeout(resolve, 650));
+          const opponent = localSocialUsers[0];
+          set({
+            matchmaking: {
+              status: 'matched',
+              rating: 1000,
+              duelId: `local_matchmaking_${Date.now()}`,
+              opponent,
+              duelStatus: 'active',
+              viewerSubmitted: false,
+              opponentSubmitted: false,
+            },
+          });
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+        } finally {
+          set({ isMatchmakingLoading: false });
+        }
+      },
+      refreshMatchmaking: async () => {
+        const state = get();
+        if (!state.profile || state.backendMode !== 'firebase' || state.isMatchmakingLoading) return;
+        try {
+          set({ matchmaking: await getMatchmakingStatusRemote() });
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+        }
+      },
+      leaveMatchmaking: async () => {
+        const state = get();
+        if (!state.profile || state.matchmaking.status !== 'waiting' || state.isMatchmakingLoading) {
+          return;
+        }
+        set({ isMatchmakingLoading: true, socialError: null });
+        try {
+          const matchmaking = state.backendMode === 'firebase'
+            ? await leaveMatchmakingRemote()
+            : { status: 'idle' as const, rating: state.matchmaking.rating };
+          set({ matchmaking });
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+        } finally {
+          set({ isMatchmakingLoading: false });
+        }
+      },
+      openMatchmakingDuel: async () => {
+        const state = get();
+        if (!state.profile || state.matchmaking.status !== 'matched' || state.isStartingDuel) {
+          return null;
+        }
+        const match = state.matchmaking;
+        set({ isStartingDuel: true, socialError: null, quizError: null });
+        try {
+          const opponent = socialUserToDuelOpponent(match.opponent);
+          if (state.backendMode === 'firebase') {
+            const remote = await openFriendDuelRemote(match.duelId);
+            const profile = { ...state.profile, ...remote.progress };
+            if (remote.status === 'active' && remote.questions.length > 0) {
+              set({
+                profile,
+                activeQuestions: remote.questions,
+                activeSessionId: remote.duelId,
+                activeGameMode: 'matchmaking-duel',
+                activeDuelOpponent: remote.opponent,
+                activeStartedAt: Date.now(),
+                selectedAnswers: Object.fromEntries(
+                  remote.questions.map((question) => [question.id, null]),
+                ),
+                lastResult: null,
+                lastDuelResult: null,
+                lastPendingFriendDuel: null,
+              });
+              return 'quiz';
+            }
+            if (remote.status === 'completed' && remote.result && remote.duel) {
+              set({
+                profile,
+                lastResult: remote.result,
+                lastDuelResult: remote.duel,
+                lastPendingFriendDuel: null,
+              });
+              return 'results';
+            }
+            if (remote.status === 'waiting' && remote.result) {
+              set({
+                profile,
+                lastResult: remote.result,
+                lastDuelResult: null,
+                lastPendingFriendDuel: {
+                  duelId: remote.duelId,
+                  opponent: remote.opponent,
+                  kind: 'matchmaking',
+                },
+              });
+              return 'waiting';
+            }
+            throw new Error('El duelo no está disponible todavía.');
+          }
+
+          const activeQuestions = eligibleForQuickMatch(state.profile, seedQuestions);
+          set({
+            activeQuestions,
+            activeSessionId: match.duelId,
+            activeGameMode: 'matchmaking-duel',
+            activeDuelOpponent: opponent,
+            activeStartedAt: Date.now(),
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+            lastDuelResult: null,
+            lastPendingFriendDuel: null,
+          });
+          return 'quiz';
+        } catch (error) {
+          set({ socialError: readableFirebaseError(error) });
+          return null;
+        } finally {
+          set({ isStartingDuel: false });
+        }
+      },
     }),
     {
       name: 'opocompit-client-state',
@@ -856,6 +1035,7 @@ export const useAppStore = create<AppStore>()(
         incomingRequests: state.incomingRequests,
         outgoingRequests: state.outgoingRequests,
         duelInvitations: state.duelInvitations,
+        matchmaking: state.matchmaking,
       }),
       onRehydrateStorage: () => (state) => state?.setHydrated(true),
     },

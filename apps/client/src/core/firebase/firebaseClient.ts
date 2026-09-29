@@ -23,6 +23,7 @@ import {
   DuelResult,
   FriendDuelInvitation,
   FriendRequest,
+  MatchmakingState,
   Mission,
   PlayerProfile,
   PlayerProgress,
@@ -73,6 +74,7 @@ type SocialUserResponse = { user: SocialUser };
 type SocialSearchResponse = { users: SocialUser[] };
 type FriendRequestResponse = { request: FriendRequest };
 type FriendDuelInvitationResponse = { invitation: FriendDuelInvitation };
+type MatchmakingResponse = { matchmaking: MatchmakingState };
 
 export type OpenFriendDuelResponse = {
   duelId: string;
@@ -339,6 +341,27 @@ export async function submitFriendDuelRemote(
   return response.data;
 }
 
+export async function joinMatchmakingRemote(): Promise<MatchmakingState> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, MatchmakingResponse>('joinMatchmaking');
+  const response = await invoke({});
+  return response.data.matchmaking;
+}
+
+export async function getMatchmakingStatusRemote(): Promise<MatchmakingState> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, MatchmakingResponse>('getMatchmakingStatus');
+  const response = await invoke({});
+  return response.data.matchmaking;
+}
+
+export async function leaveMatchmakingRemote(): Promise<MatchmakingState> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, MatchmakingResponse>('leaveMatchmaking');
+  const response = await invoke({});
+  return response.data.matchmaking;
+}
+
 export function isFirebaseEnabled(): boolean {
   return firebaseEnabled;
 }
@@ -353,6 +376,7 @@ export function readableFirebaseError(error: unknown): string {
       'not-found': 'No se ha encontrado el contenido solicitado.',
       'already-exists': 'Esa solicitud o nombre de usuario ya existe.',
       'invalid-argument': 'Revisa los datos introducidos.',
+      aborted: 'El rival ya no está disponible. Vuelve a buscar.',
       unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
     };
     return messages[code] ?? 'No se pudo completar la operación con Firebase.';
