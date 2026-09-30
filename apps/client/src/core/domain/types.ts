@@ -155,6 +155,21 @@ export type SocialUser = {
   territoryLabel: string;
   currentStreak: number;
   duelWins: number;
+  sharedStreak?: number;
+  viewerActiveToday?: boolean;
+  activeToday?: boolean;
+  lastActiveAt?: string | null;
+};
+
+export type SocialActivity = {
+  id: string;
+  type: 'quiz_completed' | 'duel_completed';
+  actor: SocialUser;
+  correct: number;
+  total: number;
+  outcome: DuelOutcome | null;
+  streak: number;
+  createdAt: string;
 };
 
 export type FriendRequest = {
@@ -222,4 +237,5 @@ export type SocialOverview = {
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
   duelInvitations: FriendDuelInvitation[];
+  activity: SocialActivity[];
 };

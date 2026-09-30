@@ -18,7 +18,13 @@ type Progress = {
   duelDraws: number;
 };
 type MissionState = {id: string; progress: number; target: number; claimed: boolean};
-type SocialUser = {uid: string; username: string};
+type SocialUser = {
+  uid: string;
+  username: string;
+  sharedStreak?: number;
+  viewerActiveToday?: boolean;
+  activeToday?: boolean;
+};
 type SocialOverview = {
   friends: SocialUser[];
   incomingRequests: Array<{id: string; user: SocialUser}>;
@@ -29,6 +35,15 @@ type SocialOverview = {
     status: string;
     opponent: SocialUser;
     opponentSubmitted: boolean;
+  }>;
+  activity: Array<{
+    id: string;
+    type: string;
+    actor: SocialUser;
+    correct: number;
+    total: number;
+    streak: number;
+    createdAt: string;
   }>;
 };
 
@@ -747,9 +762,27 @@ async function main() {
   assert.equal(friendsRanking.entries.length, 2);
   assert.equal(friendsRanking.entries.some((entry) => entry.uid === friendAuth.localId), true);
 
+  const socialWithActivity = await call<SocialOverview>(
+    "getSocialOverview",
+    {},
+    auth.idToken,
+  );
+  const liveFriend = socialWithActivity.friends.find((friend) => friend.uid === friendAuth.localId);
+  assert.ok(liveFriend);
+  assert.equal(liveFriend.sharedStreak, 1);
+  assert.equal(liveFriend.viewerActiveToday, true);
+  assert.equal(liveFriend.activeToday, true);
+  assert.equal(socialWithActivity.activity.length <= 20, true);
+  assert.equal(
+    socialWithActivity.activity.some((activity) =>
+      activity.actor.uid === friendAuth.localId && activity.type === "duel_completed"),
+    true,
+  );
+
   await call("removeFriend", {friendUid: friendAuth.localId}, auth.idToken);
   const afterRemoval = await call<SocialOverview>("getSocialOverview", {}, auth.idToken);
   assert.equal(afterRemoval.friends.length, 0);
+  assert.equal(afterRemoval.activity.length, 0);
   const friendsRankingAfterRemoval = await call<RankingSnapshot>(
     "getRanking",
     {scope: "friends"},
@@ -813,6 +846,8 @@ async function main() {
     compatibleMatchmakingValidated: true,
     duplicateMatchmakingDuelBlocked,
     serverAuthoritativeRankingsValidated: true,
+    sharedFriendStreakValidated: true,
+    boundedSocialActivityValidated: true,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     nonAdminImportBlocked,

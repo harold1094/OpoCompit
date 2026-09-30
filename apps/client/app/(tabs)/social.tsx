@@ -13,7 +13,12 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
-import { FriendDuelInvitation, MatchmakingState, SocialUser } from '@/core/domain/types';
+import {
+  FriendDuelInvitation,
+  MatchmakingState,
+  SocialActivity,
+  SocialUser,
+} from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { trainingOpponents } from '@/features/duels/domain/duel';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -21,6 +26,7 @@ import { AppScreen } from '@/shared/components/AppScreen';
 export default function SocialScreen() {
   const profile = useAppStore((state) => state.profile);
   const friends = useAppStore((state) => state.friends);
+  const socialActivity = useAppStore((state) => state.socialActivity);
   const incomingRequests = useAppStore((state) => state.incomingRequests);
   const outgoingRequests = useAppStore((state) => state.outgoingRequests);
   const duelInvitations = useAppStore((state) => state.duelInvitations);
@@ -159,6 +165,27 @@ export default function SocialScreen() {
         </View>
         <Text style={styles.socialBandValue}>{friends.length}</Text>
       </View>
+
+      {friends.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeading}>
+            <Text style={[styles.sectionTitle, styles.sectionTitleInline]}>Actividad reciente</Text>
+            <Text style={styles.sectionCount}>{socialActivity.length}</Text>
+          </View>
+          {socialActivity.length > 0 ? (
+            <View style={styles.activityList}>
+              {socialActivity.slice(0, 5).map((activity) => (
+                <ActivityRow activity={activity} key={activity.id} />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyActivity}>
+              <MaterialCommunityIcons name="history" size={21} color={colors.muted} />
+              <Text style={styles.emptyActivityText}>Aún no hay actividad reciente.</Text>
+            </View>
+          )}
+        </View>
+      ) : null}
 
       <View style={styles.matchPanel}>
         <View style={styles.matchHeader}>
@@ -490,14 +517,52 @@ function SocialRow({
 }) {
   return (
     <View style={styles.row}>
-      <Avatar />
+      <Avatar active={user.activeToday} />
       <View style={styles.rowCopy}>
         <Text style={styles.rowName}>{user.username}</Text>
-        <Text style={styles.rowMeta}>
-          {meta ?? `Nivel ${user.level} · ${user.territoryLabel} · ${user.currentStreak} días`}
-        </Text>
+        {meta ? <Text style={styles.rowMeta}>{meta}</Text> : (
+          <View style={styles.friendMetaRow}>
+            <Text style={styles.rowMeta}>Nivel {user.level} · {user.territoryLabel}</Text>
+            {(user.sharedStreak ?? 0) > 0 ? (
+              <View style={styles.sharedStreak}>
+                <MaterialCommunityIcons name="fire" size={13} color={colors.brand} />
+                <Text style={styles.sharedStreakText}>{user.sharedStreak} juntos</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
       {action}
+    </View>
+  );
+}
+
+function ActivityRow({ activity }: { activity: SocialActivity }) {
+  const isDuel = activity.type === 'duel_completed';
+  return (
+    <View style={styles.activityRow}>
+      <View style={[styles.activityIcon, isDuel ? styles.duelActivityIcon : styles.quizActivityIcon]}>
+        <MaterialCommunityIcons
+          name={isDuel ? 'sword-cross' : 'clipboard-check-outline'}
+          size={19}
+          color={isDuel ? colors.brand : colors.aqua}
+        />
+      </View>
+      <View style={styles.rowCopy}>
+        <Text style={styles.activityTitle}>
+          <Text style={styles.activityUsername}>{activity.actor.username}</Text>
+          {isDuel ? ' completó un duelo' : ' completó un test'}
+        </Text>
+        <Text style={styles.rowMeta}>
+          {activity.correct}/{activity.total} aciertos · {relativeActivityTime(activity.createdAt)}
+        </Text>
+      </View>
+      {activity.streak > 0 ? (
+        <View style={styles.activityStreak}>
+          <MaterialCommunityIcons name="fire" size={15} color={colors.gold} />
+          <Text style={styles.activityStreakText}>{activity.streak}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -518,13 +583,23 @@ function matchmakingMeta(
   return `Nivel ${matchmaking.opponent.level} · ${matchmaking.opponent.territoryLabel}`;
 }
 
-function Avatar() {
+function Avatar({ active = true }: { active?: boolean }) {
   return (
     <View style={styles.avatar}>
       <MaterialCommunityIcons name="account-outline" size={23} color={colors.ink} />
-      <View style={styles.online} />
+      {active ? <View style={styles.online} /> : null}
     </View>
   );
+}
+
+function relativeActivityTime(value: string): string {
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 60_000));
+  if (elapsedMinutes < 1) return 'ahora';
+  if (elapsedMinutes < 60) return `hace ${elapsedMinutes} min`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `hace ${elapsedHours} h`;
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `hace ${elapsedDays} d`;
 }
 
 function IconAction({
@@ -595,7 +670,21 @@ const styles = StyleSheet.create({
   input: { flex: 1, minHeight: 44, paddingHorizontal: 13, color: colors.ink, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, fontSize: 14 },
   errorText: { color: colors.danger, fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
   section: { marginTop: spacing.xl },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginBottom: spacing.sm },
+  sectionTitleInline: { marginBottom: 0 },
+  sectionCount: { minWidth: 26, height: 24, paddingHorizontal: 7, borderRadius: 12, textAlign: 'center', textAlignVertical: 'center', color: colors.aqua, backgroundColor: colors.softAqua, fontSize: 11, fontWeight: '900' },
+  activityList: { borderTopWidth: 1, borderTopColor: colors.line },
+  activityRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  activityIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  duelActivityIcon: { backgroundColor: colors.softBrand },
+  quizActivityIcon: { backgroundColor: colors.softAqua },
+  activityTitle: { color: colors.ink, fontSize: 13, lineHeight: 18 },
+  activityUsername: { fontWeight: '900' },
+  activityStreak: { minWidth: 38, height: 28, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 14, backgroundColor: colors.softGold },
+  activityStreakText: { color: '#8A5A00', fontSize: 11, fontWeight: '900' },
+  emptyActivity: { minHeight: 58, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  emptyActivityText: { color: colors.muted, fontSize: 12 },
   list: { gap: spacing.sm },
   row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
@@ -603,6 +692,9 @@ const styles = StyleSheet.create({
   rowCopy: { flex: 1 },
   rowName: { color: colors.ink, fontSize: 14, fontWeight: '900' },
   rowMeta: { color: colors.muted, fontSize: 11, marginTop: 2 },
+  friendMetaRow: { marginTop: 2, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 },
+  sharedStreak: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  sharedStreakText: { color: colors.brandDark, fontSize: 10, fontWeight: '900' },
   iconAction: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   requestActions: { flexDirection: 'row', gap: 6 },
   pendingLabel: { color: colors.muted, fontSize: 11, fontWeight: '800' },

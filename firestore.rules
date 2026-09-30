@@ -83,6 +83,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /socialActivities/{activityId} {
+      allow read, write: if false;
+    }
+
     match /rankings/{rankingId}/entries/{uid} {
       allow read: if signedIn();
       allow write: if false;

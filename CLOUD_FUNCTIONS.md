@@ -91,6 +91,11 @@ Responsibilities:
 
 Friend and matchmaking duels use identical questions, opposition compatibility, shared territorial scopes, and accuracy-before-time tie breaking. Matchmaking starts at a 100-point Elo range and widens with waiting time; the final result updates both ratings atomically. User documents, username reservations, and queue entries remain private. All social mutations run through callable Functions.
 
+`getSocialOverview` also refreshes live friend profiles, calculates the overlap between both current
+study streaks, and returns at most 20 recent friend activities. Friend reads remain capped at 50;
+activity queries are split into at most two groups because Firestore `in` filters accept bounded UID
+sets. Direct reads of `socialActivities` are denied so the server always enforces friendship privacy.
+
 ## Ranking callable
 
 - `getRanking`: returns the all-time global, most-specific territorial, or friends ranking using server-owned XP aggregates.

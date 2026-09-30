@@ -250,10 +250,30 @@ Private server-owned queue entry with opposition, compatible territory keys, Elo
 }
 ```
 
+## socialActivities/{activityId}
+
+Server-owned, idempotent activity generated after validated quizzes and duels. The social callable
+returns only events belonging to current friends and limits the merged feed to 20 entries.
+
+```json
+{
+  "actorUid": "user id",
+  "type": "quiz_completed|duel_completed",
+  "mode": "training|friend|matchmaking|null",
+  "outcome": "win|loss|draw|null",
+  "correct": 8,
+  "total": 10,
+  "streak": 4,
+  "oppositionId": "firefighters_es",
+  "createdAt": "serverTimestamp"
+}
+```
+
 ## Other Collections
 
 - `usernames/{normalizedUsername}`: private unique username reservation owned by Functions.
 - `friends/{sortedUidPair}`: accepted friendship edge with public member snapshots.
+- `socialActivities/{activityId}`: private server-owned study events exposed only through the bounded social callable.
 - `friendRequests/{sortedUidPair}`: one pending, accepted, or declined request per user pair.
 - `duelInvitations/{sortedUidPair}`: the current pending, active, declined, or completed challenge for a friend pair.
 - `groups/{groupId}` and `groups/{groupId}/members/{uid}`.

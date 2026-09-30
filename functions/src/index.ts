@@ -35,6 +35,7 @@ import {
 } from "./matchmaking.js";
 import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
+import {sharedStreak, StreakProfile} from "./socialActivity.js";
 
 initializeApp();
 
@@ -845,6 +846,15 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       sourceId: sessionRef.id,
       createdAt: completedAt,
     });
+    transaction.set(db.collection("socialActivities").doc(`quiz_${sessionRef.id}`), {
+      actorUid: uid,
+      type: "quiz_completed",
+      correct,
+      total: questions.length,
+      streak,
+      oppositionId: stringValue(user.oppositionId),
+      createdAt: completedAt,
+    });
 
     return {
       result: {
@@ -1130,6 +1140,17 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       amount: coinsEarned,
       balanceAfter: coins,
       sourceId: duelId,
+      createdAt: completedAt,
+    });
+    transaction.set(db.collection("socialActivities").doc(`duel_${duelId}_${uid}`), {
+      actorUid: uid,
+      type: "duel_completed",
+      mode: "training",
+      outcome,
+      correct,
+      total: questions.length,
+      streak,
+      oppositionId: stringValue(user.oppositionId),
       createdAt: completedAt,
     });
 
@@ -2158,6 +2179,23 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       sourceId: duelId,
       createdAt: completedAt,
     });
+    transaction.set(db.collection("socialActivities").doc(`duel_${duelId}_${uid}`), {
+      actorUid: uid,
+      type: "duel_completed",
+      mode: duel.mode === "classic_matchmaking" ? "matchmaking" : "friend",
+      outcome,
+      correct: scored.correct,
+      total: questions.length,
+      streak,
+      oppositionId: stringValue(user.oppositionId),
+      createdAt: completedAt,
+    });
+    if (previousSubmission && outcome) {
+      transaction.set(db.collection("socialActivities").doc(`duel_${duelId}_${opponentUid}`), {
+        outcome: oppositeOutcome(outcome),
+        updatedAt: completedAt,
+      }, {merge: true});
+    }
 
     return {
       status: isCompleted ? "completed" : "waiting",
@@ -2409,12 +2447,14 @@ function serializeProgress(data: Record<string, unknown>) {
 
 async function socialOverview(uid: string) {
   const [
+    viewerSnapshot,
     incomingSnapshot,
     outgoingSnapshot,
     friendsSnapshot,
     incomingDuelsSnapshot,
     outgoingDuelsSnapshot,
   ] = await Promise.all([
+    db.collection("users").doc(uid).get(),
     db.collection("friendRequests").where("toUid", "==", uid).limit(50).get(),
     db.collection("friendRequests").where("fromUid", "==", uid).limit(50).get(),
     db.collection("friends").where("uids", "array-contains", uid).limit(50).get(),
@@ -2422,27 +2462,81 @@ async function socialOverview(uid: string) {
     db.collection("duelInvitations").where("fromUid", "==", uid).limit(50).get(),
   ]);
 
+  if (!viewerSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+
   const incomingRequests = incomingSnapshot.docs
     .filter((document) => document.data().status === "pending")
     .map((document) => serializeFriendRequest(document.id, document.data(), uid));
   const outgoingRequests = outgoingSnapshot.docs
     .filter((document) => document.data().status === "pending")
     .map((document) => serializeFriendRequest(document.id, document.data(), uid));
-  const friends = friendsSnapshot.docs.flatMap((document) => {
-    const members: unknown[] = Array.isArray(document.data().members) ?
-      document.data().members : [];
-    const friend = members.find((member) =>
-      typeof member === "object" && member !== null &&
-      (member as Record<string, unknown>).uid !== uid,
-    );
-    return friend ? [serializeStoredSocialUser(friend)] : [];
+  const friendUids = [...new Set(friendsSnapshot.docs.flatMap((document) =>
+    parseStringArray(document.data().uids).filter((memberUid) => memberUid !== uid),
+  ))].slice(0, 50);
+  const friendSnapshots = friendUids.length > 0 ? await db.getAll(
+    ...friendUids.map((friendUid) => db.collection("users").doc(friendUid)),
+  ) : [];
+  const friendData = new Map(friendSnapshots
+    .filter((snapshot) => snapshot.exists)
+    .map((snapshot) => [snapshot.id, snapshot.data() ?? {}]));
+  const viewerData = viewerSnapshot.data() ?? {};
+  const now = new Date();
+  const friends = friendUids.flatMap((friendUid) => {
+    const data = friendData.get(friendUid);
+    if (!data) return [];
+    const streak = sharedStreak(streakProfile(viewerData), streakProfile(data), now);
+    return [{
+      ...serializeSocialUser(friendUid, data),
+      sharedStreak: streak.days,
+      viewerActiveToday: streak.viewerActiveToday,
+      activeToday: streak.friendActiveToday,
+      lastActiveAt: timestampIso(data.lastValidActivityDate),
+    }];
   });
+  const activity = await recentFriendActivity(friendUids, friendData);
   const duelInvitations = [...incomingDuelsSnapshot.docs, ...outgoingDuelsSnapshot.docs]
     .filter((document) => document.data().status !== "declined" &&
       !duelInvitationExpired(document.data()))
     .map((document) => serializeDuelInvitation(document.id, document.data(), uid));
 
-  return {friends, incomingRequests, outgoingRequests, duelInvitations};
+  return {friends, incomingRequests, outgoingRequests, duelInvitations, activity};
+}
+
+async function recentFriendActivity(
+  friendUids: string[],
+  friendData: Map<string, Record<string, unknown>>,
+) {
+  if (friendUids.length === 0) return [];
+  const uidChunks = chunk(friendUids, 30);
+  const snapshots = await Promise.all(uidChunks.map((uids) =>
+    db.collection("socialActivities")
+      .where("actorUid", "in", uids)
+      .orderBy("createdAt", "desc")
+      .limit(20)
+      .get(),
+  ));
+  return snapshots.flatMap((snapshot) => snapshot.docs)
+    .sort((first, second) => timestampMillis(second.data().createdAt) -
+      timestampMillis(first.data().createdAt))
+    .slice(0, 20)
+    .flatMap((document) => {
+      const data = document.data();
+      const actorUid = stringValue(data.actorUid);
+      const actor = friendData.get(actorUid);
+      if (!actor) return [];
+      return [{
+        id: document.id,
+        type: data.type === "duel_completed" ? "duel_completed" : "quiz_completed",
+        actor: serializeSocialUser(actorUid, actor),
+        correct: numberValue(data.correct),
+        total: numberValue(data.total),
+        outcome: ["win", "loss", "draw"].includes(String(data.outcome)) ? data.outcome : null,
+        streak: numberValue(data.streak),
+        createdAt: timestampIso(data.createdAt) ?? new Date(0).toISOString(),
+      }];
+    });
 }
 
 function serializeSocialUser(uid: string, data: Record<string, unknown>) {
@@ -2457,6 +2551,22 @@ function serializeSocialUser(uid: string, data: Record<string, unknown>) {
     currentStreak: numberValue(data.currentStreak),
     duelWins: numberValue(data.duelWins),
   };
+}
+
+function streakProfile(data: Record<string, unknown>): StreakProfile {
+  return {
+    currentStreak: numberValue(data.currentStreak),
+    lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
+      data.lastValidActivityDate.toDate() : null,
+  };
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
 function serializeRankingEntry(

@@ -44,6 +44,14 @@
         {"fieldPath": "officialExamId", "order": "ASCENDING"},
         {"fieldPath": "status", "order": "ASCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "socialActivities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "actorUid", "order": "ASCENDING"},
+        {"fieldPath": "createdAt", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

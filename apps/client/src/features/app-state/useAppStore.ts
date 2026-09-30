@@ -17,6 +17,7 @@ import {
   RankingEntry,
   RankingScope,
   RankingSnapshot,
+  SocialActivity,
   SocialUser,
   TerritorySelection,
   UserQuestionStat,
@@ -83,6 +84,7 @@ type AppStore = {
   dailyReward: DailyReward | null;
   missions: Mission[];
   friends: SocialUser[];
+  socialActivity: SocialActivity[];
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
   duelInvitations: FriendDuelInvitation[];
@@ -153,6 +155,7 @@ export const useAppStore = create<AppStore>()(
       dailyReward: null,
       missions: [],
       friends: [],
+      socialActivity: [],
       incomingRequests: [],
       outgoingRequests: [],
       duelInvitations: [],
@@ -218,6 +221,7 @@ export const useAppStore = create<AppStore>()(
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           friends: [],
+          socialActivity: [],
           incomingRequests: [],
           outgoingRequests: [],
           duelInvitations: [],
@@ -1063,6 +1067,7 @@ export const useAppStore = create<AppStore>()(
         dailyReward: state.dailyReward,
         missions: state.missions,
         friends: state.friends,
+        socialActivity: state.socialActivity,
         incomingRequests: state.incomingRequests,
         outgoingRequests: state.outgoingRequests,
         duelInvitations: state.duelInvitations,

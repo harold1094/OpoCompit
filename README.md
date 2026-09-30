@@ -24,6 +24,9 @@ The client persists progress locally through AsyncStorage. When Firebase is enab
 
 Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
 
+The Social screen now refreshes current friend profiles, displays the real overlap between both
+study streaks, and shows a private feed capped at 20 validated quiz or duel activities.
+
 ## Verify
 
 ```bash
