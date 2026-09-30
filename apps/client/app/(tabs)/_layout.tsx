@@ -1,9 +1,24 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { colors } from '@/core/design/tokens';
+import { useAppStore } from '@/features/app-state/useAppStore';
 
 export default function TabLayout() {
+  const hydrated = useAppStore((state) => state.hydrated);
+  const profile = useAppStore((state) => state.profile);
+
+  if (!hydrated) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.brand} />
+      </View>
+    );
+  }
+
+  if (!profile) return <Redirect href="/onboarding" />;
+
   return (
     <Tabs
       screenOptions={{
@@ -59,3 +74,12 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+  },
+});
