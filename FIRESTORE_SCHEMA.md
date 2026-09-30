@@ -269,6 +269,31 @@ returns only events belonging to current friends and limits the merged feed to 2
 }
 ```
 
+## groups/{groupId}
+
+Private study group managed only by callable Functions. The client cannot read group metadata or
+membership documents directly.
+
+```json
+{
+  "name": "Bomberos Cartagena 2027",
+  "ownerUid": "user id",
+  "adminUids": ["user id"],
+  "joinCode": "ABCD2345",
+  "memberCount": 2,
+  "rankingMetric": "xp",
+  "active": true,
+  "createdAt": "serverTimestamp",
+  "updatedAt": "serverTimestamp"
+}
+```
+
+`groups/{groupId}/members/{uid}` stores `uid`, `groupId`, `role`, and `joinedAt`. Membership queries
+are capped at 20 groups per user, while a group is capped at 50 members. `groupCodes/{code}` is a
+private reservation that maps a join code to its group and is deleted with an empty owner group.
+The current ranking reads each member's trusted all-time XP live; period snapshots and temporary
+competitions remain a later extension.
+
 ## Other Collections
 
 - `usernames/{normalizedUsername}`: private unique username reservation owned by Functions.
@@ -276,7 +301,8 @@ returns only events belonging to current friends and limits the merged feed to 2
 - `socialActivities/{activityId}`: private server-owned study events exposed only through the bounded social callable.
 - `friendRequests/{sortedUidPair}`: one pending, accepted, or declined request per user pair.
 - `duelInvitations/{sortedUidPair}`: the current pending, active, declined, or completed challenge for a friend pair.
-- `groups/{groupId}` and `groups/{groupId}/members/{uid}`.
+- `groups/{groupId}` and `groups/{groupId}/members/{uid}`: private callable-only group records.
+- `groupCodes/{code}`: private unique code reservations owned by Functions.
 - `duels/{duelId}`: classic duel sessions.
 - `matchmakingEntries/{uid}`: private transactional queue entries.
 - `missions/{missionId}` and `users/{uid}/missions/{missionId}`.

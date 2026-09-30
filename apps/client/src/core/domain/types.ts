@@ -239,3 +239,28 @@ export type SocialOverview = {
   duelInvitations: FriendDuelInvitation[];
   activity: SocialActivity[];
 };
+
+export type StudyGroupRole = 'owner' | 'admin' | 'member';
+
+export type StudyGroup = {
+  id: string;
+  name: string;
+  ownerUid: string;
+  joinCode: string;
+  memberCount: number;
+  rankingMetric: 'xp';
+  viewerRole: StudyGroupRole;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudyGroupMember = SocialUser & {
+  role: StudyGroupRole;
+  score: number;
+  position: number;
+  isViewer: boolean;
+};
+
+export type StudyGroupDetail = StudyGroup & {
+  members: StudyGroupMember[];
+};

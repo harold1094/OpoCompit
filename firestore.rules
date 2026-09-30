@@ -120,8 +120,15 @@ service cloud.firestore {
     }
 
     match /groups/{groupId} {
-      allow read: if signedIn();
-      allow write: if isAdmin();
+      allow read, write: if false;
+
+      match /members/{uid} {
+        allow read, write: if false;
+      }
+    }
+
+    match /groupCodes/{code} {
+      allow read, write: if false;
     }
 
     match /duels/{duelId} {

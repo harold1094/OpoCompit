@@ -2,7 +2,7 @@
 
 ## What Exists And What Is Reused
 
-- Firestore rules, indexes, Firebase project configuration, and Cloud Functions are reused unchanged.
+- Firestore rules, indexes, Firebase project configuration, and Cloud Functions are shared by the React client.
 - Product models and local gameplay rules are being ported from Flutter to TypeScript.
 - The Flutter client remains available as a reference during migration.
 
@@ -41,6 +41,7 @@ functions/             # trusted Firebase backend
 - `quiz`: question eligibility, answer flow, local session state.
 - `results`: scoring, XP, coins, streak updates, review.
 - `profile`: aggregate progress and public player identity.
+- `groups`: private memberships, join codes, and live member XP ranking through callable Functions.
 - `admin`: import format and question management surface, initially documented and scaffold-ready.
 
 ## Client Vs Server Responsibility

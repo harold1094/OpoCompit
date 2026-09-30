@@ -1,4 +1,5 @@
 import {initializeApp} from "firebase-admin/app";
+import {randomBytes} from "node:crypto";
 import {env} from "node:process";
 import {
   DocumentReference,
@@ -36,6 +37,11 @@ import {
 import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 import {sharedStreak, StreakProfile} from "./socialActivity.js";
+import {
+  groupCodeFromBytes,
+  normalizeGroupCode,
+  normalizeGroupName,
+} from "./studyGroups.js";
 
 initializeApp();
 
@@ -144,6 +150,18 @@ type SubmitFriendDuelInput = {
 
 type GetRankingInput = {
   scope: "global" | "territory" | "friends";
+};
+
+type CreateStudyGroupInput = {
+  name: string;
+};
+
+type JoinStudyGroupInput = {
+  code: string;
+};
+
+type StudyGroupInput = {
+  groupId: string;
 };
 
 type ReviewQuestionInput = {
@@ -1313,6 +1331,244 @@ export const getSocialOverview = onCall(async (request) => {
   return socialOverview(uid);
 });
 
+export const getStudyGroups = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const memberships = await db.collectionGroup("members")
+    .where("uid", "==", uid)
+    .limit(20)
+    .get();
+  const membershipByGroup = new Map(memberships.docs.map((document) => [
+    requireString(document.data().groupId, "stored group id", 160),
+    String(document.data().role) === "owner" ? "owner" :
+      String(document.data().role) === "admin" ? "admin" : "member",
+  ]));
+  if (membershipByGroup.size === 0) return {groups: []};
+  const groupSnapshots = await db.getAll(...[...membershipByGroup.keys()].map((groupId) =>
+    db.collection("groups").doc(groupId),
+  ));
+  const groups = groupSnapshots
+    .filter((snapshot) => snapshot.exists && snapshot.data()?.active === true)
+    .sort((first, second) => timestampMillis(second.data()?.updatedAt) -
+      timestampMillis(first.data()?.updatedAt))
+    .map((snapshot) => serializeStudyGroup(
+      snapshot.id,
+      snapshot.data() ?? {},
+      membershipByGroup.get(snapshot.id) ?? "member",
+    ));
+  return {groups};
+});
+
+export const createStudyGroup = onCall<CreateStudyGroupInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const name = normalizeGroupName(request.data?.name);
+  if (!name) throw new HttpsError("invalid-argument", "Invalid group name.");
+
+  const joinCode = groupCodeFromBytes(randomBytes(8));
+  const groupRef = db.collection("groups").doc();
+  const memberRef = groupRef.collection("members").doc(uid);
+  const codeRef = db.collection("groupCodes").doc(joinCode);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, codeSnapshot] = await transaction.getAll(userRef, codeRef);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    const user = userSnapshot.data() ?? {};
+    const username = String(user.username ?? "");
+    const storedUsernameKey = String(user.usernameKey ?? "");
+    if (!isValidUsername(username) || usernameKey(username) !== storedUsernameKey) {
+      throw new HttpsError("failed-precondition", "Choose a public username before creating a group.");
+    }
+    const usernameReservation = await transaction.get(
+      db.collection("usernames").doc(storedUsernameKey),
+    );
+    if (!usernameReservation.exists || usernameReservation.data()?.uid !== uid) {
+      throw new HttpsError("failed-precondition", "Choose a public username before creating a group.");
+    }
+    if (numberValue(user.groupCount) >= 10) {
+      throw new HttpsError("resource-exhausted", "You already belong to the maximum number of groups.");
+    }
+    if (codeSnapshot.exists) {
+      throw new HttpsError("aborted", "Join code collision. Try again.");
+    }
+
+    const now = Timestamp.now();
+    const group = {
+      name,
+      ownerUid: uid,
+      adminUids: [uid],
+      joinCode,
+      memberCount: 1,
+      rankingMetric: "xp",
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    transaction.create(groupRef, group);
+    transaction.create(memberRef, {
+      uid,
+      groupId: groupRef.id,
+      role: "owner",
+      joinedAt: now,
+    });
+    transaction.create(codeRef, {groupId: groupRef.id, createdAt: now});
+    transaction.update(userRef, {groupCount: numberValue(user.groupCount) + 1, updatedAt: now});
+    return {group: serializeStudyGroup(groupRef.id, group, "owner")};
+  });
+});
+
+export const joinStudyGroup = onCall<JoinStudyGroupInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const joinCode = normalizeGroupCode(request.data?.code);
+  if (!joinCode) throw new HttpsError("invalid-argument", "Invalid group code.");
+
+  const codeRef = db.collection("groupCodes").doc(joinCode);
+  const userRef = db.collection("users").doc(uid);
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, codeSnapshot] = await transaction.getAll(userRef, codeRef);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    if (!codeSnapshot.exists) throw new HttpsError("not-found", "Study group not found.");
+    const user = userSnapshot.data() ?? {};
+    const username = String(user.username ?? "");
+    const storedUsernameKey = String(user.usernameKey ?? "");
+    if (!isValidUsername(username) || usernameKey(username) !== storedUsernameKey) {
+      throw new HttpsError("failed-precondition", "Choose a public username before joining a group.");
+    }
+    const usernameReservation = await transaction.get(
+      db.collection("usernames").doc(storedUsernameKey),
+    );
+    if (!usernameReservation.exists || usernameReservation.data()?.uid !== uid) {
+      throw new HttpsError("failed-precondition", "Choose a public username before joining a group.");
+    }
+    const groupId = requireString(codeSnapshot.data()?.groupId, "stored group id", 160);
+    const groupRef = db.collection("groups").doc(groupId);
+    const memberRef = groupRef.collection("members").doc(uid);
+    const [groupSnapshot, memberSnapshot] = await transaction.getAll(groupRef, memberRef);
+    if (!groupSnapshot.exists || groupSnapshot.data()?.active !== true) {
+      throw new HttpsError("not-found", "Study group not found.");
+    }
+    const group = groupSnapshot.data() ?? {};
+    if (memberSnapshot.exists) {
+      return {group: serializeStudyGroup(groupId, group, String(memberSnapshot.data()?.role))};
+    }
+    if (numberValue(user.groupCount) >= 10) {
+      throw new HttpsError("resource-exhausted", "You already belong to the maximum number of groups.");
+    }
+    if (numberValue(group.memberCount) >= 50) {
+      throw new HttpsError("resource-exhausted", "Study group is full.");
+    }
+
+    const now = Timestamp.now();
+    transaction.create(memberRef, {uid, groupId, role: "member", joinedAt: now});
+    transaction.update(groupRef, {
+      memberCount: numberValue(group.memberCount) + 1,
+      updatedAt: now,
+    });
+    transaction.update(userRef, {groupCount: numberValue(user.groupCount) + 1, updatedAt: now});
+    return {group: serializeStudyGroup(groupId, {
+      ...group,
+      memberCount: numberValue(group.memberCount) + 1,
+      updatedAt: now,
+    }, "member")};
+  });
+});
+
+export const getStudyGroup = onCall<StudyGroupInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const groupId = requireDocumentId(request.data?.groupId, "groupId");
+  const groupRef = db.collection("groups").doc(groupId);
+  const [groupSnapshot, viewerMembership] = await db.getAll(
+    groupRef,
+    groupRef.collection("members").doc(uid),
+  );
+  if (!groupSnapshot.exists || groupSnapshot.data()?.active !== true) {
+    throw new HttpsError("not-found", "Study group not found.");
+  }
+  if (!viewerMembership.exists) {
+    throw new HttpsError("permission-denied", "Study group membership required.");
+  }
+
+  const memberSnapshots = await groupRef.collection("members").limit(50).get();
+  const userSnapshots = memberSnapshots.empty ? [] : await db.getAll(...memberSnapshots.docs.map(
+    (membership) => db.collection("users").doc(membership.id),
+  ));
+  const roleByUid = new Map(memberSnapshots.docs.map((membership) => [
+    membership.id,
+    String(membership.data().role),
+  ]));
+  const members = rankEntries(userSnapshots
+    .filter((snapshot) => snapshot.exists)
+    .map((snapshot) => {
+      const user = snapshot.data() ?? {};
+      const publicUser = serializeSocialUser(snapshot.id, user);
+      return {
+        ...publicUser,
+        role: roleByUid.get(snapshot.id) === "owner" ? "owner" :
+          roleByUid.get(snapshot.id) === "admin" ? "admin" : "member",
+        score: numberValue(user.xp),
+        isViewer: snapshot.id === uid,
+      };
+    }));
+  return {
+    group: {
+      ...serializeStudyGroup(
+        groupId,
+        groupSnapshot.data() ?? {},
+        String(viewerMembership.data()?.role),
+      ),
+      members,
+    },
+  };
+});
+
+export const leaveStudyGroup = onCall<StudyGroupInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const groupId = requireDocumentId(request.data?.groupId, "groupId");
+  const groupRef = db.collection("groups").doc(groupId);
+  const memberRef = groupRef.collection("members").doc(uid);
+  const userRef = db.collection("users").doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const [groupSnapshot, memberSnapshot, userSnapshot] = await transaction.getAll(
+      groupRef,
+      memberRef,
+      userRef,
+    );
+    if (!groupSnapshot.exists || !memberSnapshot.exists) {
+      throw new HttpsError("not-found", "Study group membership not found.");
+    }
+    const group = groupSnapshot.data() ?? {};
+    const memberCount = numberValue(group.memberCount);
+    const role = String(memberSnapshot.data()?.role);
+    const now = Timestamp.now();
+
+    if (role === "owner" && memberCount > 1) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The owner cannot leave while other members remain.",
+      );
+    }
+    transaction.delete(memberRef);
+    if (role === "owner") {
+      const joinCode = requireString(group.joinCode, "stored join code", 20);
+      transaction.delete(db.collection("groupCodes").doc(joinCode));
+      transaction.delete(groupRef);
+    } else {
+      transaction.update(groupRef, {memberCount: Math.max(0, memberCount - 1), updatedAt: now});
+    }
+    if (userSnapshot.exists) {
+      transaction.update(userRef, {
+        groupCount: Math.max(0, numberValue(userSnapshot.data()?.groupCount) - 1),
+        updatedAt: now,
+      });
+    }
+    return {groupId, left: true};
+  });
+});
+
 export const getRanking = onCall<GetRankingInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const scope = request.data?.scope;
@@ -2313,6 +2569,14 @@ function requireString(value: unknown, field: string, maxLength: number): string
   return value.trim();
 }
 
+function requireDocumentId(value: unknown, field: string): string {
+  const id = requireString(value, field, 160);
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    throw new HttpsError("invalid-argument", `Invalid ${field}.`);
+  }
+  return id;
+}
+
 function optionalString(value: unknown, field: string, maxLength = 100): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   return requireString(value, field, maxLength);
@@ -2635,6 +2899,21 @@ function serializeSocialUser(uid: string, data: Record<string, unknown>) {
     territoryLabel: typeof territory.label === "string" ? territory.label : "España",
     currentStreak: numberValue(data.currentStreak),
     duelWins: numberValue(data.duelWins),
+  };
+}
+
+function serializeStudyGroup(id: string, data: Record<string, unknown>, role: string) {
+  return {
+    id,
+    name: stringValue(data.name),
+    ownerUid: stringValue(data.ownerUid),
+    joinCode: stringValue(data.joinCode),
+    memberCount: Math.max(0, numberValue(data.memberCount)),
+    rankingMetric: "xp" as const,
+    viewerRole: role === "owner" ? "owner" as const :
+      role === "admin" ? "admin" as const : "member" as const,
+    createdAt: timestampIso(data.createdAt) ?? new Date(0).toISOString(),
+    updatedAt: timestampIso(data.updatedAt) ?? new Date(0).toISOString(),
   };
 }
 

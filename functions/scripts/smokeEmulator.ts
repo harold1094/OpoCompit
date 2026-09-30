@@ -720,7 +720,121 @@ async function main() {
     },
     madridAuth.idToken,
   );
+
+  let groupWithoutPublicUsernameBlocked = false;
+  try {
+    await call("createStudyGroup", {name: "Grupo sin identidad"}, madridAuth.idToken);
+  } catch (error) {
+    groupWithoutPublicUsernameBlocked = error instanceof Error &&
+      error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(groupWithoutPublicUsernameBlocked, true);
   await call("setPublicUsername", {username: "MadridZero"}, madridAuth.idToken);
+
+  type StudyGroup = {
+    id: string;
+    name: string;
+    joinCode: string;
+    memberCount: number;
+    viewerRole: "owner" | "admin" | "member";
+  };
+  type StudyGroupDetail = StudyGroup & {
+    members: Array<{
+      uid: string;
+      username: string;
+      score: number;
+      position: number;
+      role: "owner" | "admin" | "member";
+    }>;
+  };
+
+  const createdGroup = await call<{group: StudyGroup}>(
+    "createStudyGroup",
+    {name: "  Bomberos   Cartagena 2027  "},
+    auth.idToken,
+  );
+  assert.equal(createdGroup.group.name, "Bomberos Cartagena 2027");
+  assert.equal(createdGroup.group.joinCode.length, 8);
+  assert.equal(createdGroup.group.memberCount, 1);
+  assert.equal(createdGroup.group.viewerRole, "owner");
+
+  const ownerGroups = await call<{groups: StudyGroup[]}>("getStudyGroups", {}, auth.idToken);
+  assert.equal(ownerGroups.groups.length, 1);
+  assert.equal(ownerGroups.groups[0].id, createdGroup.group.id);
+
+  const joinedGroup = await call<{group: StudyGroup}>(
+    "joinStudyGroup",
+    {
+      code: `${createdGroup.group.joinCode.slice(0, 4)}-${
+        createdGroup.group.joinCode.slice(4).toLowerCase()
+      }`,
+    },
+    friendAuth.idToken,
+  );
+  assert.equal(joinedGroup.group.id, createdGroup.group.id);
+  assert.equal(joinedGroup.group.memberCount, 2);
+  assert.equal(joinedGroup.group.viewerRole, "member");
+
+  const repeatedJoin = await call<{group: StudyGroup}>(
+    "joinStudyGroup",
+    {code: createdGroup.group.joinCode},
+    friendAuth.idToken,
+  );
+  assert.equal(repeatedJoin.group.memberCount, 2);
+
+  const groupDetail = await call<{group: StudyGroupDetail}>(
+    "getStudyGroup",
+    {groupId: createdGroup.group.id},
+    auth.idToken,
+  );
+  assert.equal(groupDetail.group.members.length, 2);
+  assert.equal(groupDetail.group.members[0].uid, auth.localId);
+  assert.equal(groupDetail.group.members[0].username, "HaroldCT");
+  assert.equal(groupDetail.group.members[0].position, 1);
+  assert.equal(
+    groupDetail.group.members.some((member) => member.uid === friendAuth.localId),
+    true,
+  );
+
+  let nonMemberGroupBlocked = false;
+  try {
+    await call("getStudyGroup", {groupId: createdGroup.group.id}, madridAuth.idToken);
+  } catch (error) {
+    nonMemberGroupBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonMemberGroupBlocked, true);
+
+  let ownerLeaveBlocked = false;
+  try {
+    await call("leaveStudyGroup", {groupId: createdGroup.group.id}, auth.idToken);
+  } catch (error) {
+    ownerLeaveBlocked = error instanceof Error && error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(ownerLeaveBlocked, true);
+
+  await call("leaveStudyGroup", {groupId: createdGroup.group.id}, friendAuth.idToken);
+  const ownerOnlyGroup = await call<{group: StudyGroupDetail}>(
+    "getStudyGroup",
+    {groupId: createdGroup.group.id},
+    auth.idToken,
+  );
+  assert.equal(ownerOnlyGroup.group.memberCount, 1);
+  assert.equal(ownerOnlyGroup.group.members.length, 1);
+  await call("leaveStudyGroup", {groupId: createdGroup.group.id}, auth.idToken);
+  const groupsAfterDeletion = await call<{groups: StudyGroup[]}>(
+    "getStudyGroups",
+    {},
+    auth.idToken,
+  );
+  assert.equal(groupsAfterDeletion.groups.length, 0);
+
+  let deletedGroupMissing = false;
+  try {
+    await call("getStudyGroup", {groupId: createdGroup.group.id}, auth.idToken);
+  } catch (error) {
+    deletedGroupMissing = error instanceof Error && error.message.includes("NOT_FOUND");
+  }
+  assert.equal(deletedGroupMissing, true);
 
   type RankingSnapshot = {
     scope: string;
@@ -903,6 +1017,9 @@ async function main() {
     serverAuthoritativeRankingsValidated: true,
     sharedFriendStreakValidated: true,
     boundedSocialActivityValidated: true,
+    privateStudyGroupsValidated: true,
+    groupMembershipPrivacyValidated: true,
+    groupWithoutPublicUsernameBlocked,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,

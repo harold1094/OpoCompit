@@ -25,6 +25,7 @@ export default function RootLayout() {
           <Stack.Screen name="quiz" />
           <Stack.Screen name="results" />
           <Stack.Screen name="errors" />
+          <Stack.Screen name="groups" />
           <Stack.Screen name="admin" />
         </Stack>
       </SafeAreaProvider>

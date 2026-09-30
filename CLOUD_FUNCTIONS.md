@@ -96,6 +96,19 @@ study streaks, and returns at most 20 recent friend activities. Friend reads rem
 activity queries are split into at most two groups because Firestore `in` filters accept bounded UID
 sets. Direct reads of `socialActivities` are denied so the server always enforces friendship privacy.
 
+## Study group callables
+
+- `getStudyGroups`: returns up to 20 active groups that contain the authenticated user.
+- `createStudyGroup`: creates a private group, owner membership, and unique eight-character join code atomically.
+- `joinStudyGroup`: resolves a private code and adds the authenticated user transactionally.
+- `getStudyGroup`: validates membership and returns the group with a live XP ranking of its members.
+- `leaveStudyGroup`: removes a member, or deletes an owner-only group and its join code.
+
+Users must have a public username and may belong to at most 10 groups. A group supports at most 50
+members. Group documents, memberships, and code reservations reject every direct client read and
+write so that callable Functions always enforce membership privacy. Owners cannot leave a non-empty
+group until ownership transfer is implemented.
+
 ## Ranking callable
 
 - `getRanking`: returns the all-time global, most-specific territorial, or friends ranking using server-owned XP aggregates.

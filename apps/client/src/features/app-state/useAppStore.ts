@@ -19,6 +19,8 @@ import {
   RankingSnapshot,
   SocialActivity,
   SocialUser,
+  StudyGroup,
+  StudyGroupDetail,
   TerritorySelection,
   UserQuestionStat,
 } from '@/core/domain/types';
@@ -26,12 +28,17 @@ import {
   bootstrapGuestProfile,
   claimDailyRewardRemote,
   claimMissionRemote,
+  createStudyGroupRemote,
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
   getRankingRemote,
   getSocialOverviewRemote,
+  getStudyGroupRemote,
+  getStudyGroupsRemote,
   isFirebaseEnabled,
   joinMatchmakingRemote,
+  joinStudyGroupRemote,
+  leaveStudyGroupRemote,
   leaveMatchmakingRemote,
   readableFirebaseError,
   removeFriendRemote,
@@ -85,6 +92,8 @@ type AppStore = {
   missions: Mission[];
   friends: SocialUser[];
   socialActivity: SocialActivity[];
+  studyGroups: StudyGroup[];
+  activeStudyGroup: StudyGroupDetail | null;
   incomingRequests: FriendRequest[];
   outgoingRequests: FriendRequest[];
   duelInvitations: FriendDuelInvitation[];
@@ -104,11 +113,14 @@ type AppStore = {
   quizError: string | null;
   engagementError: string | null;
   isLoadingSocial: boolean;
+  isLoadingGroups: boolean;
   isMatchmakingLoading: boolean;
   isLoadingRanking: boolean;
   isSavingUsername: boolean;
   socialActionId: string | null;
+  groupAction: 'create' | 'join' | 'leave' | null;
   socialError: string | null;
+  groupsError: string | null;
   rankingError: string | null;
   setHydrated: (hydrated: boolean) => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
@@ -122,6 +134,11 @@ type AppStore = {
   claimDailyReward: () => Promise<boolean>;
   claimMission: (missionId: string) => Promise<boolean>;
   refreshSocial: () => Promise<void>;
+  refreshStudyGroups: () => Promise<void>;
+  createStudyGroup: (name: string) => Promise<StudyGroup | null>;
+  joinStudyGroup: (code: string) => Promise<StudyGroup | null>;
+  openStudyGroup: (groupId: string) => Promise<boolean>;
+  leaveStudyGroup: (groupId: string) => Promise<boolean>;
   setPublicUsername: (username: string) => Promise<boolean>;
   searchSocialUsers: (query: string) => Promise<void>;
   sendFriendRequest: (user: SocialUser) => Promise<boolean>;
@@ -156,6 +173,8 @@ export const useAppStore = create<AppStore>()(
       missions: [],
       friends: [],
       socialActivity: [],
+      studyGroups: [],
+      activeStudyGroup: null,
       incomingRequests: [],
       outgoingRequests: [],
       duelInvitations: [],
@@ -175,11 +194,14 @@ export const useAppStore = create<AppStore>()(
       quizError: null,
       engagementError: null,
       isLoadingSocial: false,
+      isLoadingGroups: false,
       isMatchmakingLoading: false,
       isLoadingRanking: false,
       isSavingUsername: false,
       socialActionId: null,
+      groupAction: null,
       socialError: null,
+      groupsError: null,
       rankingError: null,
       setHydrated: (hydrated) => set({ hydrated }),
       startGuest: async (territory) => {
@@ -222,6 +244,8 @@ export const useAppStore = create<AppStore>()(
           missions: engagement.missions,
           friends: [],
           socialActivity: [],
+          studyGroups: [],
+          activeStudyGroup: null,
           incomingRequests: [],
           outgoingRequests: [],
           duelInvitations: [],
@@ -235,6 +259,7 @@ export const useAppStore = create<AppStore>()(
           quizError: null,
           engagementError: null,
           socialError: null,
+          groupsError: null,
           rankingError: null,
         });
       },
@@ -618,6 +643,108 @@ export const useAppStore = create<AppStore>()(
           set({ socialError: readableFirebaseError(error) });
         } finally {
           set({ isLoadingSocial: false });
+        }
+      },
+      refreshStudyGroups: async () => {
+        const state = get();
+        if (!state.profile || state.isLoadingGroups) return;
+        if (state.backendMode !== 'firebase') {
+          set({ groupsError: 'Los grupos necesitan la conexión segura con Firebase.' });
+          return;
+        }
+        set({ isLoadingGroups: true, groupsError: null });
+        try {
+          set({ studyGroups: await getStudyGroupsRemote() });
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingGroups: false });
+        }
+      },
+      createStudyGroup: async (name) => {
+        const state = get();
+        if (!state.profile || state.groupAction) return null;
+        if (state.backendMode !== 'firebase') {
+          set({ groupsError: 'Los grupos necesitan la conexión segura con Firebase.' });
+          return null;
+        }
+        const trimmed = name.trim().replace(/\s+/g, ' ');
+        if (trimmed.length < 3 || trimmed.length > 40) {
+          set({ groupsError: 'El nombre debe tener entre 3 y 40 caracteres.' });
+          return null;
+        }
+        set({ groupAction: 'create', groupsError: null });
+        try {
+          const group = await createStudyGroupRemote(trimmed);
+          set({
+            studyGroups: [group, ...state.studyGroups.filter((item) => item.id !== group.id)],
+          });
+          return group;
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+          return null;
+        } finally {
+          set({ groupAction: null });
+        }
+      },
+      joinStudyGroup: async (code) => {
+        const state = get();
+        if (!state.profile || state.groupAction) return null;
+        if (state.backendMode !== 'firebase') {
+          set({ groupsError: 'Los grupos necesitan la conexión segura con Firebase.' });
+          return null;
+        }
+        const normalized = code.trim().toUpperCase().replace(/[\s-]+/g, '');
+        if (!/^[A-HJ-NP-Z2-9]{8}$/.test(normalized)) {
+          set({ groupsError: 'Introduce un código de grupo válido de 8 caracteres.' });
+          return null;
+        }
+        set({ groupAction: 'join', groupsError: null });
+        try {
+          const group = await joinStudyGroupRemote(normalized);
+          set({
+            studyGroups: [group, ...state.studyGroups.filter((item) => item.id !== group.id)],
+          });
+          return group;
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+          return null;
+        } finally {
+          set({ groupAction: null });
+        }
+      },
+      openStudyGroup: async (groupId) => {
+        const state = get();
+        if (!state.profile || state.isLoadingGroups || state.backendMode !== 'firebase') return false;
+        set({ isLoadingGroups: true, groupsError: null });
+        try {
+          set({ activeStudyGroup: await getStudyGroupRemote(groupId) });
+          return true;
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isLoadingGroups: false });
+        }
+      },
+      leaveStudyGroup: async (groupId) => {
+        const state = get();
+        if (!state.profile || state.groupAction || state.backendMode !== 'firebase') return false;
+        set({ groupAction: 'leave', groupsError: null });
+        try {
+          await leaveStudyGroupRemote(groupId);
+          set({
+            studyGroups: state.studyGroups.filter((group) => group.id !== groupId),
+            activeStudyGroup: state.activeStudyGroup?.id === groupId
+              ? null
+              : state.activeStudyGroup,
+          });
+          return true;
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ groupAction: null });
         }
       },
       setPublicUsername: async (username) => {

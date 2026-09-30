@@ -34,6 +34,8 @@ import {
   RankingSnapshot,
   SocialOverview,
   SocialUser,
+  StudyGroup,
+  StudyGroupDetail,
 } from '@/core/domain/types';
 
 const firebaseEnabled = process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'true';
@@ -325,6 +327,40 @@ export async function getSocialOverviewRemote(): Promise<SocialOverview> {
   return response.data;
 }
 
+export async function getStudyGroupsRemote(): Promise<StudyGroup[]> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, { groups: StudyGroup[] }>('getStudyGroups');
+  const response = await invoke({});
+  return response.data.groups;
+}
+
+export async function createStudyGroupRemote(name: string): Promise<StudyGroup> {
+  await startAnonymousSession();
+  const invoke = callable<{ name: string }, { group: StudyGroup }>('createStudyGroup');
+  const response = await invoke({ name });
+  return response.data.group;
+}
+
+export async function joinStudyGroupRemote(code: string): Promise<StudyGroup> {
+  await startAnonymousSession();
+  const invoke = callable<{ code: string }, { group: StudyGroup }>('joinStudyGroup');
+  const response = await invoke({ code });
+  return response.data.group;
+}
+
+export async function getStudyGroupRemote(groupId: string): Promise<StudyGroupDetail> {
+  await startAnonymousSession();
+  const invoke = callable<{ groupId: string }, { group: StudyGroupDetail }>('getStudyGroup');
+  const response = await invoke({ groupId });
+  return response.data.group;
+}
+
+export async function leaveStudyGroupRemote(groupId: string): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<{ groupId: string }, { groupId: string; left: boolean }>('leaveStudyGroup');
+  await invoke({ groupId });
+}
+
 export async function sendFriendRequestRemote(targetUid: string): Promise<FriendRequest> {
   await startAnonymousSession();
   const invoke = callable<{ targetUid: string }, FriendRequestResponse>('sendFriendRequest');
@@ -484,13 +520,14 @@ export function readableFirebaseError(error: unknown): string {
     const code = String((error as { code: unknown }).code).replace('functions/', '');
     const messages: Record<string, string> = {
       unauthenticated: 'La sesión de invitado ha caducado. Vuelve a entrar.',
-      'failed-precondition': 'La partida ya no se puede validar.',
+      'failed-precondition': 'La operación no está disponible en su estado actual.',
       'deadline-exceeded': 'La partida ha caducado. Empieza una nueva.',
       'not-found': 'No se ha encontrado el contenido solicitado.',
       'already-exists': 'Esa solicitud o nombre de usuario ya existe.',
       'invalid-argument': 'Revisa los datos introducidos.',
       'permission-denied': 'No tienes permisos para completar esta operación.',
-      aborted: 'El rival ya no está disponible. Vuelve a buscar.',
+      'resource-exhausted': 'Has alcanzado el límite permitido para esta operación.',
+      aborted: 'Los datos han cambiado. Actualiza y vuelve a intentarlo.',
       unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
     };
     return messages[code] ?? 'No se pudo completar la operación con Firebase.';

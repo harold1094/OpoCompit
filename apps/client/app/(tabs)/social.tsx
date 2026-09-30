@@ -166,6 +166,22 @@ export default function SocialScreen() {
         <Text style={styles.socialBandValue}>{friends.length}</Text>
       </View>
 
+      <Pressable
+        accessibilityLabel="Abrir grupos de estudio"
+        accessibilityRole="button"
+        onPress={() => router.push('/groups')}
+        style={({ pressed }) => [styles.groupsEntry, pressed && styles.iconPressed]}
+      >
+        <View style={styles.groupsEntryIcon}>
+          <MaterialCommunityIcons name="account-multiple-outline" size={22} color={colors.aqua} />
+        </View>
+        <View style={styles.rowCopy}>
+          <Text style={styles.panelTitle}>Grupos de estudio</Text>
+          <Text style={styles.rowMeta}>Ligas privadas y ranking por XP</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+      </Pressable>
+
       {friends.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
@@ -659,6 +675,8 @@ const styles = StyleSheet.create({
   socialBandText: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   socialBandValue: { color: colors.gold, fontSize: 31, fontWeight: '900' },
   matchPanel: { marginTop: spacing.xl, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
+  groupsEntry: { minHeight: 66, marginTop: spacing.md, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  groupsEntryIcon: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softAqua },
   matchHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   matchIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
   matchStatus: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.line },
