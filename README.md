@@ -52,7 +52,8 @@ npm run import:emulator -- --file fixtures/admin-import.sample.json
 ```
 
 The importer is restricted to the local emulators, creates content as `pending_review`, and never
-publishes questions automatically. See `ADMIN_IMPORT_FORMAT.md` for the complete JSON contract.
+publishes questions automatically. The admin panel converts CSV to inspectable JSON and supports
+atomic bulk publication or rejection. See `ADMIN_IMPORT_FORMAT.md` for both formats.
 
 Run the React web client with its emulator configuration in a second terminal:
 
@@ -61,8 +62,8 @@ cd apps/client
 npm run web:emulator
 ```
 
-Open `http://localhost:8082/admin` for the responsive question import and review panel. Its local
-administrator bootstrap is rejected automatically outside the Functions emulator.
+Open `http://localhost:8082/admin` for the responsive CSV/JSON import and individual or bulk review
+panel. Its local administrator bootstrap is rejected automatically outside the Functions emulator.
 
 ## Vertical Slice Ready To Test
 

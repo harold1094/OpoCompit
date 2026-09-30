@@ -16,9 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
 import {
+  AdminBulkReviewDecision,
   AdminQuestion,
   AdminReviewDecision,
   bootstrapEmulatorAdminRemote,
+  bulkReviewQuestionsRemote,
   getQuestionReviewQueueRemote,
   importQuestionBatchRemote,
   isFirebaseEnabled,
@@ -26,9 +28,11 @@ import {
   readableFirebaseError,
   reviewQuestionRemote,
 } from '@/core/firebase/firebaseClient';
+import { CsvImportError, csvToQuestionBatch } from '@/features/admin/csvImport';
 
 type AdminView = 'review' | 'import';
 type QueueFilter = 'all' | 'pending_review' | 'draft';
+type ImportFormat = 'json' | 'csv';
 
 const importTemplate = JSON.stringify({
   batchId: 'web-review-sample-2026',
@@ -64,6 +68,11 @@ const importTemplate = JSON.stringify({
   }],
 }, null, 2);
 
+const csvTemplate = [
+  'oppositionId,statement,answerA,answerB,answerC,answerD,correctAnswerId,explanation,categoryId,subcategoryId,difficulty,scopeType,country,autonomousCommunity,province,municipality,specificCallId,officialExamId,year,source,sourceDocument,sourcePage,validFrom,validUntil',
+  'firefighters_es,"¿Qué comprobación debe realizarse antes de utilizar una manguera?",Comprobar el color,Revisar el estado y las conexiones,Medir la longitud,Ninguna comprobación,b,"Se revisan la manguera y sus conexiones.",equipment,,1,technical,ES,,,,,,2026,Manual de formación,manual-bomberos.pdf,1,,',
+].join('\n');
+
 export default function AdminScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 920;
@@ -72,12 +81,18 @@ export default function AdminScreen() {
   const [query, setQuery] = useState('');
   const [questions, setQuestions] = useState<AdminQuestion[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<AdminQuestion | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<AdminReviewDecision | null>(null);
+  const [bulkSaving, setBulkSaving] = useState<AdminBulkReviewDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [importFormat, setImportFormat] = useState<ImportFormat>('json');
   const [jsonInput, setJsonInput] = useState(importTemplate);
+  const [csvInput, setCsvInput] = useState(csvTemplate);
+  const [csvBatchId, setCsvBatchId] = useState('csv-review-2026');
+  const [csvSourceDocument, setCsvSourceDocument] = useState('manual-bomberos.csv');
   const [importing, setImporting] = useState(false);
 
   const loadQueue = useCallback(async () => {
@@ -118,6 +133,7 @@ export default function AdminScreen() {
   useEffect(() => {
     const selected = questions.find((question) => question.id === selectedId) ?? null;
     setDraft(selected ? cloneQuestion(selected) : null);
+    setSelectedIds((current) => current.filter((id) => questions.some((question) => question.id === id)));
   }, [questions, selectedId]);
 
   const visibleQuestions = useMemo(() => {
@@ -129,6 +145,9 @@ export default function AdminScreen() {
         .some((value) => value.toLocaleLowerCase('es').includes(normalizedQuery));
     });
   }, [filter, query, questions]);
+
+  const visibleIds = visibleQuestions.map((question) => question.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
 
   async function submitReview(decision: AdminReviewDecision) {
     if (!draft || saving) return;
@@ -166,6 +185,73 @@ export default function AdminScreen() {
         { text: 'Descartar', style: 'destructive', onPress: () => void submitReview('disable') },
       ],
     );
+  }
+
+  function toggleSelection(questionId: string) {
+    setSelectedIds((current) => current.includes(questionId)
+      ? current.filter((id) => id !== questionId)
+      : [...current, questionId].slice(0, 50));
+  }
+
+  function toggleVisibleSelection() {
+    setSelectedIds((current) => {
+      if (allVisibleSelected) return current.filter((id) => !visibleIds.includes(id));
+      return [...new Set([...current, ...visibleIds])].slice(0, 50);
+    });
+  }
+
+  async function submitBulkReview(decision: AdminBulkReviewDecision) {
+    if (selectedIds.length === 0 || bulkSaving) return;
+    setBulkSaving(decision);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await bulkReviewQuestionsRemote(selectedIds, decision);
+      const reviewedIds = new Set(result.questionIds);
+      setQuestions((current) => current.filter((question) => !reviewedIds.has(question.id)));
+      setSelectedIds([]);
+      setNotice(decision === 'publish'
+        ? `${result.reviewedCount} preguntas publicadas y verificadas.`
+        : `${result.reviewedCount} preguntas descartadas.`);
+    } catch (bulkError) {
+      setError(readableFirebaseError(bulkError));
+    } finally {
+      setBulkSaving(null);
+    }
+  }
+
+  function confirmBulkReview(decision: AdminBulkReviewDecision) {
+    const count = selectedIds.length;
+    Alert.alert(
+      decision === 'publish' ? 'Publicar selección' : 'Descartar selección',
+      decision === 'publish'
+        ? `Se publicarán y verificarán ${count} preguntas.`
+        : `Se deshabilitarán ${count} preguntas y saldrán de la cola.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: decision === 'publish' ? 'Publicar' : 'Descartar',
+          style: decision === 'disable' ? 'destructive' : 'default',
+          onPress: () => void submitBulkReview(decision),
+        },
+      ],
+    );
+  }
+
+  function convertCsv() {
+    setError(null);
+    setNotice(null);
+    try {
+      const batch = csvToQuestionBatch(csvInput, {
+        batchId: csvBatchId,
+        sourceDocument: csvSourceDocument,
+      });
+      setJsonInput(JSON.stringify(batch, null, 2));
+      setImportFormat('json');
+      setNotice(`${batch.questions.length} preguntas convertidas. Revisa el JSON antes de importarlo.`);
+    } catch (csvError) {
+      setError(csvError instanceof CsvImportError ? csvError.message : 'No se pudo convertir el CSV.');
+    }
   }
 
   async function submitImport() {
@@ -230,7 +316,7 @@ export default function AdminScreen() {
         <TabButton
           active={view === 'import'}
           icon="file-import-outline"
-          label="Importar JSON"
+          label="Importar"
           onPress={() => setView('import')}
         />
       </View>
@@ -276,6 +362,52 @@ export default function AdminScreen() {
                 />
               </View>
 
+              <View style={styles.bulkBar}>
+                <Pressable
+                  accessibilityLabel={allVisibleSelected ? 'Quitar selección visible' : 'Seleccionar visibles'}
+                  onPress={toggleVisibleSelection}
+                  style={({ pressed }) => [styles.selectVisible, pressed && styles.pressed]}
+                >
+                  <MaterialCommunityIcons
+                    name={allVisibleSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={20}
+                    color={allVisibleSelected ? colors.aqua : colors.muted}
+                  />
+                  <Text style={styles.selectionText}>
+                    {selectedIds.length > 0 ? `${selectedIds.length} seleccionadas` : 'Seleccionar visibles'}
+                  </Text>
+                </Pressable>
+                {selectedIds.length > 0 ? (
+                  <View style={styles.bulkActions}>
+                    <Pressable
+                      accessibilityLabel="Descartar preguntas seleccionadas"
+                      disabled={bulkSaving !== null}
+                      onPress={() => confirmBulkReview('disable')}
+                      style={({ pressed }) => [styles.bulkIconButton, pressed && styles.pressed]}
+                    >
+                      {bulkSaving === 'disable' ? (
+                        <ActivityIndicator color={colors.danger} size="small" />
+                      ) : (
+                        <MaterialCommunityIcons name="delete-outline" size={19} color={colors.danger} />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Publicar preguntas seleccionadas"
+                      disabled={bulkSaving !== null}
+                      onPress={() => confirmBulkReview('publish')}
+                      style={({ pressed }) => [styles.bulkPublishButton, pressed && styles.pressed]}
+                    >
+                      {bulkSaving === 'publish' ? (
+                        <ActivityIndicator color={colors.surface} size="small" />
+                      ) : (
+                        <MaterialCommunityIcons name="check-all" size={19} color={colors.surface} />
+                      )}
+                      <Text style={styles.bulkPublishLabel}>Publicar</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+
               {loading ? (
                 <View style={styles.centerState}>
                   <ActivityIndicator color={colors.brand} />
@@ -293,8 +425,10 @@ export default function AdminScreen() {
                     <QuestionRow
                       key={question.id}
                       active={question.id === selectedId}
+                      selected={selectedIds.includes(question.id)}
                       question={question}
                       onPress={() => setSelectedId(question.id)}
+                      onToggleSelection={() => toggleSelection(question.id)}
                     />
                   ))}
                 </View>
@@ -326,30 +460,83 @@ export default function AdminScreen() {
           <View style={styles.importHeader}>
             <View>
               <Text style={styles.sectionEyebrow}>NUEVO LOTE</Text>
-              <Text style={styles.importTitle}>Importar preguntas</Text>
+              <Text style={styles.importTitle}>
+                {importFormat === 'json' ? 'Importar preguntas' : 'Convertir CSV'}
+              </Text>
             </View>
             <View style={styles.safetyBadge}>
               <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.aqua} />
               <Text style={styles.safetyText}>Revisión obligatoria</Text>
             </View>
           </View>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            multiline
-            onChangeText={setJsonInput}
-            spellCheck={false}
-            style={styles.jsonEditor}
-            textAlignVertical="top"
-            value={jsonInput}
-          />
+          <View style={styles.importFormatTabs}>
+            <ImportFormatButton
+              active={importFormat === 'json'}
+              icon="code-json"
+              label="JSON"
+              onPress={() => setImportFormat('json')}
+            />
+            <ImportFormatButton
+              active={importFormat === 'csv'}
+              icon="file-delimited-outline"
+              label="CSV"
+              onPress={() => setImportFormat('csv')}
+            />
+          </View>
+          {importFormat === 'csv' ? (
+            <>
+              <View style={styles.csvMetadata}>
+                <View style={styles.flexField}>
+                  <FieldLabel label="ID del lote" />
+                  <TextInput
+                    autoCapitalize="none"
+                    onChangeText={setCsvBatchId}
+                    style={styles.textInput}
+                    value={csvBatchId}
+                  />
+                </View>
+                <View style={styles.flexField}>
+                  <FieldLabel label="Documento de origen" />
+                  <TextInput
+                    autoCapitalize="none"
+                    onChangeText={setCsvSourceDocument}
+                    style={styles.textInput}
+                    value={csvSourceDocument}
+                  />
+                </View>
+              </View>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                multiline
+                onChangeText={setCsvInput}
+                spellCheck={false}
+                style={styles.csvEditor}
+                textAlignVertical="top"
+                value={csvInput}
+              />
+            </>
+          ) : (
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline
+              onChangeText={setJsonInput}
+              spellCheck={false}
+              style={styles.jsonEditor}
+              textAlignVertical="top"
+              value={jsonInput}
+            />
+          )}
           <View style={styles.importFooter}>
-            <Text style={styles.importMeta}>{jsonInput.length.toLocaleString('es-ES')} caracteres</Text>
+            <Text style={styles.importMeta}>
+              {(importFormat === 'json' ? jsonInput.length : csvInput.length).toLocaleString('es-ES')} caracteres
+            </Text>
             <ActionButton
-              icon="file-import-outline"
-              label="Importar lote"
-              loading={importing}
-              onPress={() => void submitImport()}
+              icon={importFormat === 'json' ? 'file-import-outline' : 'swap-horizontal'}
+              label={importFormat === 'json' ? 'Importar lote' : 'Convertir a JSON'}
+              loading={importFormat === 'json' && importing}
+              onPress={importFormat === 'json' ? () => void submitImport() : convertCsv}
               tone="brand"
             />
           </View>
@@ -537,6 +724,27 @@ function TabButton({ active, icon, label, onPress }: {
   );
 }
 
+function ImportFormatButton({ active, icon, label, onPress }: {
+  active: boolean;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.importFormatButton,
+        active && styles.importFormatButtonActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <MaterialCommunityIcons name={icon} size={18} color={active ? colors.surface : colors.muted} />
+      <Text style={[styles.importFormatLabel, active && styles.importFormatLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function FilterButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={[styles.filterButton, active && styles.filterButtonActive]}>
@@ -545,10 +753,12 @@ function FilterButton({ active, label, onPress }: { active: boolean; label: stri
   );
 }
 
-function QuestionRow({ active, question, onPress }: {
+function QuestionRow({ active, selected, question, onPress, onToggleSelection }: {
   active: boolean;
+  selected: boolean;
   question: AdminQuestion;
   onPress: () => void;
+  onToggleSelection: () => void;
 }) {
   return (
     <Pressable
@@ -560,7 +770,23 @@ function QuestionRow({ active, question, onPress }: {
       ]}
     >
       <View style={styles.questionRowTop}>
-        <StatusBadge status={question.status} compact />
+        <View style={styles.questionRowStatus}>
+          <Pressable
+            accessibilityLabel={selected ? 'Quitar pregunta de la selección' : 'Seleccionar pregunta'}
+            onPress={(event) => {
+              event.stopPropagation();
+              onToggleSelection();
+            }}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons
+              name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+              size={20}
+              color={selected ? colors.aqua : colors.muted}
+            />
+          </Pressable>
+          <StatusBadge status={question.status} compact />
+        </View>
         <Text style={styles.questionDifficulty}>D{question.difficulty}</Text>
       </View>
       <Text numberOfLines={3} style={styles.questionStatement}>{question.statement}</Text>
@@ -681,6 +907,13 @@ const styles = StyleSheet.create({
   filterButtonActive: { backgroundColor: colors.softBrand },
   filterLabel: { color: colors.muted, fontSize: 11, fontWeight: '800' },
   filterLabelActive: { color: colors.brandDark },
+  bulkBar: { minHeight: 50, paddingHorizontal: 12, paddingVertical: 7, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: '#FAFBFA' },
+  selectVisible: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  selectionText: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  bulkActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  bulkIconButton: { width: 36, height: 34, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F3C7C7', borderRadius: radius.sm, backgroundColor: '#FFF1F1' },
+  bulkPublishButton: { minWidth: 88, height: 34, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radius.sm, backgroundColor: colors.aqua },
+  bulkPublishLabel: { color: colors.surface, fontSize: 11, fontWeight: '900' },
   centerState: { minHeight: 210, padding: spacing.lg, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   stateText: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   emptyTitle: { color: colors.ink, fontSize: 15, fontWeight: '900', marginTop: 2 },
@@ -688,6 +921,7 @@ const styles = StyleSheet.create({
   questionRow: { minHeight: 128, padding: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
   questionRowActive: { borderColor: colors.brand, backgroundColor: '#FFF8F4' },
   questionRowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  questionRowStatus: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   questionDifficulty: { color: colors.muted, fontSize: 10, fontWeight: '900' },
   questionStatement: { minHeight: 54, marginTop: 9, color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   questionRowMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -744,7 +978,14 @@ const styles = StyleSheet.create({
   importTitle: { color: colors.ink, fontSize: 24, fontWeight: '900', marginTop: 3 },
   safetyBadge: { minHeight: 34, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: radius.md, backgroundColor: colors.softAqua },
   safetyText: { color: colors.aqua, fontSize: 11, fontWeight: '900' },
+  importFormatTabs: { width: '100%', maxWidth: 920, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  importFormatButton: { minWidth: 94, height: 38, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  importFormatButtonActive: { borderColor: colors.ink, backgroundColor: colors.ink },
+  importFormatLabel: { color: colors.muted, fontSize: 12, fontWeight: '900' },
+  importFormatLabelActive: { color: colors.surface },
+  csvMetadata: { width: '100%', maxWidth: 920, marginBottom: spacing.md, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   jsonEditor: { width: '100%', maxWidth: 920, minHeight: 520, padding: spacing.md, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: '#171C20', color: '#E8EDF0', fontSize: 13, lineHeight: 20, fontFamily: 'monospace' },
+  csvEditor: { width: '100%', maxWidth: 920, minHeight: 420, padding: spacing.md, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, color: colors.ink, fontSize: 13, lineHeight: 20, fontFamily: 'monospace' },
   importFooter: { width: '100%', maxWidth: 920, marginTop: spacing.md, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   importMeta: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   pressed: { opacity: 0.78 },

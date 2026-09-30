@@ -113,6 +113,18 @@ async function main() {
   }
   assert.equal(nonAdminReviewBlocked, true);
 
+  let nonAdminBulkReviewBlocked = false;
+  try {
+    await call(
+      "bulkReviewQuestions",
+      {questionIds: ["admin-import-smoke-question"], decision: "publish"},
+      auth.idToken,
+    );
+  } catch (error) {
+    nonAdminBulkReviewBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminBulkReviewBlocked, true);
+
   const importPayload = {
     batchId: "smoke-admin-import",
     sourceDocument: "smoke-manual.pdf",
@@ -831,6 +843,49 @@ async function main() {
     false,
   );
 
+  const bulkQuestions = [
+    {id: "bulk-review-smoke-1", statement: "Bulk review smoke question one?"},
+    {id: "bulk-review-smoke-2", statement: "Bulk review smoke question two?"},
+    {id: "bulk-review-smoke-3", statement: "Bulk review smoke question three?"},
+  ].map(({id, statement}) => ({
+    ...importPayload.questions[0],
+    id,
+    statement,
+  }));
+  const bulkImport = await call<{importedCount: number}>(
+    "importQuestionBatch",
+    {batchId: "smoke-bulk-review", questions: bulkQuestions},
+    auth.idToken,
+  );
+  assert.equal(bulkImport.importedCount, 3);
+  const bulkPublished = await call<{
+    decision: string;
+    reviewedCount: number;
+    questionIds: string[];
+  }>(
+    "bulkReviewQuestions",
+    {questionIds: ["bulk-review-smoke-1", "bulk-review-smoke-2"], decision: "publish"},
+    auth.idToken,
+  );
+  assert.equal(bulkPublished.decision, "publish");
+  assert.equal(bulkPublished.reviewedCount, 2);
+  const bulkDisabled = await call<typeof bulkPublished>(
+    "bulkReviewQuestions",
+    {questionIds: ["bulk-review-smoke-3"], decision: "disable"},
+    auth.idToken,
+  );
+  assert.equal(bulkDisabled.decision, "disable");
+  assert.equal(bulkDisabled.reviewedCount, 1);
+  const afterBulkReview = await call<{questions: ReviewQuestion[]}>(
+    "getQuestionReviewQueue",
+    {},
+    auth.idToken,
+  );
+  assert.equal(
+    afterBulkReview.questions.some((question) => question.id.startsWith("bulk-review-smoke-")),
+    false,
+  );
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 3,
@@ -850,8 +905,10 @@ async function main() {
     boundedSocialActivityValidated: true,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
+    adminBulkReviewValidated: true,
     nonAdminImportBlocked,
     nonAdminReviewBlocked,
+    nonAdminBulkReviewBlocked,
     publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));

@@ -112,6 +112,13 @@ export type AdminQuestion = {
 };
 
 export type AdminReviewDecision = 'save' | 'publish' | 'disable';
+export type AdminBulkReviewDecision = 'publish' | 'disable';
+
+export type BulkReviewResult = {
+  decision: AdminBulkReviewDecision;
+  reviewedCount: number;
+  questionIds: string[];
+};
 
 export type QuestionImportResult = {
   batchId: string;
@@ -442,6 +449,19 @@ export async function reviewQuestionRemote(
   >('reviewQuestion');
   const response = await invoke({ questionId, decision, question });
   return response.data.question;
+}
+
+export async function bulkReviewQuestionsRemote(
+  questionIds: string[],
+  decision: AdminBulkReviewDecision,
+): Promise<BulkReviewResult> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { questionIds: string[]; decision: AdminBulkReviewDecision },
+    BulkReviewResult
+  >('bulkReviewQuestions');
+  const response = await invoke({ questionIds, decision });
+  return response.data;
 }
 
 export async function importQuestionBatchRemote(batch: unknown): Promise<QuestionImportResult> {

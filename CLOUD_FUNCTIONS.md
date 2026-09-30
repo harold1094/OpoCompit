@@ -138,14 +138,16 @@ Responsibilities:
 - Store an immutable `questionImportBatches/{batchId}` audit record and make exact retries idempotent.
 - Reject existing question identifiers and a reused batch identifier whose content has changed.
 
-The first implementation accepts JSON. CSV conversion belongs in the future admin interface and
-must produce this same validated JSON contract before calling the Function.
+The admin interface also converts CSV locally into this same validated JSON contract. Converted
+content remains visible for inspection and still passes through every server validation above.
 
 ## Admin review callables
 
 - `getQuestionReviewQueue`: returns at most 50 complete `draft` and `pending_review` questions to admins.
 - `reviewQuestion`: validates corrected content and transactionally saves, publishes, or disables it.
+- `bulkReviewQuestions`: atomically publishes or disables between 1 and 50 selected pending questions.
 - `bootstrapEmulatorAdmin`: promotes only the current local emulator user; deployed environments always reject it.
 
 Publishing sets `verified: true`, `reviewedBy`, and `lastReviewedAt`. Saving keeps the question out
-of game sessions, while disabling removes it from the active review queue.
+of game sessions, while disabling removes it from the active review queue. Bulk publication verifies
+that every opposition remains active before writing any question, so a partial batch cannot leak into play.

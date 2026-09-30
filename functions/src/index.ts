@@ -152,6 +152,11 @@ type ReviewQuestionInput = {
   question?: unknown;
 };
 
+type BulkReviewQuestionsInput = {
+  questionIds: string[];
+  decision: "publish" | "disable";
+};
+
 export const bootstrapEmulatorAdmin = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   if (env.FUNCTIONS_EMULATOR !== "true") {
@@ -287,6 +292,86 @@ export const reviewQuestion = onCall<ReviewQuestionInput>(async (request) => {
       lastReviewedAt: now,
       updatedAt: now,
     })};
+  });
+});
+
+export const bulkReviewQuestions = onCall<BulkReviewQuestionsInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const decision = request.data?.decision;
+  if (!(["publish", "disable"] as unknown[]).includes(decision)) {
+    throw new HttpsError("invalid-argument", "Invalid bulk review decision.");
+  }
+  if (!Array.isArray(request.data?.questionIds) ||
+    request.data.questionIds.length === 0 || request.data.questionIds.length > 50) {
+    throw new HttpsError(
+      "invalid-argument",
+      "questionIds must contain between 1 and 50 entries.",
+    );
+  }
+  const questionIds = request.data.questionIds.map((value, index) => {
+    const id = requireString(value, `questionIds[${index}]`, 160);
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+      throw new HttpsError("invalid-argument", `questionIds[${index}] is invalid.`);
+    }
+    return id;
+  });
+  if (new Set(questionIds).size !== questionIds.length) {
+    throw new HttpsError("invalid-argument", "Duplicate question ids are not allowed.");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const questionRefs = questionIds.map((id) => db.collection("questions").doc(id));
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, ...questionSnapshots] = await transaction.getAll(
+      userRef,
+      ...questionRefs,
+    );
+    requireAdmin(userSnapshot);
+
+    questionSnapshots.forEach((snapshot, index) => {
+      if (!snapshot.exists) {
+        throw new HttpsError("not-found", `Question ${questionIds[index]} not found.`);
+      }
+      if (!["draft", "pending_review"].includes(String(snapshot.data()?.status))) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Question ${questionIds[index]} is no longer pending review.`,
+        );
+      }
+    });
+
+    if (decision === "publish") {
+      const oppositionIds = [...new Set(questionSnapshots.map((snapshot) =>
+        requireString(snapshot.data()?.oppositionId, "oppositionId", 80),
+      ))];
+      const oppositionSnapshots = await transaction.getAll(...oppositionIds.map((id) =>
+        db.collection("oppositions").doc(id),
+      ));
+      oppositionSnapshots.forEach((snapshot, index) => {
+        if (!snapshot.exists || snapshot.data()?.active !== true) {
+          throw new HttpsError(
+            "failed-precondition",
+            `Opposition ${oppositionIds[index]} does not exist or is inactive.`,
+          );
+        }
+      });
+    }
+
+    const now = Timestamp.now();
+    questionRefs.forEach((reference) => transaction.update(reference, {
+      status: decision === "publish" ? "published" : "disabled",
+      verified: decision === "publish",
+      reviewedBy: uid,
+      lastReviewedAt: now,
+      updatedAt: now,
+    }));
+
+    return {
+      decision,
+      reviewedCount: questionIds.length,
+      questionIds,
+    };
   });
 });
 
