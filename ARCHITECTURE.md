@@ -41,6 +41,7 @@ functions/             # trusted Firebase backend
 - `quiz`: question eligibility, answer flow, local session state.
 - `results`: scoring, XP, coins, streak updates, review.
 - `profile`: aggregate progress and public player identity.
+- `avatar`: local visual catalog, modular preview, owned inventory, and server-authoritative purchases/equipment.
 - `groups`: private memberships, join codes, live member XP ranking, and bounded temporary competitions through callable Functions and an idempotent activity trigger.
 - `admin`: import format and question management surface, initially documented and scaffold-ready.
 

@@ -65,6 +65,8 @@
 - Live friend profiles, shared study streaks, and a private 20-event social activity feed.
 - Private study groups with create/join codes, bounded membership, live XP rankings, leave, and empty-group deletion.
 - Time-bounded group competitions for XP, questions, correct answers, or duels with idempotent event scoring.
+- Modular 2D avatar, local-assets wardrobe, cosmetic shop, trusted purchases, and persisted equipment.
+- Callable avatar API for bounded inventory reads, idempotent purchases, and ownership-validated equipment.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -77,6 +79,5 @@
 
 ## Next Implementation Steps
 
-1. Add the first local-assets avatar and shop workflow without payment infrastructure.
-2. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-3. Remove Flutter only after React reaches verified feature parity.
+1. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+2. Remove Flutter only after React reaches verified feature parity.

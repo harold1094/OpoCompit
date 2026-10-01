@@ -16,6 +16,15 @@ import {
   parseQuestionBatch,
 } from "./adminImport.js";
 import {
+  avatarItemById,
+  AvatarLoadout,
+  avatarShopCatalog,
+  balanceAfterAvatarPurchase,
+  defaultAvatarLoadout,
+  normalizeAvatarLoadout,
+  starterAvatarItemIds,
+} from "./avatarShop.js";
+import {
   dailyMissionTemplates,
   dailyRewardFor,
   madridDay,
@@ -103,6 +112,10 @@ type SubmitQuizInput = {
 
 type ClaimMissionInput = {
   missionId: string;
+};
+
+type AvatarItemInput = {
+  itemId: string;
 };
 
 type StartClassicDuelInput = {
@@ -562,6 +575,7 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       lastValidActivityDate: null,
       dailyRewardDay: 0,
       lastDailyRewardDate: null,
+      avatarEquipped: defaultAvatarLoadout,
       createdAt: now,
       updatedAt: now,
     };
@@ -570,6 +584,98 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
   });
 
   return {profile};
+});
+
+export const getAvatarShop = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  return {inventory: await avatarInventoryForUid(uid)};
+});
+
+export const purchaseAvatarItem = onCall<AvatarItemInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const itemId = requireString(request.data?.itemId, "itemId", 80);
+  const item = avatarItemById(itemId);
+  if (!item) throw new HttpsError("not-found", "Avatar item not found.");
+
+  const userRef = db.collection("users").doc(uid);
+  const inventoryRef = userRef.collection("inventory").doc(item.id);
+  const transactionRef = db.collection("currencyTransactions").doc(`${uid}_avatar_${item.id}`);
+  const idempotent = await db.runTransaction(async (transaction) => {
+    const [userSnapshot, inventorySnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(inventoryRef),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    if (starterAvatarItemIds.includes(item.id) || inventorySnapshot.exists) return true;
+
+    const user = userSnapshot.data() ?? {};
+    const balances = {
+      coins: numberValue(user.coins),
+      gems: numberValue(user.gems),
+    };
+    const nextBalances = balanceAfterAvatarPurchase(balances, item);
+    if (!nextBalances) {
+      throw new HttpsError("failed-precondition", `Not enough ${item.currency}.`);
+    }
+
+    const now = Timestamp.now();
+    transaction.update(userRef, {...nextBalances, updatedAt: now});
+    transaction.create(inventoryRef, {
+      itemId: item.id,
+      category: item.category,
+      slot: item.slot,
+      rarity: item.rarity,
+      acquiredWith: item.currency,
+      pricePaid: item.price,
+      acquiredAt: now,
+    });
+    transaction.create(transactionRef, {
+      uid,
+      type: "purchase",
+      currency: item.currency,
+      amount: -item.price,
+      balanceAfter: nextBalances[item.currency],
+      sourceId: item.id,
+      createdAt: now,
+    });
+    return false;
+  });
+
+  return {inventory: await avatarInventoryForUid(uid), idempotent};
+});
+
+export const equipAvatarItem = onCall<AvatarItemInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const itemId = requireString(request.data?.itemId, "itemId", 80);
+  const item = avatarItemById(itemId);
+  if (!item) throw new HttpsError("not-found", "Avatar item not found.");
+
+  const userRef = db.collection("users").doc(uid);
+  const inventoryRef = userRef.collection("inventory").doc(item.id);
+  await db.runTransaction(async (transaction) => {
+    const [userSnapshot, inventorySnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(inventoryRef),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    if (!starterAvatarItemIds.includes(item.id) && !inventorySnapshot.exists) {
+      throw new HttpsError("permission-denied", "Avatar item is not owned.");
+    }
+
+    const user = userSnapshot.data() ?? {};
+    const equipped = normalizeAvatarLoadout(
+      user.avatarEquipped,
+      avatarShopCatalog.map((catalogItem) => catalogItem.id),
+    );
+    equipped[item.slot] = item.id;
+    transaction.update(userRef, {avatarEquipped: equipped, updatedAt: Timestamp.now()});
+  });
+
+  return {inventory: await avatarInventoryForUid(uid)};
 });
 
 export const getDailyEngagement = onCall(async (request) => {
@@ -2922,6 +3028,29 @@ function nextStreak(current: number, previousValue: unknown, now: Timestamp): nu
   if (difference === 0) return current;
   if (difference === 1) return current + 1;
   return 1;
+}
+
+async function avatarInventoryForUid(uid: string) {
+  const userRef = db.collection("users").doc(uid);
+  const [userSnapshot, inventorySnapshot] = await Promise.all([
+    userRef.get(),
+    userRef.collection("inventory").limit(100).get(),
+  ]);
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+
+  const user = userSnapshot.data() ?? {};
+  const ownedItemIds = [...new Set([
+    ...starterAvatarItemIds,
+    ...inventorySnapshot.docs.map((document) => document.id),
+  ])];
+  return {
+    ownedItemIds,
+    equipped: normalizeAvatarLoadout(user.avatarEquipped as AvatarLoadout, ownedItemIds),
+    coins: numberValue(user.coins),
+    gems: numberValue(user.gems),
+  };
 }
 
 function serializeProfile(uid: string, data: Record<string, unknown>) {

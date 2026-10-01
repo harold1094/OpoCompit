@@ -4,12 +4,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { isUsingFirebaseEmulators } from '@/core/firebase/firebaseClient';
+import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { StatTile } from '@/shared/components/StatTile';
 
 export default function ProfileScreen() {
   const profile = useAppStore((state) => state.profile);
+  const avatarInventory = useAppStore((state) => state.avatarInventory);
   const backendMode = useAppStore((state) => state.backendMode);
   if (!profile) return null;
   const accuracy = profile.totalQuestions === 0 ? 0 : profile.correctAnswers / profile.totalQuestions;
@@ -19,9 +21,14 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={styles.profileGlowLeft} />
         <View style={styles.profileGlowRight} />
-        <View style={styles.avatar}>
-          <MaterialCommunityIcons name="account-hard-hat-outline" size={47} color={colors.surface} />
-        </View>
+        <Pressable
+          accessibilityLabel="Abrir avatar y tienda"
+          accessibilityRole="button"
+          onPress={() => router.push('/avatar-shop')}
+          style={({ pressed }) => [styles.avatarButton, pressed && styles.adminLinkPressed]}
+        >
+          <AvatarPreview loadout={avatarInventory.equipped} size={92} />
+        </Pressable>
         <Text style={styles.name}>{profile.username}</Text>
         <Text style={styles.scope}>{profile.oppositionName} · {profile.territory.label}</Text>
         <View style={styles.sessionBadge}>
@@ -62,6 +69,24 @@ export default function ProfileScreen() {
         <StatTile label="Victorias" value={`${profile.duelWins ?? 0}`} accent={colors.gold} />
       </View>
 
+      <Pressable
+        onPress={() => router.push('/avatar-shop')}
+        style={({ pressed }) => [styles.shopLink, pressed && styles.adminLinkPressed]}
+      >
+        <View style={styles.shopIcon}>
+          <MaterialCommunityIcons name="hanger" size={22} color={colors.aqua} />
+        </View>
+        <View style={styles.adminCopy}>
+          <Text style={styles.adminTitle}>Avatar y tienda</Text>
+          <Text style={styles.adminText}>{avatarInventory.ownedItemIds.length} objetos en tu colección</Text>
+        </View>
+        <View style={styles.shopWallet}>
+          <MaterialCommunityIcons name="circle-multiple" size={15} color={colors.gold} />
+          <Text style={styles.shopBalance}>{profile.coins}</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+      </Pressable>
+
       {backendMode === 'firebase' && isUsingFirebaseEmulators() ? (
         <Pressable
           onPress={() => router.push('/admin')}
@@ -97,7 +122,7 @@ const styles = StyleSheet.create({
   header: { minHeight: 210, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.md, paddingBottom: spacing.lg, overflow: 'hidden' },
   profileGlowLeft: { position: 'absolute', width: 150, height: 150, borderRadius: 75, left: -65, bottom: -55, backgroundColor: colors.softAqua, pointerEvents: 'none' },
   profileGlowRight: { position: 'absolute', width: 130, height: 130, borderRadius: 65, right: -50, top: -45, backgroundColor: colors.softBrand, pointerEvents: 'none' },
-  avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: colors.surface, ...shadows.floating },
+  avatarButton: { borderRadius: radius.lg, ...shadows.floating },
   name: { color: colors.ink, fontSize: 25, fontWeight: '900', marginTop: 12 },
   scope: { color: colors.muted, fontSize: 13, marginTop: 3 },
   sessionBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5, ...shadows.card },
@@ -112,6 +137,10 @@ const styles = StyleSheet.create({
   levelSubtitle: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginTop: spacing.xl, marginBottom: spacing.sm },
   grid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  shopLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
+  shopIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
+  shopWallet: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  shopBalance: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   adminLinkPressed: { opacity: 0.78 },
   adminIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softBrand },

@@ -5,12 +5,14 @@ import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
+import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 export default function HomeScreen() {
   const profile = useAppStore((state) => state.profile);
+  const avatarInventory = useAppStore((state) => state.avatarInventory);
   const dailyReward = useAppStore((state) => state.dailyReward);
   const missions = useAppStore((state) => state.missions);
   const startQuickMatch = useAppStore((state) => state.startQuickMatch);
@@ -65,9 +67,14 @@ export default function HomeScreen() {
     <AppScreen>
       <View style={styles.topbar}>
         <View style={styles.identity}>
-          <View style={styles.avatar}>
-            <MaterialCommunityIcons name="account-hard-hat-outline" size={28} color={colors.surface} />
-          </View>
+          <Pressable
+            accessibilityLabel="Abrir avatar y tienda"
+            accessibilityRole="button"
+            onPress={() => router.push('/avatar-shop')}
+            style={({ pressed }) => [styles.avatarButton, pressed && styles.modePressed]}
+          >
+            <AvatarPreview loadout={avatarInventory.equipped} size={50} />
+          </Pressable>
           <View>
             <Text style={styles.greeting}>Hola, {profile.username}</Text>
             <Text style={styles.territory}>{profile.territory.label}</Text>
@@ -220,7 +227,7 @@ function ModeButton({
 const styles = StyleSheet.create({
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingTop: 2 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
-  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', ...shadows.card },
+  avatarButton: { width: 50, height: 50, borderRadius: radius.md, ...shadows.card },
   greeting: { color: colors.ink, fontWeight: '900', fontSize: 18 },
   territory: { color: colors.muted, fontSize: 12, marginTop: 2 },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingVertical: 9, paddingHorizontal: 11, borderRadius: radius.md, ...shadows.card },

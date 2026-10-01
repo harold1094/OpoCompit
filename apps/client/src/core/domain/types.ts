@@ -67,6 +67,47 @@ export type PlayerProgress = Pick<
   | 'lastValidActivityDate'
 >;
 
+export type AvatarItemCategory =
+  | 'avatars'
+  | 'clothing'
+  | 'accessories'
+  | 'frames'
+  | 'backgrounds'
+  | 'badges'
+  | 'effects';
+
+export type AvatarItemSlot =
+  | 'base'
+  | 'face'
+  | 'hair'
+  | 'outfit'
+  | 'accessory'
+  | 'background'
+  | 'frame'
+  | 'badge'
+  | 'effect';
+
+export type AvatarItemRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export type AvatarCurrency = 'coins' | 'gems';
+export type AvatarLoadout = Record<AvatarItemSlot, string>;
+
+export type AvatarShopItem = {
+  id: string;
+  name: string;
+  category: AvatarItemCategory;
+  slot: AvatarItemSlot;
+  rarity: AvatarItemRarity;
+  price: number;
+  currency: AvatarCurrency;
+};
+
+export type AvatarInventory = {
+  ownedItemIds: string[];
+  equipped: AvatarLoadout;
+  coins: number;
+  gems: number;
+};
+
 export type QuizAnswerSubmission = {
   questionId: string;
   selectedAnswerId: string | null;

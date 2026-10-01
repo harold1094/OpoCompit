@@ -35,6 +35,17 @@ The schema is designed around cheap reads, server-authoritative writes, territor
   "lastValidActivityDate": null,
   "dailyRewardDay": 0,
   "lastDailyRewardDate": null,
+  "avatarEquipped": {
+    "base": "base_rookie",
+    "face": "face_smile",
+    "hair": "hair_short",
+    "outfit": "outfit_training",
+    "accessory": "accessory_none",
+    "background": "background_clear",
+    "frame": "frame_clean",
+    "badge": "badge_none",
+    "effect": "effect_none"
+  },
   "createdAt": "serverTimestamp",
   "updatedAt": "serverTimestamp"
 }
@@ -48,6 +59,11 @@ Subcollections:
 - `users/{uid}/dailyRewards/{YYYY-MM-DD}`
 - `users/{uid}/achievements/{achievementId}`
 - `users/{uid}/notifications/{notificationId}`
+
+`users/{uid}/inventory/{itemId}` is written only by `purchaseAvatarItem`. It stores the catalog
+snapshot, price paid, currency, and acquisition timestamp. Starter items are implicit and free, so
+they require no documents. The equipped map is validated against the owned inventory by
+`equipAvatarItem`; clients never write balances, inventory, or equipment directly.
 
 Daily mission document IDs include the Madrid date, for example `2026-09-28_daily_15_correct`. Each document stores the server-owned `progress`, `claimed` state, rewards, and definition snapshot for that day.
 

@@ -30,6 +30,8 @@ From Social, users with a public username can create or join private study group
 live XP ranking. Membership and join codes are only exposed through authenticated callable Functions.
 Owners and group administrators can also run a 7, 14, or 30-day competition based on XP, answered
 questions, correct answers, or completed duels. Results stop changing automatically at the deadline.
+The Profile now opens a modular 2D avatar wardrobe and local-assets shop. Purchases use earned coins
+or gems, while callable Functions validate ownership, balances, idempotency, and equipped items.
 
 ## Verify
 
@@ -78,5 +80,6 @@ panel. Its local administrator bootstrap is rejected automatically outside the F
 5. Finish the match.
 6. Check result, XP, coins, streak, and updated Home/Profile progress.
 7. Open `Duelo`, choose a training rival, finish the shared ten-question challenge, and compare score and time.
+8. Open `Perfil` and enter `Avatar y tienda` to equip starter items or buy cosmetics with earned currency.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

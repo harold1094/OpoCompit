@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
+  AvatarInventory,
   DailyReward,
   DuelOpponent,
   DuelResult,
@@ -31,6 +32,8 @@ import {
   claimMissionRemote,
   createStudyGroupRemote,
   createStudyGroupCompetitionRemote,
+  equipAvatarItemRemote,
+  getAvatarShopRemote,
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
   getRankingRemote,
@@ -54,10 +57,15 @@ import {
   startQuickQuizRemote,
   startClassicDuelRemote,
   openFriendDuelRemote,
+  purchaseAvatarItemRemote,
   submitFriendDuelRemote,
   submitClassicDuelRemote,
   submitQuizSessionRemote,
 } from '@/core/firebase/firebaseClient';
+import {
+  avatarCatalog,
+  defaultAvatarInventory,
+} from '@/features/avatar/data/avatarCatalog';
 import {
   localDailyEngagement,
   progressLocalMissions,
@@ -92,6 +100,7 @@ type AppStore = {
   questionStats: Record<string, UserQuestionStat>;
   dailyReward: DailyReward | null;
   missions: Mission[];
+  avatarInventory: AvatarInventory;
   friends: SocialUser[];
   socialActivity: SocialActivity[];
   studyGroups: StudyGroup[];
@@ -114,6 +123,8 @@ type AppStore = {
   claimingMissionId: string | null;
   quizError: string | null;
   engagementError: string | null;
+  avatarActionId: string | null;
+  avatarError: string | null;
   isLoadingSocial: boolean;
   isLoadingGroups: boolean;
   isMatchmakingLoading: boolean;
@@ -135,6 +146,9 @@ type AppStore = {
   refreshDailyEngagement: () => Promise<void>;
   claimDailyReward: () => Promise<boolean>;
   claimMission: (missionId: string) => Promise<boolean>;
+  refreshAvatarShop: () => Promise<void>;
+  purchaseAvatarItem: (itemId: string) => Promise<boolean>;
+  equipAvatarItem: (itemId: string) => Promise<boolean>;
   refreshSocial: () => Promise<void>;
   refreshStudyGroups: () => Promise<void>;
   createStudyGroup: (name: string) => Promise<StudyGroup | null>;
@@ -179,6 +193,7 @@ export const useAppStore = create<AppStore>()(
       questionStats: {},
       dailyReward: null,
       missions: [],
+      avatarInventory: defaultAvatarInventory(),
       friends: [],
       socialActivity: [],
       studyGroups: [],
@@ -201,6 +216,8 @@ export const useAppStore = create<AppStore>()(
       claimingMissionId: null,
       quizError: null,
       engagementError: null,
+      avatarActionId: null,
+      avatarError: null,
       isLoadingSocial: false,
       isLoadingGroups: false,
       isMatchmakingLoading: false,
@@ -250,6 +267,7 @@ export const useAppStore = create<AppStore>()(
           questionStats: {},
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
+          avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
           friends: [],
           socialActivity: [],
           studyGroups: [],
@@ -636,6 +654,115 @@ export const useAppStore = create<AppStore>()(
           return false;
         } finally {
           set({ claimingMissionId: null });
+        }
+      },
+      refreshAvatarShop: async () => {
+        const state = get();
+        if (!state.profile || state.avatarActionId === 'refresh') return;
+        set({ avatarActionId: 'refresh', avatarError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const inventory = await getAvatarShopRemote();
+            set({
+              avatarInventory: inventory,
+              profile: {
+                ...state.profile,
+                coins: inventory.coins,
+                gems: inventory.gems,
+              },
+            });
+          } else {
+            set({
+              avatarInventory: {
+                ...state.avatarInventory,
+                coins: state.profile.coins,
+                gems: state.profile.gems,
+              },
+            });
+          }
+        } catch (error) {
+          set({ avatarError: readableFirebaseError(error) });
+        } finally {
+          set({ avatarActionId: null });
+        }
+      },
+      purchaseAvatarItem: async (itemId) => {
+        const state = get();
+        if (!state.profile || state.avatarActionId) return false;
+        const item = avatarCatalog.find((catalogItem) => catalogItem.id === itemId);
+        if (!item) return false;
+        if (state.avatarInventory.ownedItemIds.includes(item.id)) return true;
+
+        set({ avatarActionId: item.id, avatarError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const inventory = await purchaseAvatarItemRemote(item.id);
+            set({
+              avatarInventory: inventory,
+              profile: {
+                ...state.profile,
+                coins: inventory.coins,
+                gems: inventory.gems,
+              },
+            });
+          } else {
+            const balance = state.profile[item.currency];
+            if (balance < item.price) {
+              set({ avatarError: item.currency === 'coins'
+                ? 'No tienes monedas suficientes.'
+                : 'No tienes gemas suficientes.' });
+              return false;
+            }
+            const profile = {
+              ...state.profile,
+              [item.currency]: balance - item.price,
+            };
+            set({
+              profile,
+              avatarInventory: {
+                ...state.avatarInventory,
+                ownedItemIds: [...state.avatarInventory.ownedItemIds, item.id],
+                coins: profile.coins,
+                gems: profile.gems,
+              },
+            });
+          }
+          return true;
+        } catch (error) {
+          set({ avatarError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ avatarActionId: null });
+        }
+      },
+      equipAvatarItem: async (itemId) => {
+        const state = get();
+        if (!state.profile || state.avatarActionId) return false;
+        const item = avatarCatalog.find((catalogItem) => catalogItem.id === itemId);
+        if (!item || !state.avatarInventory.ownedItemIds.includes(item.id)) return false;
+
+        set({ avatarActionId: item.id, avatarError: null });
+        try {
+          if (state.backendMode === 'firebase') {
+            const inventory = await equipAvatarItemRemote(item.id);
+            set({ avatarInventory: inventory });
+          } else {
+            set({
+              avatarInventory: {
+                ...state.avatarInventory,
+                equipped: {
+                  ...state.avatarInventory.equipped,
+                  [item.slot]: item.id,
+                },
+              },
+            });
+          }
+          return true;
+        } catch (error) {
+          set({ avatarError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ avatarActionId: null });
         }
       },
       refreshSocial: async () => {
@@ -1221,6 +1348,7 @@ export const useAppStore = create<AppStore>()(
         questionStats: state.questionStats,
         dailyReward: state.dailyReward,
         missions: state.missions,
+        avatarInventory: state.avatarInventory,
         friends: state.friends,
         socialActivity: state.socialActivity,
         incomingRequests: state.incomingRequests,

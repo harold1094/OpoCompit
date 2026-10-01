@@ -115,6 +115,16 @@ trusted delta to each active group competition and writes a deterministic applic
 retried Firestore event cannot score twice. Activity outside the stored start/end timestamps is
 ignored, which freezes the final table without a paid scheduler or historical full-table scans.
 
+## Avatar shop callables
+
+- `getAvatarShop`: returns the bounded owned inventory, equipped modular loadout, and trusted balances.
+- `purchaseAvatarItem`: validates the local catalog identifier, ownership, price, and currency balance before creating the inventory item and negative economy transaction atomically.
+- `equipAvatarItem`: verifies starter or purchased ownership before updating the user's equipped slot.
+
+The catalog and visuals ship with the application, so browsing the shop needs no Storage reads or
+paid commerce infrastructure. Purchase document identifiers are deterministic, making repeat calls
+idempotent and preventing a second deduction.
+
 ## Ranking callable
 
 - `getRanking`: returns the all-time global, most-specific territorial, or friends ranking using server-owned XP aggregates.

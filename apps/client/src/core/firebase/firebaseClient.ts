@@ -17,6 +17,7 @@ import {
 import { Platform } from 'react-native';
 
 import {
+  AvatarInventory,
   DailyEngagement,
   DailyReward,
   DuelOpponent,
@@ -80,6 +81,7 @@ type SocialSearchResponse = { users: SocialUser[] };
 type FriendRequestResponse = { request: FriendRequest };
 type FriendDuelInvitationResponse = { invitation: FriendDuelInvitation };
 type MatchmakingResponse = { matchmaking: MatchmakingState };
+type AvatarInventoryResponse = { inventory: AvatarInventory };
 
 export type AdminQuestion = {
   id: string;
@@ -242,6 +244,24 @@ export async function bootstrapGuestProfile(profile: PlayerProfile): Promise<Pla
     territory: profile.territory,
   });
   return response.data.profile;
+}
+
+export async function getAvatarShopRemote(): Promise<AvatarInventory> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, AvatarInventoryResponse>('getAvatarShop');
+  return (await invoke({})).data.inventory;
+}
+
+export async function purchaseAvatarItemRemote(itemId: string): Promise<AvatarInventory> {
+  await startAnonymousSession();
+  const invoke = callable<{ itemId: string }, AvatarInventoryResponse>('purchaseAvatarItem');
+  return (await invoke({ itemId })).data.inventory;
+}
+
+export async function equipAvatarItemRemote(itemId: string): Promise<AvatarInventory> {
+  await startAnonymousSession();
+  const invoke = callable<{ itemId: string }, AvatarInventoryResponse>('equipAvatarItem');
+  return (await invoke({ itemId })).data.inventory;
 }
 
 export async function startQuickQuizRemote(questionCount = 10): Promise<StartQuickQuizResponse> {

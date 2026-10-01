@@ -933,6 +933,54 @@ async function main() {
   }
   assert.equal(deletedGroupMissing, true);
 
+  type AvatarInventory = {
+    ownedItemIds: string[];
+    equipped: Record<string, string>;
+    coins: number;
+    gems: number;
+  };
+  const avatarBeforePurchase = await call<{inventory: AvatarInventory}>(
+    "getAvatarShop",
+    {},
+    auth.idToken,
+  );
+  assert.equal(avatarBeforePurchase.inventory.ownedItemIds.includes("base_rookie"), true);
+  assert.equal(avatarBeforePurchase.inventory.equipped.base, "base_rookie");
+  assert.equal(avatarBeforePurchase.inventory.coins >= 25, true);
+
+  const purchasedAvatarItem = await call<{
+    inventory: AvatarInventory;
+    idempotent: boolean;
+  }>("purchaseAvatarItem", {itemId: "background_sky"}, auth.idToken);
+  assert.equal(purchasedAvatarItem.idempotent, false);
+  assert.equal(purchasedAvatarItem.inventory.ownedItemIds.includes("background_sky"), true);
+  assert.equal(
+    purchasedAvatarItem.inventory.coins,
+    avatarBeforePurchase.inventory.coins - 25,
+  );
+
+  const repeatedAvatarPurchase = await call<{
+    inventory: AvatarInventory;
+    idempotent: boolean;
+  }>("purchaseAvatarItem", {itemId: "background_sky"}, auth.idToken);
+  assert.equal(repeatedAvatarPurchase.idempotent, true);
+  assert.equal(repeatedAvatarPurchase.inventory.coins, purchasedAvatarItem.inventory.coins);
+
+  const equippedAvatarItem = await call<{inventory: AvatarInventory}>(
+    "equipAvatarItem",
+    {itemId: "background_sky"},
+    auth.idToken,
+  );
+  assert.equal(equippedAvatarItem.inventory.equipped.background, "background_sky");
+
+  let unownedAvatarItemBlocked = false;
+  try {
+    await call("equipAvatarItem", {itemId: "background_sunset"}, auth.idToken);
+  } catch (error) {
+    unownedAvatarItemBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(unownedAvatarItemBlocked, true);
+
   type RankingSnapshot = {
     scope: string;
     territoryLabel: string | null;
@@ -1120,6 +1168,9 @@ async function main() {
     temporaryGroupCompetitionValidated: true,
     duplicateCompetitionBlocked,
     memberCompetitionBlocked,
+    avatarShopPurchaseValidated: true,
+    duplicateAvatarPurchaseProtected: true,
+    unownedAvatarItemBlocked,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,
