@@ -38,11 +38,20 @@ export default function AvatarShopScreen() {
     void refresh();
   }, [refresh]));
 
-  const visibleItems = useMemo(() => avatarCatalog.filter((item) =>
+  const effectiveCatalog = useMemo(() => {
+    const remoteItems = inventory.items ?? [];
+    if (remoteItems.length === 0) return [...avatarCatalog];
+    return remoteItems.flatMap((remoteItem) => {
+      const localItem = avatarCatalog.find((item) => item.id === remoteItem.id);
+      return localItem ? [{ ...localItem, ...remoteItem }] : [];
+    });
+  }, [inventory.items]);
+
+  const visibleItems = useMemo(() => effectiveCatalog.filter((item) =>
     item.category === category && (
       mode === 'shop' || inventory.ownedItemIds.includes(item.id)
     ),
-  ), [category, inventory.ownedItemIds, mode]);
+  ), [category, effectiveCatalog, inventory.ownedItemIds, mode]);
 
   if (!profile) return <Redirect href="/onboarding" />;
 
@@ -53,7 +62,7 @@ export default function AvatarShopScreen() {
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Avatar y tienda</Text>
           <Text style={styles.collection}>
-            {inventory.ownedItemIds.length} de {avatarCatalog.length} objetos
+            {inventory.ownedItemIds.length} de {effectiveCatalog.length} objetos
           </Text>
         </View>
         {actionId === 'refresh' ? <ActivityIndicator color={colors.aqua} /> : null}

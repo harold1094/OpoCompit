@@ -30,8 +30,9 @@ import {
 } from '@/core/firebase/firebaseClient';
 import { CsvImportError, csvToQuestionBatch } from '@/features/admin/csvImport';
 import { AdminCatalogPanel } from '@/features/admin/AdminCatalogPanel';
+import { AdminOperationsPanel } from '@/features/admin/AdminOperationsPanel';
 
-type AdminView = 'review' | 'import' | 'catalog';
+type AdminView = 'review' | 'import' | 'catalog' | 'operations';
 type QueueFilter = 'all' | 'pending_review' | 'draft' | 'duplicates';
 type ImportFormat = 'json' | 'csv';
 
@@ -318,7 +319,7 @@ export default function AdminScreen() {
         <TabButton
           active={view === 'review'}
           icon="clipboard-check-outline"
-          label={`Revisión (${questions.length})`}
+          label="Preguntas"
           onPress={() => setView('review')}
         />
         <TabButton
@@ -330,8 +331,14 @@ export default function AdminScreen() {
         <TabButton
           active={view === 'catalog'}
           icon="database-cog-outline"
-          label="Catálogos"
+          label="Datos"
           onPress={() => setView('catalog')}
+        />
+        <TabButton
+          active={view === 'operations'}
+          icon="chart-box-outline"
+          label="Operación"
+          onPress={() => setView('operations')}
         />
       </View>
 
@@ -560,7 +567,9 @@ export default function AdminScreen() {
             />
           </View>
         </ScrollView>
-      ) : adminReady ? <AdminCatalogPanel /> : (
+      ) : adminReady ? (
+        view === 'catalog' ? <AdminCatalogPanel /> : <AdminOperationsPanel />
+      ) : (
         <View style={styles.centerState}>
           <ActivityIndicator color={colors.brand} />
           <Text style={styles.stateText}>Preparando sesión administrativa…</Text>
@@ -920,7 +929,7 @@ function cloneQuestion(question: AdminQuestion): AdminQuestion {
 }
 
 function adminViewFromParam(tab: string | undefined): AdminView {
-  return tab === 'catalog' || tab === 'import' ? tab : 'review';
+  return tab === 'catalog' || tab === 'import' || tab === 'operations' ? tab : 'review';
 }
 
 const styles = StyleSheet.create({
@@ -935,7 +944,7 @@ const styles = StyleSheet.create({
   refreshButton: { minHeight: 40, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
   refreshLabel: { color: colors.ink, fontSize: 13, fontWeight: '800' },
   headerSpacer: { width: 40, height: 40 },
-  viewTabs: { minHeight: 52, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'flex-end', gap: spacing.lg, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
+  viewTabs: { height: 52, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
   tabButton: { height: 51, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 2, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabButtonActive: { borderBottomColor: colors.brand },
   tabLabel: { color: colors.muted, fontSize: 13, fontWeight: '800' },

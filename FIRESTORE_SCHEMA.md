@@ -324,6 +324,50 @@ map bounded. Only validated activity inside the competition timestamps can chang
 markers for competition scoring. These records prevent retries of the same Firestore event from
 adding the same score twice and are never readable by clients.
 
+## missions/{missionId}
+
+Admin-managed templates used by the server when creating each user's daily mission documents.
+
+```json
+{
+  "title": "Calienta motores",
+  "description": "Responde 30 preguntas.",
+  "type": "completeQuickMatches|answerQuestions|correctAnswers",
+  "target": 30,
+  "rewardXp": 30,
+  "rewardCoins": 15,
+  "active": true,
+  "priority": 20
+}
+```
+
+## dailyRewards/{rewardId}
+
+Ordered reward cycle. Active days may be skipped without breaking the cycle because progress stores
+the configured day identifier rather than relying on array position.
+
+```json
+{"day": 1, "coins": 25, "gems": 0, "active": true}
+```
+
+## shopItems/{itemId}
+
+Server-authoritative price and availability for visual assets shipped by the client.
+
+```json
+{
+  "name": "Marco campeón",
+  "category": "frames",
+  "slot": "frame",
+  "rarity": "legendary",
+  "price": 320,
+  "currency": "coins",
+  "active": true,
+  "premiumOnly": false,
+  "priority": 10
+}
+```
+
 ## subscriptionPlans/{planId}
 
 Public-to-authenticated configuration read through the monetization callable. The client never
@@ -346,8 +390,9 @@ hardcodes a purchasable price.
 ```
 
 `subscriptions/{uid}` is private and server-owned. It stores `planId`, `status`, provider references,
-`expiresAt`, and audit timestamps. `appConfig/monetization` keeps the ad-provider readiness flags and
-results-screen interval; direct client writes are denied.
+`expiresAt`, and audit timestamps. `appConfig/monetization` keeps `adsEnabled`,
+`rewardedAdsEnabled`, `adProviderReady`, and the bounded results-screen interval. Direct client writes
+are denied; the admin callable validates and audits updates.
 
 ## Other Collections
 

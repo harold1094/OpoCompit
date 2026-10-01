@@ -72,18 +72,25 @@ export const defaultAvatarLoadout: Readonly<Required<AvatarLoadout>> = {
 
 export const starterAvatarItemIds = Object.freeze(Object.values(defaultAvatarLoadout));
 
-export function avatarItemById(itemId: string): AvatarShopItem | null {
-  return avatarShopCatalog.find((item) => item.id === itemId) ?? null;
+export function avatarItemById(
+  itemId: string,
+  catalog: readonly AvatarShopItem[] = avatarShopCatalog,
+): AvatarShopItem | null {
+  return catalog.find((item) => item.id === itemId) ?? null;
 }
 
-export function normalizeAvatarLoadout(value: unknown, ownedIds: Iterable<string>): Required<AvatarLoadout> {
+export function normalizeAvatarLoadout(
+  value: unknown,
+  ownedIds: Iterable<string>,
+  catalog: readonly AvatarShopItem[] = avatarShopCatalog,
+): Required<AvatarLoadout> {
   const owned = new Set(ownedIds);
   const source = isRecord(value) ? value : {};
   const normalized = {...defaultAvatarLoadout};
 
   for (const slot of Object.keys(defaultAvatarLoadout) as AvatarItemSlot[]) {
     const itemId = typeof source[slot] === "string" ? source[slot] : "";
-    const item = avatarItemById(itemId);
+    const item = avatarItemById(itemId, catalog);
     if (item?.slot === slot && owned.has(item.id)) normalized[slot] = item.id;
   }
   return normalized;

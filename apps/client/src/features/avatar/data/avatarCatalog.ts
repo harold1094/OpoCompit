@@ -75,6 +75,7 @@ export const starterAvatarItemIds = Object.values(defaultAvatarLoadout);
 
 export function defaultAvatarInventory(coins = 0, gems = 0): AvatarInventory {
   return {
+    items: avatarCatalog.map(({ visual: _visual, ...item }) => item),
     ownedItemIds: [...starterAvatarItemIds],
     equipped: { ...defaultAvatarLoadout },
     coins,

@@ -102,6 +102,7 @@ export type AvatarShopItem = {
 };
 
 export type AvatarInventory = {
+  items: AvatarShopItem[];
   ownedItemIds: string[];
   equipped: AvatarLoadout;
   coins: number;

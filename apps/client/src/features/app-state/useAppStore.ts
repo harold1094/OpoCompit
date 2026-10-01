@@ -701,7 +701,8 @@ export const useAppStore = create<AppStore>()(
       purchaseAvatarItem: async (itemId) => {
         const state = get();
         if (!state.profile || state.avatarActionId) return false;
-        const item = avatarCatalog.find((catalogItem) => catalogItem.id === itemId);
+        const item = (state.avatarInventory.items ?? avatarCatalog)
+          .find((catalogItem) => catalogItem.id === itemId);
         if (!item) return false;
         if (state.avatarInventory.ownedItemIds.includes(item.id)) return true;
 

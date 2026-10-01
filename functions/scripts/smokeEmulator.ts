@@ -17,7 +17,13 @@ type Progress = {
   duelLosses: number;
   duelDraws: number;
 };
-type MissionState = {id: string; progress: number; target: number; claimed: boolean};
+type MissionState = {
+  id: string;
+  title: string;
+  progress: number;
+  target: number;
+  claimed: boolean;
+};
 type SocialUser = {
   uid: string;
   username: string;
@@ -150,6 +156,14 @@ async function main() {
   }
   assert.equal(nonAdminCatalogBlocked, true);
 
+  let nonAdminOperationsBlocked = false;
+  try {
+    await call("getAdminOperations", {}, auth.idToken);
+  } catch (error) {
+    nonAdminOperationsBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminOperationsBlocked, true);
+
   const importPayload = {
     batchId: "smoke-admin-import",
     sourceDocument: "smoke-manual.pdf",
@@ -212,6 +226,70 @@ async function main() {
     auth.idToken,
   );
   assert.equal(savedCategory.item.id, "smoke_admin_category");
+  type AdminMissionItem = {
+    id: string;
+    title: string;
+    description: string;
+    type: string;
+    target: number;
+    rewardXp: number;
+    rewardCoins: number;
+    active: boolean;
+    priority: number;
+  };
+  type AdminShopItem = {
+    id: string;
+    name: string;
+    category: string;
+    slot: string;
+    rarity: string;
+    price: number;
+    currency: string;
+    active: boolean;
+    premiumOnly: boolean;
+    priority: number;
+  };
+  const initialOperations = await call<{
+    operations: {
+      missions: AdminMissionItem[];
+      dailyRewards: Array<{id: string}>;
+      shopItems: AdminShopItem[];
+      subscriptionPlans: Array<{id: string}>;
+      appConfig: Array<{id: string}>;
+    };
+  }>("getAdminOperations", {}, auth.idToken);
+  assert.equal(initialOperations.operations.missions.length, 3);
+  assert.equal(initialOperations.operations.dailyRewards.length, 7);
+  assert.equal(initialOperations.operations.shopItems.length, 22);
+  assert.equal(initialOperations.operations.subscriptionPlans.length, 1);
+  assert.equal(initialOperations.operations.appConfig.length, 1);
+
+  const configuredMission = initialOperations.operations.missions.find(
+    (mission) => mission.id === "daily_complete_quick",
+  );
+  assert.ok(configuredMission);
+  await call(
+    "upsertAdminOperationItem",
+    {
+      kind: "missions",
+      id: configuredMission.id,
+      item: {...configuredMission, title: "Primera partida configurada"},
+    },
+    auth.idToken,
+  );
+  const configuredShopItem = initialOperations.operations.shopItems.find(
+    (item) => item.id === "background_sky",
+  );
+  assert.ok(configuredShopItem);
+  await call(
+    "upsertAdminOperationItem",
+    {
+      kind: "shopItems",
+      id: configuredShopItem.id,
+      item: {...configuredShopItem, price: 26},
+    },
+    auth.idToken,
+  );
   const firstImport = await call<{
     importedCount: number;
     questionIds: string[];
@@ -290,6 +368,10 @@ async function main() {
   assert.equal(initialEngagement.dailyReward.day, 1);
   assert.equal(initialEngagement.dailyReward.claimed, false);
   assert.equal(initialEngagement.missions.length, 3);
+  assert.equal(
+    initialEngagement.missions.find((mission) => mission.id === "daily_complete_quick")?.title,
+    "Primera partida configurada",
+  );
 
   const firstDailyClaim = await call<{progress: Progress}>(
     "claimDailyReward",
@@ -1001,6 +1083,7 @@ async function main() {
   assert.equal(deletedGroupMissing, true);
 
   type AvatarInventory = {
+    items: Array<{id: string; price: number}>;
     ownedItemIds: string[];
     equipped: Record<string, string>;
     coins: number;
@@ -1014,6 +1097,10 @@ async function main() {
   assert.equal(avatarBeforePurchase.inventory.ownedItemIds.includes("base_rookie"), true);
   assert.equal(avatarBeforePurchase.inventory.equipped.base, "base_rookie");
   assert.equal(avatarBeforePurchase.inventory.coins >= 25, true);
+  assert.equal(
+    avatarBeforePurchase.inventory.items.find((item) => item.id === "background_sky")?.price,
+    26,
+  );
 
   const purchasedAvatarItem = await call<{
     inventory: AvatarInventory;
@@ -1023,7 +1110,7 @@ async function main() {
   assert.equal(purchasedAvatarItem.inventory.ownedItemIds.includes("background_sky"), true);
   assert.equal(
     purchasedAvatarItem.inventory.coins,
-    avatarBeforePurchase.inventory.coins - 25,
+    avatarBeforePurchase.inventory.coins - 26,
   );
 
   const repeatedAvatarPurchase = await call<{
@@ -1265,12 +1352,15 @@ async function main() {
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,
     adminCatalogValidated: true,
+    adminOperationsValidated: true,
+    runtimeConfigurationValidated: true,
     duplicateQuestionDetectionValidated: true,
     duplicatePublishBlocked,
     nonAdminImportBlocked,
     nonAdminReviewBlocked,
     nonAdminBulkReviewBlocked,
     nonAdminCatalogBlocked,
+    nonAdminOperationsBlocked,
     publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));

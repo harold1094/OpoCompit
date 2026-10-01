@@ -18,12 +18,23 @@ import {
   parseAdminCatalogItem,
 } from "./adminCatalog.js";
 import {
+  AdminDailyReward,
+  AdminMission,
+  AdminOperationItem,
+  AdminOperationKind,
+  AdminOperationValidationError,
+  AdminShopItem,
+  isAdminOperationKind,
+  parseAdminOperationItem,
+} from "./adminOperations.js";
+import {
   AdminImportValidationError,
   ImportedQuestion,
   parseQuestionBatch,
 } from "./adminImport.js";
 import {
   avatarItemById,
+  AvatarShopItem,
   AvatarLoadout,
   avatarShopCatalog,
   balanceAfterAvatarPurchase,
@@ -34,6 +45,8 @@ import {
 import {
   dailyMissionTemplates,
   dailyRewardFor,
+  DailyRewardTemplate,
+  defaultDailyRewards,
   madridDay,
   missionDocumentId,
   missionProgressIncrement,
@@ -75,6 +88,10 @@ const maxQuestionCount = 25;
 const sessionLifetimeMs = 24 * 60 * 60 * 1000;
 const friendDuelLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 const matchmakingLifetimeMs = 10 * 60 * 1000;
+const operationalConfigCacheMs = 60_000;
+let missionConfigCache: {expiresAt: number; value: MissionTemplate[]} | null = null;
+let rewardConfigCache: {expiresAt: number; value: DailyRewardTemplate[]} | null = null;
+let shopConfigCache: {expiresAt: number; value: ActiveAvatarShopItem[]} | null = null;
 
 type TerritorySelection = {
   label: string;
@@ -216,6 +233,12 @@ type UpsertAdminCatalogItemInput = {
   item: unknown;
 };
 
+type UpsertAdminOperationItemInput = {
+  kind: AdminOperationKind;
+  id: string;
+  item: unknown;
+};
+
 export const bootstrapEmulatorAdmin = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   if (env.FUNCTIONS_EMULATOR !== "true") {
@@ -346,6 +369,86 @@ export const upsertAdminCatalogItem = onCall<UpsertAdminCatalogItemInput>(async 
     }, {merge: true});
     return {item};
   });
+});
+
+export const getAdminOperations = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  requireAdmin(userSnapshot);
+
+  const kinds: AdminOperationKind[] = [
+    "missions",
+    "dailyRewards",
+    "shopItems",
+    "subscriptionPlans",
+    "appConfig",
+  ];
+  const snapshots = await Promise.all(kinds.map((kind) => db.collection(kind).limit(300).get()));
+  const operations = Object.fromEntries(kinds.map((kind, index) => [
+    kind,
+    snapshots[index].docs
+      .map((snapshot) => parseAdminOperationItem(kind, snapshot.id, snapshot.data()))
+      .sort(operationSort),
+  ]));
+  return {operations};
+});
+
+export const upsertAdminOperationItem = onCall<UpsertAdminOperationItemInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  if (!isAdminOperationKind(request.data?.kind)) {
+    throw new HttpsError("invalid-argument", "Invalid operation kind.");
+  }
+
+  let item: AdminOperationItem;
+  try {
+    item = parseAdminOperationItem(request.data.kind, request.data?.id, request.data?.item);
+  } catch (error) {
+    if (error instanceof AdminOperationValidationError) {
+      throw new HttpsError("invalid-argument", error.message);
+    }
+    throw error;
+  }
+
+  if (request.data.kind === "shopItems") {
+    const shopItem = item as AdminShopItem;
+    const knownItem = avatarItemById(shopItem.id);
+    if (!knownItem || knownItem.category !== shopItem.category || knownItem.slot !== shopItem.slot) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Shop items must reference an existing client visual with the same category and slot.",
+      );
+    }
+  }
+
+  const kind = request.data.kind;
+  const userRef = db.collection("users").doc(uid);
+  const itemRef = db.collection(kind).doc(item.id);
+  const result = await db.runTransaction(async (transaction) => {
+    const [userSnapshot, existingSnapshot] = await transaction.getAll(userRef, itemRef);
+    requireAdmin(userSnapshot);
+    if (kind === "dailyRewards") {
+      const reward = item as AdminDailyReward;
+      const sameDaySnapshot = await transaction.get(
+        db.collection("dailyRewards").where("day", "==", reward.day).limit(2),
+      );
+      if (sameDaySnapshot.docs.some((snapshot) => snapshot.id !== reward.id)) {
+        throw new HttpsError("already-exists", `Daily reward day ${reward.day} already exists.`);
+      }
+    }
+
+    const data = {...item} as Record<string, unknown>;
+    delete data.id;
+    const now = Timestamp.now();
+    transaction.set(itemRef, {
+      ...data,
+      updatedAt: now,
+      updatedBy: uid,
+      ...(existingSnapshot.exists ? {} : {createdAt: now, createdBy: uid}),
+    }, {merge: true});
+    return {item};
+  });
+  invalidateOperationalCache(kind);
+  return result;
 });
 
 export const reviewQuestion = onCall<ReviewQuestionInput>(async (request) => {
@@ -780,21 +883,36 @@ export const getMonetizationOverview = onCall(async (request) => {
 export const purchaseAvatarItem = onCall<AvatarItemInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const itemId = requireString(request.data?.itemId, "itemId", 80);
-  const item = avatarItemById(itemId);
+  const catalog = await activeAvatarShopCatalog();
+  const item = avatarItemById(itemId, catalog);
   if (!item) throw new HttpsError("not-found", "Avatar item not found.");
+  const configuredItem = catalog.find((catalogItem) => catalogItem.id === item.id);
 
   const userRef = db.collection("users").doc(uid);
   const inventoryRef = userRef.collection("inventory").doc(item.id);
+  const subscriptionRef = db.collection("subscriptions").doc(uid);
   const transactionRef = db.collection("currencyTransactions").doc(`${uid}_avatar_${item.id}`);
   const idempotent = await db.runTransaction(async (transaction) => {
-    const [userSnapshot, inventorySnapshot] = await Promise.all([
+    const [userSnapshot, inventorySnapshot, subscriptionSnapshot] = await Promise.all([
       transaction.get(userRef),
       transaction.get(inventoryRef),
+      transaction.get(subscriptionRef),
     ]);
     if (!userSnapshot.exists) {
       throw new HttpsError("failed-precondition", "User profile missing.");
     }
     if (starterAvatarItemIds.includes(item.id) || inventorySnapshot.exists) return true;
+    if (configuredItem?.premiumOnly) {
+      const subscription = subscriptionSnapshot.data() ?? null;
+      const expiresAt = subscription?.expiresAt;
+      const entitlement = subscriptionEntitlement(subscription ? {
+        ...subscription,
+        expiresAtMs: expiresAt instanceof Timestamp ? expiresAt.toMillis() : null,
+      } : null, Date.now());
+      if (entitlement.tier !== "premium") {
+        throw new HttpsError("permission-denied", "Premium is required for this item.");
+      }
+    }
 
     const user = userSnapshot.data() ?? {};
     const balances = {
@@ -829,13 +947,14 @@ export const purchaseAvatarItem = onCall<AvatarItemInput>(async (request) => {
     return false;
   });
 
-  return {inventory: await avatarInventoryForUid(uid), idempotent};
+  return {inventory: await avatarInventoryForUid(uid, catalog), idempotent};
 });
 
 export const equipAvatarItem = onCall<AvatarItemInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const itemId = requireString(request.data?.itemId, "itemId", 80);
-  const item = avatarItemById(itemId);
+  const catalog = await activeAvatarShopCatalog();
+  const item = avatarItemById(itemId, catalog);
   if (!item) throw new HttpsError("not-found", "Avatar item not found.");
 
   const userRef = db.collection("users").doc(uid);
@@ -855,21 +974,26 @@ export const equipAvatarItem = onCall<AvatarItemInput>(async (request) => {
     const user = userSnapshot.data() ?? {};
     const equipped = normalizeAvatarLoadout(
       user.avatarEquipped,
-      avatarShopCatalog.map((catalogItem) => catalogItem.id),
+      catalog.map((catalogItem) => catalogItem.id),
+      catalog,
     );
     equipped[item.slot] = item.id;
     transaction.update(userRef, {avatarEquipped: equipped, updatedAt: Timestamp.now()});
   });
 
-  return {inventory: await avatarInventoryForUid(uid)};
+  return {inventory: await avatarInventoryForUid(uid, catalog)};
 });
 
 export const getDailyEngagement = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
+  const [missionTemplates, rewardSchedule] = await Promise.all([
+    activeMissionTemplates(),
+    activeDailyRewards(),
+  ]);
   const now = Timestamp.now();
   const date = madridDay(now.toDate());
   const userRef = db.collection("users").doc(uid);
-  const missionRefs = dailyMissionTemplates.map((mission) =>
+  const missionRefs = missionTemplates.map((mission) =>
     userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
   );
 
@@ -883,7 +1007,7 @@ export const getDailyEngagement = onCall(async (request) => {
     }
 
     const user = userSnapshot.data() ?? {};
-    const missions = dailyMissionTemplates.map((template, index) => {
+    const missions = missionTemplates.map((template, index) => {
       const snapshot = missionSnapshots[index];
       const data = snapshot.data() ?? {};
       if (!snapshot.exists) {
@@ -893,7 +1017,12 @@ export const getDailyEngagement = onCall(async (request) => {
     });
 
     return {
-      dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+      dailyReward: dailyRewardFor(
+        user.dailyRewardDay,
+        user.lastDailyRewardDate,
+        date,
+        rewardSchedule,
+      ),
       missions,
     };
   });
@@ -901,6 +1030,7 @@ export const getDailyEngagement = onCall(async (request) => {
 
 export const claimDailyReward = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
+  const rewardSchedule = await activeDailyRewards();
   const now = Timestamp.now();
   const date = madridDay(now.toDate());
   const userRef = db.collection("users").doc(uid);
@@ -916,7 +1046,12 @@ export const claimDailyReward = onCall(async (request) => {
     }
 
     const user = userSnapshot.data() ?? {};
-    const reward = dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date);
+    const reward = dailyRewardFor(
+      user.dailyRewardDay,
+      user.lastDailyRewardDate,
+      date,
+      rewardSchedule,
+    );
     if (reward.claimed || claimSnapshot.exists) {
       return {
         dailyReward: {...reward, claimed: true},
@@ -972,7 +1107,8 @@ export const claimDailyReward = onCall(async (request) => {
 export const claimMission = onCall<ClaimMissionInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const missionId = requireString(request.data?.missionId, "missionId", 80);
-  const template = dailyMissionTemplates.find((mission) => mission.id === missionId);
+  const missionTemplates = await activeMissionTemplates();
+  const template = missionTemplates.find((mission) => mission.id === missionId);
   if (!template) throw new HttpsError("not-found", "Mission not found.");
 
   const now = Timestamp.now();
@@ -1087,6 +1223,10 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
   const sessionId = requireString(request.data?.sessionId, "sessionId", 160);
   const submittedAnswers = parseAnswers(request.data?.answers);
   const sessionRef = db.collection("quizSessions").doc(sessionId);
+  const [missionTemplates, rewardSchedule] = await Promise.all([
+    activeMissionTemplates(),
+    activeDailyRewards(),
+  ]);
 
   return db.runTransaction(async (transaction) => {
     const sessionSnapshot = await transaction.get(sessionRef);
@@ -1118,7 +1258,7 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
     const completedAt = Timestamp.now();
     const date = madridDay(completedAt.toDate());
-    const missionRefs = dailyMissionTemplates.map((mission) =>
+    const missionRefs = missionTemplates.map((mission) =>
       userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
     );
     const [userSnapshot, questionSnapshots, statSnapshots, missionSnapshots] = await Promise.all([
@@ -1209,7 +1349,7 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       }, {merge: true});
     });
 
-    const missions = dailyMissionTemplates.map((template, index) => {
+    const missions = missionTemplates.map((template, index) => {
       const previous = missionSnapshots[index].data() ?? {};
       const progress = Math.min(
         template.target,
@@ -1278,7 +1418,12 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       },
       progress: serializeProgress({...user, ...profileUpdate}),
       engagement: {
-        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        dailyReward: dailyRewardFor(
+          user.dailyRewardDay,
+          user.lastDailyRewardDate,
+          date,
+          rewardSchedule,
+        ),
         missions,
       },
     };
@@ -1348,6 +1493,10 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
   const duelId = requireString(request.data?.duelId, "duelId", 160);
   const submittedAnswers = parseAnswers(request.data?.answers);
   const duelRef = db.collection("duels").doc(duelId);
+  const [missionTemplates, rewardSchedule] = await Promise.all([
+    activeMissionTemplates(),
+    activeDailyRewards(),
+  ]);
 
   return db.runTransaction(async (transaction) => {
     const duelSnapshot = await transaction.get(duelRef);
@@ -1388,7 +1537,7 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
     const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
     const completedAt = Timestamp.now();
     const date = madridDay(completedAt.toDate());
-    const missionRefs = dailyMissionTemplates.map((mission) =>
+    const missionRefs = missionTemplates.map((mission) =>
       userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
     );
     const [userSnapshot, questionSnapshots, statSnapshots, missionSnapshots] = await Promise.all([
@@ -1487,7 +1636,7 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       }, {merge: true});
     });
 
-    const missions = dailyMissionTemplates.map((template, index) => {
+    const missions = missionTemplates.map((template, index) => {
       const previous = missionSnapshots[index].data() ?? {};
       const progress = Math.min(
         template.target,
@@ -1569,7 +1718,12 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       duel: duelResult,
       progress: serializeProgress({...user, ...profileUpdate}),
       engagement: {
-        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        dailyReward: dailyRewardFor(
+          user.dailyRewardDay,
+          user.lastDailyRewardDate,
+          date,
+          rewardSchedule,
+        ),
         missions,
       },
     };
@@ -2727,6 +2881,10 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
   const duelId = requireString(request.data?.duelId, "duelId", 160);
   const submittedAnswers = parseAnswers(request.data?.answers);
   const duelRef = db.collection("duels").doc(duelId);
+  const [missionTemplates, rewardSchedule] = await Promise.all([
+    activeMissionTemplates(),
+    activeDailyRewards(),
+  ]);
 
   return db.runTransaction(async (transaction) => {
     const duelSnapshot = await transaction.get(duelRef);
@@ -2768,7 +2926,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
     const statRefs = questionIds.map((id) => userRef.collection("questionStats").doc(id));
     const completedAt = Timestamp.now();
     const date = madridDay(completedAt.toDate());
-    const missionRefs = dailyMissionTemplates.map((mission) =>
+    const missionRefs = missionTemplates.map((mission) =>
       userRef.collection("missions").doc(missionDocumentId(date, mission.id)),
     );
     const [userSnapshot, opponentSnapshot, questionSnapshots, statSnapshots, missionSnapshots] =
@@ -2841,7 +2999,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       }, {merge: true});
     });
 
-    const missions = dailyMissionTemplates.map((template, index) => {
+    const missions = missionTemplates.map((template, index) => {
       const previous = missionSnapshots[index].data() ?? {};
       const progress = Math.min(
         template.target,
@@ -2998,7 +3156,12 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       duel: duelResult,
       progress: serializeProgress({...user, ...profileUpdate}),
       engagement: {
-        dailyReward: dailyRewardFor(user.dailyRewardDay, user.lastDailyRewardDate, date),
+        dailyReward: dailyRewardFor(
+          user.dailyRewardDay,
+          user.lastDailyRewardDate,
+          date,
+          rewardSchedule,
+        ),
         missions,
       },
     };
@@ -3184,6 +3347,126 @@ function catalogSort(first: AdminCatalogItem, second: AdminCatalogItem): number 
   return catalogItemName(first).localeCompare(catalogItemName(second), "es");
 }
 
+type ActiveAvatarShopItem = AvatarShopItem & {
+  name: string;
+  premiumOnly: boolean;
+  priority: number;
+};
+
+async function activeMissionTemplates(): Promise<MissionTemplate[]> {
+  if (missionConfigCache && missionConfigCache.expiresAt > Date.now()) {
+    return missionConfigCache.value;
+  }
+  const snapshot = await db.collection("missions").limit(50).get();
+  const configured = snapshot.docs.flatMap((document) => {
+    try {
+      const mission = parseAdminOperationItem(
+        "missions",
+        document.id,
+        document.data(),
+      ) as AdminMission;
+      return mission.active ? [mission] : [];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) => second.priority - first.priority || first.id.localeCompare(second.id));
+  const value = snapshot.empty ? dailyMissionTemplates : configured.map((mission) => ({
+    id: mission.id,
+    title: mission.title,
+    description: mission.description,
+    type: mission.type,
+    target: mission.target,
+    rewardXp: mission.rewardXp,
+    rewardCoins: mission.rewardCoins,
+  }));
+  missionConfigCache = {expiresAt: Date.now() + operationalConfigCacheMs, value};
+  return value;
+}
+
+async function activeDailyRewards(): Promise<DailyRewardTemplate[]> {
+  if (rewardConfigCache && rewardConfigCache.expiresAt > Date.now()) {
+    return rewardConfigCache.value;
+  }
+  const snapshot = await db.collection("dailyRewards").limit(31).get();
+  const configured = snapshot.docs.flatMap((document) => {
+    try {
+      const reward = parseAdminOperationItem(
+        "dailyRewards",
+        document.id,
+        document.data(),
+      ) as AdminDailyReward;
+      return reward.active ? [{day: reward.day, coins: reward.coins, gems: reward.gems}] : [];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) => first.day - second.day);
+  const value = snapshot.empty ? defaultDailyRewards : configured;
+  rewardConfigCache = {expiresAt: Date.now() + operationalConfigCacheMs, value};
+  return value;
+}
+
+async function activeAvatarShopCatalog(): Promise<ActiveAvatarShopItem[]> {
+  if (shopConfigCache && shopConfigCache.expiresAt > Date.now()) {
+    return shopConfigCache.value;
+  }
+  const snapshot = await db.collection("shopItems").limit(100).get();
+  const fallback = avatarShopCatalog.map((item, index) => ({
+      ...item,
+      name: item.id,
+      premiumOnly: false,
+      priority: avatarShopCatalog.length - index,
+    }));
+  const configured = snapshot.docs.flatMap((document) => {
+    try {
+      const configured = parseAdminOperationItem(
+        "shopItems",
+        document.id,
+        document.data(),
+      ) as AdminShopItem;
+      const visual = avatarItemById(configured.id);
+      if (!configured.active || !visual || visual.category !== configured.category ||
+        visual.slot !== configured.slot) return [];
+      return [{
+        id: configured.id,
+        name: configured.name,
+        category: configured.category,
+        slot: configured.slot,
+        rarity: configured.rarity,
+        price: configured.price,
+        currency: configured.currency,
+        premiumOnly: configured.premiumOnly,
+        priority: configured.priority,
+      }];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) => second.priority - first.priority || first.id.localeCompare(second.id));
+  const value = snapshot.empty ? fallback : configured;
+  shopConfigCache = {expiresAt: Date.now() + operationalConfigCacheMs, value};
+  return value;
+}
+
+function invalidateOperationalCache(kind: AdminOperationKind) {
+  if (kind === "missions") missionConfigCache = null;
+  if (kind === "dailyRewards") rewardConfigCache = null;
+  if (kind === "shopItems") shopConfigCache = null;
+}
+
+function operationSort(first: AdminOperationItem, second: AdminOperationItem): number {
+  if ("day" in first && "day" in second) return first.day - second.day;
+  const firstPriority = "priority" in first ? first.priority : 0;
+  const secondPriority = "priority" in second ? second.priority : 0;
+  if (firstPriority !== secondPriority) return secondPriority - firstPriority;
+  return operationItemName(first).localeCompare(operationItemName(second), "es");
+}
+
+function operationItemName(item: AdminOperationItem): string {
+  if ("name" in item) return item.name;
+  if ("title" in item) return item.title;
+  if ("day" in item) return `Día ${item.day}`;
+  return item.id;
+}
+
 function catalogItemName(item: AdminCatalogItem): string {
   return "name" in item ? item.name : item.label;
 }
@@ -3273,7 +3556,11 @@ function nextStreak(current: number, previousValue: unknown, now: Timestamp): nu
   return 1;
 }
 
-async function avatarInventoryForUid(uid: string) {
+async function avatarInventoryForUid(
+  uid: string,
+  suppliedCatalog?: ActiveAvatarShopItem[],
+) {
+  const catalog = suppliedCatalog ?? await activeAvatarShopCatalog();
   const userRef = db.collection("users").doc(uid);
   const [userSnapshot, inventorySnapshot] = await Promise.all([
     userRef.get(),
@@ -3289,8 +3576,13 @@ async function avatarInventoryForUid(uid: string) {
     ...inventorySnapshot.docs.map((document) => document.id),
   ])];
   return {
+    items: catalog,
     ownedItemIds,
-    equipped: normalizeAvatarLoadout(user.avatarEquipped as AvatarLoadout, ownedItemIds),
+    equipped: normalizeAvatarLoadout(
+      user.avatarEquipped as AvatarLoadout,
+      ownedItemIds,
+      catalog,
+    ),
     coins: numberValue(user.coins),
     gems: numberValue(user.gems),
   };

@@ -3,6 +3,8 @@ import {Timestamp, getFirestore} from "firebase-admin/firestore";
 
 import {seedQuestions} from "../../apps/client/src/features/quiz/data/seedQuestions.ts";
 import {questionContentFingerprint} from "../src/adminImport.ts";
+import {avatarShopCatalog} from "../src/avatarShop.ts";
+import {dailyMissionTemplates, defaultDailyRewards} from "../src/engagement.ts";
 
 const projectId = "opocompit-dev";
 const emulatorHost = "127.0.0.1:8080";
@@ -96,6 +98,58 @@ async function main() {
     adProviderReady: false,
     resultInterval: 3,
     updatedAt: now,
+  });
+
+  dailyMissionTemplates.forEach((mission, index) => {
+    batch.set(db.collection("missions").doc(mission.id), {
+      ...mission,
+      active: true,
+      priority: 100 - index,
+      updatedAt: now,
+    });
+  });
+
+  defaultDailyRewards.forEach((reward) => {
+    batch.set(db.collection("dailyRewards").doc(`day_${reward.day}`), {
+      ...reward,
+      active: true,
+      updatedAt: now,
+    });
+  });
+
+  const shopItemNames: Record<string, string> = {
+    base_rookie: "Explorador",
+    base_veteran: "Veterano",
+    face_smile: "Sonrisa",
+    face_focus: "Concentración",
+    hair_short: "Corte corto",
+    hair_wave: "Onda cobre",
+    outfit_training: "Equipación base",
+    outfit_rescue: "Chaqueta coral",
+    outfit_night: "Uniforme nocturno",
+    accessory_none: "Sin accesorio",
+    accessory_glasses: "Gafas de estudio",
+    accessory_helmet: "Casco de respuesta",
+    frame_clean: "Marco limpio",
+    frame_mint: "Marco menta",
+    frame_gold: "Marco campeón",
+    background_clear: "Fondo claro",
+    background_sky: "Cielo de estudio",
+    background_sunset: "Última ronda",
+    badge_none: "Sin insignia",
+    badge_focus: "Mente enfocada",
+    effect_none: "Sin efecto",
+    effect_spark: "Destello épico",
+  };
+  avatarShopCatalog.forEach((item, index) => {
+    batch.set(db.collection("shopItems").doc(item.id), {
+      ...item,
+      name: shopItemNames[item.id] ?? item.id,
+      active: true,
+      premiumOnly: false,
+      priority: avatarShopCatalog.length - index,
+      updatedAt: now,
+    });
   });
 
   for (const question of seedQuestions) {

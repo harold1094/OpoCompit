@@ -21,6 +21,12 @@ export type DailyRewardState = {
   claimed: boolean;
 };
 
+export type DailyRewardTemplate = {
+  day: number;
+  coins: number;
+  gems: number;
+};
+
 export const dailyMissionTemplates: MissionTemplate[] = [
   {
     id: "daily_complete_quick",
@@ -51,14 +57,14 @@ export const dailyMissionTemplates: MissionTemplate[] = [
   },
 ];
 
-const dailyRewards = [
-  {coins: 25, gems: 0},
-  {coins: 30, gems: 0},
-  {coins: 35, gems: 0},
-  {coins: 40, gems: 0},
-  {coins: 50, gems: 0},
-  {coins: 60, gems: 0},
-  {coins: 75, gems: 1},
+export const defaultDailyRewards: DailyRewardTemplate[] = [
+  {day: 1, coins: 25, gems: 0},
+  {day: 2, coins: 30, gems: 0},
+  {day: 3, coins: 35, gems: 0},
+  {day: 4, coins: 40, gems: 0},
+  {day: 5, coins: 50, gems: 0},
+  {day: 6, coins: 60, gems: 0},
+  {day: 7, coins: 75, gems: 1},
 ];
 
 export function madridDay(date: Date): string {
@@ -74,13 +80,17 @@ export function dailyRewardFor(
   previousDayValue: unknown,
   lastClaimedDateValue: unknown,
   date: string,
+  schedule: readonly DailyRewardTemplate[] = defaultDailyRewards,
 ): DailyRewardState {
+  const rewards = schedule.length > 0 ? [...schedule].sort((first, second) => first.day - second.day) :
+    defaultDailyRewards;
   const previousDay = normalizeRewardDay(previousDayValue);
   const lastClaimedDate = typeof lastClaimedDateValue === "string" ? lastClaimedDateValue : null;
   const claimed = lastClaimedDate === date;
-  const day = claimed ? Math.max(1, previousDay) : previousDay % dailyRewards.length + 1;
-  const reward = dailyRewards[day - 1];
-  return {date, day, ...reward, claimed};
+  const previousIndex = rewards.findIndex((reward) => reward.day === previousDay);
+  const scheduleIndex = claimed ? Math.max(0, previousIndex) : (previousIndex + 1) % rewards.length;
+  const reward = rewards[scheduleIndex];
+  return {date, day: reward.day, coins: reward.coins, gems: reward.gems, claimed};
 }
 
 export function missionProgressIncrement(
@@ -100,5 +110,5 @@ export function missionDocumentId(date: string, missionId: string): string {
 
 function normalizeRewardDay(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 1) return 0;
-  return Math.min(value, dailyRewards.length);
+  return value;
 }

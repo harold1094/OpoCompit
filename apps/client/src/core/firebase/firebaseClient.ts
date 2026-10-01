@@ -180,6 +180,80 @@ export type AdminCatalog = {
   officialExams: AdminOfficialExam[];
 };
 
+export type AdminOperationKind =
+  | 'missions'
+  | 'dailyRewards'
+  | 'shopItems'
+  | 'subscriptionPlans'
+  | 'appConfig';
+
+export type AdminMission = {
+  id: string;
+  title: string;
+  description: string;
+  type: 'completeQuickMatches' | 'answerQuestions' | 'correctAnswers';
+  target: number;
+  rewardXp: number;
+  rewardCoins: number;
+  active: boolean;
+  priority: number;
+};
+
+export type AdminDailyReward = {
+  id: string;
+  day: number;
+  coins: number;
+  gems: number;
+  active: boolean;
+};
+
+export type AdminShopItem = {
+  id: string;
+  name: string;
+  category: 'avatars' | 'clothing' | 'accessories' | 'frames' | 'backgrounds' | 'badges' | 'effects';
+  slot: 'base' | 'face' | 'hair' | 'outfit' | 'accessory' | 'background' | 'frame' | 'badge' | 'effect';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  price: number;
+  currency: 'coins' | 'gems';
+  active: boolean;
+  premiumOnly: boolean;
+  priority: number;
+};
+
+export type AdminSubscriptionPlan = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  billingPeriod: 'monthly' | 'yearly';
+  features: Array<'ad_free' | 'monthly_gems' | 'exclusive_cosmetics' | 'advanced_stats'>;
+  gemReward: number;
+  adFree: boolean;
+  exclusiveCosmetics: boolean;
+  active: boolean;
+  priority: number;
+  storeProductId: string | null;
+  purchasable: boolean;
+};
+
+export type AdminAppConfig = {
+  id: 'monetization';
+  adsEnabled: boolean;
+  rewardedAdsEnabled: boolean;
+  adProviderReady: boolean;
+  resultInterval: number;
+};
+
+export type AdminOperationItem = AdminMission | AdminDailyReward | AdminShopItem |
+  AdminSubscriptionPlan | AdminAppConfig;
+
+export type AdminOperations = {
+  missions: AdminMission[];
+  dailyRewards: AdminDailyReward[];
+  shopItems: AdminShopItem[];
+  subscriptionPlans: AdminSubscriptionPlan[];
+  appConfig: AdminAppConfig[];
+};
+
 export type AdminReviewDecision = 'save' | 'publish' | 'disable';
 export type AdminBulkReviewDecision = 'publish' | 'disable';
 
@@ -592,6 +666,26 @@ export async function upsertAdminCatalogItemRemote<T extends AdminCatalogItem>(
     { kind: AdminCatalogKind; id: string; item: T },
     { item: T }
   >('upsertAdminCatalogItem');
+  return (await invoke({ kind, id: item.id, item })).data.item;
+}
+
+export async function getAdminOperationsRemote(): Promise<AdminOperations> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, { operations: AdminOperations }>(
+    'getAdminOperations',
+  );
+  return (await invoke({})).data.operations;
+}
+
+export async function upsertAdminOperationItemRemote<T extends AdminOperationItem>(
+  kind: AdminOperationKind,
+  item: T,
+): Promise<T> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { kind: AdminOperationKind; id: string; item: T },
+    { item: T }
+  >('upsertAdminOperationItem');
   return (await invoke({ kind, id: item.id, item })).data.item;
 }
 

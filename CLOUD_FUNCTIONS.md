@@ -186,6 +186,8 @@ content remains visible for inspection and still passes through every server val
 - `bulkReviewQuestions`: atomically publishes or disables between 1 and 50 selected pending questions.
 - `getAdminCatalog`: returns the bounded opposition, territory, category, and official-exam catalogs.
 - `upsertAdminCatalogItem`: validates catalog edits, linked oppositions, and category parent relationships.
+- `getAdminOperations`: returns missions, daily rewards, shop items, Premium plans, and app configuration.
+- `upsertAdminOperationItem`: validates and audits operational configuration before it reaches players.
 - `bootstrapEmulatorAdmin`: promotes only the current local emulator user; deployed environments always reject it.
 
 Publishing sets `verified: true`, `reviewedBy`, and `lastReviewedAt`. Saving keeps the question out
@@ -193,3 +195,7 @@ of game sessions, while disabling removes it from the active review queue. Bulk 
 that every opposition remains active before writing any question, so a partial batch cannot leak into play.
 The queue includes exact fingerprint matches, and both individual and bulk publication reject active
 duplicates until an administrator disables the redundant record.
+
+Active mission and reward documents are loaded before trusted quiz or duel transactions. Shop prices
+and currency are also read server-side before purchase, while Premium-only items require a current
+server-owned entitlement. Empty development collections fall back to the bundled safe defaults.
