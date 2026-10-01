@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 
 type Props = {
   label: string;
@@ -25,10 +25,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    padding: 14,
+    ...shadows.card,
   },
-  marker: { width: 24, height: 3, marginBottom: spacing.sm },
-  value: { color: colors.ink, fontSize: 22, fontWeight: '900' },
+  marker: { width: 28, height: 5, borderRadius: 3, marginBottom: spacing.sm },
+  value: { color: colors.ink, fontSize: 20, fontWeight: '900' },
   label: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });

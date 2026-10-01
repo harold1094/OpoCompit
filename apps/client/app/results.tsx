@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
@@ -169,12 +169,12 @@ function formatTime(milliseconds: number): string {
 }
 
 const styles = StyleSheet.create({
-  resultHeader: { alignItems: 'center', paddingVertical: spacing.lg },
-  resultIcon: { width: 68, height: 68, borderRadius: 34, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
+  resultHeader: { alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.md, borderRadius: radius.xl, backgroundColor: colors.softAqua, ...shadows.card },
+  resultIcon: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md, borderWidth: 5, borderColor: colors.surface, ...shadows.card },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '900' },
   score: { color: colors.ink, fontSize: 58, lineHeight: 64, fontWeight: '900', marginTop: spacing.sm },
   scoreLabel: { color: colors.muted, fontSize: 15, marginTop: 3 },
-  versus: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, padding: spacing.md, backgroundColor: colors.ink, borderRadius: radius.md },
+  versus: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.navy, borderRadius: radius.lg, ...shadows.floating },
   competitor: { flex: 1, alignItems: 'center' },
   competitorName: { color: colors.surface, fontSize: 13, fontWeight: '900' },
   competitorScore: { color: colors.gold, fontSize: 35, fontWeight: '900', marginTop: 3 },
@@ -184,11 +184,11 @@ const styles = StyleSheet.create({
   rewards: { marginTop: spacing.xl },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginBottom: spacing.sm },
   rewardRow: { flexDirection: 'row', gap: spacing.sm },
-  reward: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md },
+  reward: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, ...shadows.card },
   rewardValue: { color: colors.ink, fontSize: 16, fontWeight: '900' },
   rewardLabel: { color: colors.muted, fontSize: 11, marginTop: 2 },
   review: { marginTop: spacing.xl },
-  reviewRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
+  reviewRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.sm, paddingHorizontal: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, ...shadows.card },
   reviewStatus: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   reviewText: { flex: 1, color: colors.ink, fontSize: 13, lineHeight: 18 },
   actions: { gap: spacing.sm, marginTop: spacing.xl, marginBottom: spacing.lg },

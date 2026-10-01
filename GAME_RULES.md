@@ -37,6 +37,13 @@ Official exams and simulations use configurable rules:
 - `incorrectPenalty`
 - `blankPoints`
 
+## Quiz Interaction
+
+- Every question shown in the current quick-match and duel flows requires an answer.
+- Selecting an answer records it and advances immediately to the next question.
+- Players cannot return to earlier questions during the match.
+- Selecting an answer on the last question submits and finishes the match automatically.
+
 ## XP
 
 MVP local formula:

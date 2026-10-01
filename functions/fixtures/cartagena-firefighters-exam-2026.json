@@ -1,0 +1,2931 @@
+{
+  "batchId": "cartagena-firefighters-official-exam-2026-04-25",
+  "sourceDocument": "resolución tipo trst.pdf",
+  "questions": [
+    {
+      "id": "cartagena-bomberos-2026-q01",
+      "oppositionId": "firefighters_es",
+      "statement": "De acuerdo con la Constitución Española en TÍTULO I De los derechos y deberes fundamentales Artículo 10.2. Las normas relativas a los derechos fundamentales y a las libertades que la Constitución reconoce se interpretarán de conformidad con la Declaración Universal de Derechos Humanos y: (complete el artículo)",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Los tratados y acuerdos de las CCAA sobre las mismas materias ratificados por España."
+        },
+        {
+          "id": "b",
+          "text": "Los tratados y acuerdos internacionales sobre las mismas materias ratificados por la Organización de las Naciones Unidas."
+        },
+        {
+          "id": "c",
+          "text": "Los tratados y acuerdos internacionales sobre las mismas materias ratificados por España."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Los tratados y acuerdos internacionales sobre las mismas materias ratificados por España.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 3,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q02",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley orgánica 4/1982, de 9 de junio, de Estatuto de Autonomía para la Región de Murcia, en su Artículo 6. Dos. Establece que los españoles residentes en el extranjero gozarán de la misma condición si hubiesen tenido su última vecindad en la Región y: (completa el artículo)",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Acrediten esta condición en la correspondiente Diputación de España."
+        },
+        {
+          "id": "b",
+          "text": "Acrediten esta condición en el correspondiente Consulado de España."
+        },
+        {
+          "id": "c",
+          "text": "Acrediten esta condición en el correspondiente ayuntamiento o entidad local correspondiente del País en el que resida."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Acrediten esta condición en el correspondiente Consulado de España.",
+      "categoryId": "legislation",
+      "subcategoryId": "murcia_statute",
+      "difficulty": 3,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 3,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q03",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley Orgánica 4/1982, de 9 de junio, de Estatuto de Autonomía para la Región de Murcia, en su Artículo 24.3 Establece que las elecciones serán convocadas por el presidente de la Comunidad Autónoma en los términos previstos en la Ley que regula el Régimen Electoral General, de manera que se realicen el:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Cuarto domingo de mayo cada cuatro años, sin perjuicio de lo que dispongan las Cortes Generales."
+        },
+        {
+          "id": "b",
+          "text": "Cuarto domingo de junio cada cuatro años, sin perjuicio de lo que dispongan el Senado español."
+        },
+        {
+          "id": "c",
+          "text": "Cuarto domingo de junio cada cuatro años, sin perjuicio de lo que dispongan las Cortes Generales."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Cuarto domingo de mayo cada cuatro años, sin perjuicio de lo que dispongan las Cortes Generales.",
+      "categoryId": "legislation",
+      "subcategoryId": "murcia_statute",
+      "difficulty": 3,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 3,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q04",
+      "oppositionId": "firefighters_es",
+      "statement": "Según la Constitución Española en su TÍTULO VI del Poder Judicial, artículo 117.1. \"La justicia emana del pueblo y se administra en nombre del Rey por Jueces y Magistrados integrantes del poder judicial, independientes, inamovibles y: (complete el artículo)",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Únicamente sometidos al imperio de la fiscalía."
+        },
+        {
+          "id": "b",
+          "text": "Únicamente sometidos al imperio de la fiscalía y del tribunal supremo."
+        },
+        {
+          "id": "c",
+          "text": "Responsables y sometidos únicamente al imperio de la ley."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Responsables y sometidos únicamente al imperio de la ley.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 3,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q05",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el TÍTULO VI del Poder Judicial, artículo 117.6 de la Constitución Española:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Se prohíben los Tribunales de excepción."
+        },
+        {
+          "id": "b",
+          "text": "Los Jueces y Magistrados podrán ser separados, suspendidos, trasladados por alguna de las causas y con las garantías aun no previstas en la ley."
+        },
+        {
+          "id": "c",
+          "text": "El principio de división jurisdiccional es la base de la organización y funcionamiento de los Tribunales."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Se prohíben los Tribunales de excepción.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 4,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q06",
+      "oppositionId": "firefighters_es",
+      "statement": "Según la Constitución Española en su TÍTULO IX del Tribunal Constitucional. Artículo 159.3 Los miembros del Tribunal Constitucional serán designados por un período de:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Seis años y se renovarán por terceras partes cada tres."
+        },
+        {
+          "id": "b",
+          "text": "Ocho años y se renovarán por cuartas partes cada tres."
+        },
+        {
+          "id": "c",
+          "text": "Nueve años y se renovarán por terceras partes cada tres."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Nueve años y se renovarán por terceras partes cada tres.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 4,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q07",
+      "oppositionId": "firefighters_es",
+      "statement": "El Real Decreto Legislativo 5/2015, de 30 de octubre, por el que se aprueba el texto refundido de la Ley del Estatuto Básico del Empleado Público, en su artículo 90.2 establece que la suspensión firme se impondrá en virtud de sentencia dictada en causa criminal o en virtud de sanción disciplinaria. La suspensión firme por sanción disciplinaria no podrá exceder de:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Tres años."
+        },
+        {
+          "id": "b",
+          "text": "Cinco años"
+        },
+        {
+          "id": "c",
+          "text": "Seis años."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Seis años.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 4,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q08",
+      "oppositionId": "firefighters_es",
+      "statement": "El Real Decreto Legislativo 5/2015, de 30 de octubre, por el que se aprueba el texto refundido de la Ley del Estatuto Básico del Empleado Público, en su CAPÍTULO II. Artículo 63. Causas de pérdida de la condición de funcionario de carrera. Establece las causas de pérdida de la condición de funcionario de carrera, indica cuál NO es una de ellas:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "La pérdida de la nacionalidad."
+        },
+        {
+          "id": "b",
+          "text": "Excedencia voluntaria por interés particular."
+        },
+        {
+          "id": "c",
+          "text": "La jubilación total del funcionario."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Excedencia voluntaria por interés particular.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 4,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q09",
+      "oppositionId": "firefighters_es",
+      "statement": "El Real Decreto Legislativo 5/2015, de 30 de octubre, por el que se aprueba el texto refundido de la Ley del Estatuto Básico del Empleado Público, en su Artículo 93.2 Establece que los funcionarios públicos o el personal laboral que indujeren a otros a la realización de actos o conductas constitutivos de falta disciplinaria:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Incurrirán en una responsabilidad menor atenuada en un grado."
+        },
+        {
+          "id": "b",
+          "text": "Incurrirán en la misma responsabilidad que éstos."
+        },
+        {
+          "id": "c",
+          "text": "Estarán exentos en todo caso de la misma responsabilidad."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Incurrirán en la misma responsabilidad que éstos.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 4,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q10",
+      "oppositionId": "firefighters_es",
+      "statement": "El Real Decreto Legislativo 5/2015, de 30 de octubre, por el que se aprueba el texto refundido de la Ley del Estatuto Básico del Empleado Público, en su Artículo 96.1. por razón de las faltas cometidas podrán imponerse las siguientes sanciones:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Despido disciplinario del personal laboral, que sólo podrá sancionar la comisión de faltas muy graves."
+        },
+        {
+          "id": "b",
+          "text": "Despido disciplinario del personal laboral, que sólo podrá sancionar la comisión de faltas graves y muy graves."
+        },
+        {
+          "id": "c",
+          "text": "En ningún caso se podrá sancionar la comisión de faltas graves y muy graves con despido disciplinario del personal laboral."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Despido disciplinario del personal laboral, que sólo podrá sancionar la comisión de faltas muy graves.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 5,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q11",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley 39/2015, de 1 de octubre, del Procedimiento Administrativo Común de las Administraciones Públicas, en su TÍTULO III De los actos administrativos, establece en su Artículo 39.1. Que los actos de las Administraciones Públicas sujetos al Derecho Administrativo se presumirán válidos y producirán efectos desde:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "A partir de los diez días en que se dicten, salvo que en ellos se disponga otra cosa."
+        },
+        {
+          "id": "b",
+          "text": "La fecha en que se dicten, salvo que en ellos se disponga otra cosa."
+        },
+        {
+          "id": "c",
+          "text": "Al día siguiente en que se dicten, salvo que en ellos se disponga otra cosa."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: La fecha en que se dicten, salvo que en ellos se disponga otra cosa.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 5,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q12",
+      "oppositionId": "firefighters_es",
+      "statement": "Ley 40/2015, de 1 de octubre, de Régimen Jurídico del Sector Público, en su artículo 24.4 establece que si el recusado niega la causa de recusación, el superior resolverá en el plazo de:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Un día, previos los informes y comprobaciones que considere oportunos."
+        },
+        {
+          "id": "b",
+          "text": "Dos días, previos los informes y comprobaciones que considere oportunos."
+        },
+        {
+          "id": "c",
+          "text": "Tres días, previos los informes y comprobaciones que considere oportunos."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Tres días, previos los informes y comprobaciones que considere oportunos.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 5,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q13",
+      "oppositionId": "firefighters_es",
+      "statement": "Ley 40/2015, de 1 de octubre, de Régimen Jurídico del Sector Público, en su CAPÍTULO II De los órganos de las Administraciones Públicas, Artículo 6.1. establece que:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Los órganos administrativos no podrán dirigir las actividades de sus órganos jerárquicamente dependientes mediante instrucciones y órdenes de servicio."
+        },
+        {
+          "id": "b",
+          "text": "Los órganos administrativos podrán dirigir las actividades de sus órganos jerárquicamente dependientes mediante instrucciones y órdenes de servicio."
+        },
+        {
+          "id": "c",
+          "text": "Los órganos administrativos podrán dirigir las actividades de sus órganos jerárquicamente dependientes únicamente mediante instrucciones y no con órdenes de servicio."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Los órganos administrativos podrán dirigir las actividades de sus órganos jerárquicamente dependientes mediante instrucciones y órdenes de servicio.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 5,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q14",
+      "oppositionId": "firefighters_es",
+      "statement": "Los municipios de gran población en España están regulados por el:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Título IX de la Ley 7/1985, de 2 de abril, Reguladora de las Bases del Régimen Local."
+        },
+        {
+          "id": "b",
+          "text": "Título X de la Ley 7/1985, de 2 de abril, Reguladora de las Bases del Régimen Local."
+        },
+        {
+          "id": "c",
+          "text": "Título XI de la Ley 7/1985, de 2 de abril, Reguladora de las Bases del Régimen Local."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Título X de la Ley 7/1985, de 2 de abril, Reguladora de las Bases del Régimen Local.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 5,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q15",
+      "oppositionId": "firefighters_es",
+      "statement": "Según la Ley 7/1985, de 2 de abril, Reguladora de las Bases del Régimen Local. En su Artículo 121.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Los municipios cuya población supere los 150.000 habitantes."
+        },
+        {
+          "id": "b",
+          "text": "Los municipios capitales de provincia cuya población sea superior a los 155.000 habitantes."
+        },
+        {
+          "id": "c",
+          "text": "Los municipios cuya población supere los 75.000 habitantes, que presenten circunstancias económicas, sociales, históricas o culturales especiales."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Los municipios capitales de provincia cuya población sea superior a los 155.000 habitantes.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 6,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q16",
+      "oppositionId": "firefighters_es",
+      "statement": "Según la Constitución Española en su TÍTULO IV del Gobierno y la Administración en su Artículo 100. establece que los demás miembros del Gobierno serán:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Nombrados y separados por el Rey, a propuesta del congreso oído el Presidente."
+        },
+        {
+          "id": "b",
+          "text": "Nombrados y separados por el Presidente, a propuesta del senado oído el Rey."
+        },
+        {
+          "id": "c",
+          "text": "Nombrados y separados por el Rey, a propuesta de su Presidente."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Nombrados y separados por el Rey, a propuesta de su Presidente.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 6,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q17",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley Orgánica 3/2007, de 22 de marzo, para la igualdad efectiva de mujeres y hombres en su artículo 58. Establece que cuando las condiciones del puesto de trabajo de una funcionaria pudieran influir negativamente en la salud de la mujer, del hijo o hija, podrá concederse licencia por riesgo durante el embarazo. En estos casos, se garantizará la plenitud de los derechos económicos de la funcionaria durante toda la duración de la licencia, de acuerdo con lo establecido en la legislación específica. No obstante:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Lo anterior no será también de aplicación durante el período de lactancia natural."
+        },
+        {
+          "id": "b",
+          "text": "Lo anterior será también de aplicación durante el período de lactancia natural."
+        },
+        {
+          "id": "c",
+          "text": "Lo anterior será también de aplicación únicamente durante la mitad del período de lactancia natural."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Lo anterior no será también de aplicación durante el período de lactancia natural.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 6,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q18",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley Orgánica 3/2007, de 22 de marzo, para la igualdad efectiva de mujeres y hombres en su artículo 12.3. Establece que la persona acosada:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Será la única legitimada en los litigios sobre acoso sexual y acoso por razón de sexo."
+        },
+        {
+          "id": "b",
+          "text": "No será la única legitimada en los litigios sobre acoso sexual y acoso por razón de sexo."
+        },
+        {
+          "id": "c",
+          "text": "Junto con sus ascendientes y descendientes directos los legitimados en los litigios sobre acoso sexual y acoso por razón de sexo."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Será la única legitimada en los litigios sobre acoso sexual y acoso por razón de sexo.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 6,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q19",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley Orgánica 3/2007, de 22 de marzo, para la igualdad efectiva de mujeres y hombres en su Artículo 55. Establece que la aprobación de convocatorias de pruebas selectivas para el acceso al empleo público deberá:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Acompañarse de un informe de impacto de género, siempre sin excepciones."
+        },
+        {
+          "id": "b",
+          "text": "Acompañarse de un informe de impacto de género, salvo en casos no urgentes y aun con perjuicio de la prohibición de discriminación por razón de sexo."
+        },
+        {
+          "id": "c",
+          "text": "Acompañarse de un informe de impacto de género, salvo en casos de urgencia y siempre sin perjuicio de la prohibición de discriminación por razón de sexo."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Acompañarse de un informe de impacto de género, salvo en casos de urgencia y siempre sin perjuicio de la prohibición de discriminación por razón de sexo.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 6,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q20",
+      "oppositionId": "firefighters_es",
+      "statement": "La Ley Orgánica 4/1982, de 9 de junio, de Estatuto de Autonomía para la Región de Murcia, en su Artículo 4. Uno. Establece que: La bandera de la Región de Murcia es rectangular y contiene:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Cuatro castillos almenados en oro, en el ángulo superior izquierdo distribuidos de dos en dos, y siete coronas reales en el ángulo inferior derecho, dispuestas en cuatro filas, con uno, tres, dos y un elemento, respectivamente; todo ello sobre fondo rojo carmesí."
+        },
+        {
+          "id": "b",
+          "text": "Cuatro castillos almenados en oro, en el ángulo inferior izquierdo distribuidos de dos en dos, y nueve coronas reales en el ángulo inferior derecho, dispuestas en cuatro filas, con uno, tres, tres y dos elementos, respectivamente; todo ello sobre fondo rojo carmesí."
+        },
+        {
+          "id": "c",
+          "text": "Cuatro castillos almenados en oro, en el ángulo inferior izquierdo distribuidos de dos en dos, y siete coronas reales en el ángulo superior derecho, dispuestas en cuatro filas, con uno, tres, dos y un elemento, respectivamente; todo ello sobre fondo rojo carmesí."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Cuatro castillos almenados en oro, en el ángulo superior izquierdo distribuidos de dos en dos, y siete coronas reales en el ángulo inferior derecho, dispuestas en cuatro filas, con uno, tres, dos y un elemento, respectivamente; todo ello sobre fondo rojo carmesí.",
+      "categoryId": "legislation",
+      "subcategoryId": "murcia_statute",
+      "difficulty": 3,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 7,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q21",
+      "oppositionId": "firefighters_es",
+      "statement": "En una instalación hidráulica de mangueras para la extinción de incendios se producen pérdidas de carga... (señale la respuesta correcta):",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Al incrementar la longitud del conducto o instalación, según su segunda potencia."
+        },
+        {
+          "id": "b",
+          "text": "Al incrementar la velocidad del fluido o su caudal, según su cuarta potencia."
+        },
+        {
+          "id": "c",
+          "text": "Al reducir el diámetro de la instalación, según su quinta potencia."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Al reducir el diámetro de la instalación, según su quinta potencia.",
+      "categoryId": "hydraulics",
+      "subcategoryId": "hose_hydraulics",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 7,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q22",
+      "oppositionId": "firefighters_es",
+      "statement": "La técnica de extinción de incendios conocida comúnmente como \"ablandado\". ¿Qué otra denominación recibe?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Ataque exterior ofensivo."
+        },
+        {
+          "id": "b",
+          "text": "Ataque exterior defensivo contra la propagación."
+        },
+        {
+          "id": "c",
+          "text": "Ataque directo."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Ataque exterior ofensivo.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 7,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q23",
+      "oppositionId": "firefighters_es",
+      "statement": "A partir del consumo de oxígeno. Indica cuál de las siguientes reglas es la que se puede utilizar para calcular la potencia de un Incendio Limitado por la Ventilación (ILV)",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Regla de Gretener."
+        },
+        {
+          "id": "b",
+          "text": "Regla Byram."
+        },
+        {
+          "id": "c",
+          "text": "Regla de Thornton."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Regla de Thornton.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 7,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q24",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el Reglamento de Seguridad Contra Incendios en los establecimientos industriales (RD 164/2025, de 4 de marzo). Para una densidad de carga de fuego ponderada y corregida de 1500 MJ/m². ¿Cuál será el valor del Nivel de riesgo intrínseco (NRI) para esa densidad de carga de fuego? Indique la respuesta correcta",
+      "answers": [
+        {
+          "id": "a",
+          "text": "3."
+        },
+        {
+          "id": "b",
+          "text": "4."
+        },
+        {
+          "id": "c",
+          "text": "5."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: 4.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 7,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q25",
+      "oppositionId": "firefighters_es",
+      "statement": "En relación a las características de los combustibles vegetales ¿En cuánto se estima el tiempo de retardo para combustibles vegetales de 4 cm de diámetro, como ramas mayores y restos de poda?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "1 hora."
+        },
+        {
+          "id": "b",
+          "text": "10 horas."
+        },
+        {
+          "id": "c",
+          "text": "100 horas."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: 100 horas.",
+      "categoryId": "fires",
+      "subcategoryId": "wildland_fuels",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q26",
+      "oppositionId": "firefighters_es",
+      "statement": "En relación a los incendios en vegetación señale qué color de humo nos indica que hay un incendio que afecta a matorrales o arbustos ralos.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Humo amarillo."
+        },
+        {
+          "id": "b",
+          "text": "Humo gris café."
+        },
+        {
+          "id": "c",
+          "text": "Humo blanco azulado."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Humo gris café.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q27",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál es el término que mejor se ajusta a la definición de \"extremo de la cuerda\"? Señale la respuesta correcta",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Seno."
+        },
+        {
+          "id": "b",
+          "text": "Chicote."
+        },
+        {
+          "id": "c",
+          "text": "Gaza."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Chicote.",
+      "categoryId": "rescue",
+      "subcategoryId": "rope_rescue",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q28",
+      "oppositionId": "firefighters_es",
+      "statement": "Un trabajador se encuentra asegurado con una longitud de cuerda de 10 metros, desplegada hasta el punto de anclaje. Su último punto de anclaje se encuentra a 2 metros por debajo de su posición. Si cae desde esta posición, con esa longitud de cuerda. ¿Cuál es el factor de caída?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "0,2."
+        },
+        {
+          "id": "b",
+          "text": "0,4."
+        },
+        {
+          "id": "c",
+          "text": "0,6."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: 0,4.",
+      "categoryId": "rescue",
+      "subcategoryId": "rope_rescue",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q29",
+      "oppositionId": "firefighters_es",
+      "statement": "Indica cuál es la UNE-EN sobre \"Escalas portátiles para uso en el servicio contra incendios\".",
+      "answers": [
+        {
+          "id": "a",
+          "text": "UNE-EN 1145."
+        },
+        {
+          "id": "b",
+          "text": "UNE-EN 1146."
+        },
+        {
+          "id": "c",
+          "text": "UNE-EN 1147."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: UNE-EN 1147.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q30",
+      "oppositionId": "firefighters_es",
+      "statement": "¿A qué se refiere cuando se construye diques con \"Hesco Bastión\"?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Construcción de diques con gaviones modulares."
+        },
+        {
+          "id": "b",
+          "text": "Construcción de diques con Big Bags."
+        },
+        {
+          "id": "c",
+          "text": "Construcción de diques con sacos terreros."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Construcción de diques con gaviones modulares.",
+      "categoryId": "civil_protection",
+      "subcategoryId": "temporary_barriers",
+      "difficulty": 3,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 8,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q31",
+      "oppositionId": "firefighters_es",
+      "statement": "¿A qué se le denomina \"procon-ten\"?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Al acero que se emplea en la industria automotriz y que posee una tenacidad global excelente debido a la fase de ferrita blanda."
+        },
+        {
+          "id": "b",
+          "text": "Al acero que se emplea en la industria automotriz y que posee una tenacidad inducida por transformación de la ferrita en martensita, dándole una extraordinaria resistencia."
+        },
+        {
+          "id": "c",
+          "text": "El sistema de seguridad vinculado a los pretensores del cinturón de seguridad y los airbags."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: El sistema de seguridad vinculado a los pretensores del cinturón de seguridad y los airbags.",
+      "categoryId": "vehicle_rescue",
+      "subcategoryId": "extrication",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 9,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q32",
+      "oppositionId": "firefighters_es",
+      "statement": "Dentro de las técnicas de creación de espacios en los rescates en accidentes de tráfico, los equipos de bomberos pueden utilizar la técnica llamada \"la ostra\". ¿Cuál de las siguientes definiciones se ajusta más a esta técnica?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Abatimiento de todo el lateral del vehículo."
+        },
+        {
+          "id": "b",
+          "text": "Abatimiento del techo, en vehículo sobre sus ruedas."
+        },
+        {
+          "id": "c",
+          "text": "Abatimiento de techo, en vehículo sobre techo."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Abatimiento de techo, en vehículo sobre techo.",
+      "categoryId": "vehicle_rescue",
+      "subcategoryId": "extrication",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 9,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q33",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál es el color de la ojiva de un recipiente con óxido nitroso?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Naranja."
+        },
+        {
+          "id": "b",
+          "text": "Amarilla."
+        },
+        {
+          "id": "c",
+          "text": "Azul."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Azul.",
+      "categoryId": "hazmat",
+      "subcategoryId": "hazardous_materials",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 9,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q34",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál de los siguientes equipos que se pueden emplear en progresión y/o descenso por cuerdas se considera un \"elemento anticaídas\"?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "STOP de Petzl."
+        },
+        {
+          "id": "b",
+          "text": "ASAP de Petzl."
+        },
+        {
+          "id": "c",
+          "text": "I'D de Petzl."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: ASAP de Petzl.",
+      "categoryId": "rescue",
+      "subcategoryId": "rope_rescue",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 9,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q35",
+      "oppositionId": "firefighters_es",
+      "statement": "En un accidente de camión cisterna, en el que los bomberos pueden entrar en contacto con la materia peligrosa en caso de fuga de líquido o de gas en un escenario exterior, y en el que, en la manipulación de válvulas, bombas o depósitos puede haber fuga exponiéndose a contacto superficial esporádico y a baja presión, el nivel de protección adecuado es:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Nivel I (traje de intervención + ERA)."
+        },
+        {
+          "id": "b",
+          "text": "Nivel II (Nivel I + traje químico tipo 3 con guantes y botas químicas)."
+        },
+        {
+          "id": "c",
+          "text": "Nivel III (Traje químico estanco a gases tipo 1a, 1 b o 1c + ERA)."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Nivel II (Nivel I + traje químico tipo 3 con guantes y botas químicas).",
+      "categoryId": "hazmat",
+      "subcategoryId": "hazardous_materials",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 9,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q36",
+      "oppositionId": "firefighters_es",
+      "statement": "En el supuesto de un accidente de vehículo cisterna en carretera, las cisternas de líquidos químicos no tienen válvulas antidepresión. Si la cisterna está volcada, a medida que extraemos el producto, generaremos el vacío en el interior del depósito y se detendrá el trasvase ¿Cómo se puede solucionar a fin de realizar el trasvase?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Manteniendo cerrada la boca de hombre para evitar que se salga el producto."
+        },
+        {
+          "id": "b",
+          "text": "Cerrando las entradas de aire mediante soluciones de fortuna o con accesorios específicos para que no salga el aire de dentro del depósito."
+        },
+        {
+          "id": "c",
+          "text": "Habilitando una entrada de aire (chimenea) que permita la entrada de aire al depósito o introduciendo aire a presión para \"empujar\" el producto,"
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Habilitando una entrada de aire (chimenea) que permita la entrada de aire al depósito o introduciendo aire a presión para \"empujar\" el producto,",
+      "categoryId": "hazmat",
+      "subcategoryId": "hazardous_materials",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 10,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q37",
+      "oppositionId": "firefighters_es",
+      "statement": "En un incendio en un túnel, el tipo de táctica de ventilación a utilizar dependerá del tipo de fuego, para los incendios que implican a un vehículo pesado de más de 3.500 kg de masa total o un gran derrame de combustible, es recomendable un flujo de ventilación de:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "1 m/seg."
+        },
+        {
+          "id": "b",
+          "text": "3 m/seg."
+        },
+        {
+          "id": "c",
+          "text": "5 m/seg."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: 1 m/seg.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 10,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q38",
+      "oppositionId": "firefighters_es",
+      "statement": "El sistema de ventilación forzada de un túnel que consiste en que el aire fresco se impulsa por un conducto situado dentro de la sección del túnel, habitualmente en la clave y separado de la zona de circulación de los vehículos por un falso techo, y que aproximadamente cada 6 m, mediante difusores aporta aire fresco a la zona de circulación y el aire viciado circula a través del túnel saliendo al exterior por las bocas del mismo, se denomina:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Ventilación longitudinal."
+        },
+        {
+          "id": "b",
+          "text": "Ventilación semitransversal."
+        },
+        {
+          "id": "c",
+          "text": "Ventilación transversal."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Ventilación semitransversal.",
+      "categoryId": "fires",
+      "subcategoryId": "firefighting",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 10,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q39",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el tipo de esfuerzo tensional o movimiento provocado en la edificación, se clasifican unos tipos de patología por \"movimiento del terreno\", y dentro éstos, los \"movimientos de ladera\", señale cuál de los siguientes movimientos del terreno no pertenece al grupo de movimientos de ladera.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Flujos."
+        },
+        {
+          "id": "b",
+          "text": "Subsidencias."
+        },
+        {
+          "id": "c",
+          "text": "Vuelcos."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Subsidencias.",
+      "categoryId": "construction",
+      "subcategoryId": "structural_behavior",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 10,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q40",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Frente a qué tipo de esfuerzo, presenta una pieza de madera una menor resistencia?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Flexión."
+        },
+        {
+          "id": "b",
+          "text": "Cortante axial."
+        },
+        {
+          "id": "c",
+          "text": "Tracción normal a las fibras."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Tracción normal a las fibras.",
+      "categoryId": "construction",
+      "subcategoryId": "structural_behavior",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 10,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q41",
+      "oppositionId": "firefighters_es",
+      "statement": "Si tenemos que apear un forjado pero no podemos apoyarnos en el forjado inferior podemos utilizar varias soluciones, señale cuál de las siguientes no lo es:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Apeo en aspa."
+        },
+        {
+          "id": "b",
+          "text": "Apeo de pescante."
+        },
+        {
+          "id": "c",
+          "text": "Apeo con asnillas."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Apeo con asnillas.",
+      "categoryId": "construction",
+      "subcategoryId": "structural_behavior",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q42",
+      "oppositionId": "firefighters_es",
+      "statement": "Durante un incendio en una nave de almacenamiento, la estructura ha sufrido rótulas plásticas y ruptura de conexiones por enfriamiento, se trata de una estructura:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Entramada isostática."
+        },
+        {
+          "id": "b",
+          "text": "Entramada hiperestática."
+        },
+        {
+          "id": "c",
+          "text": "De muros y celosías de acero."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Entramada hiperestática.",
+      "categoryId": "construction",
+      "subcategoryId": "structural_behavior",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q43",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el \"Reglamento de Instalaciones de Protección Contra Incendios\", aprobado por RD 513/2017 de 22 de mayo, cada edificio que deba estar dotado de instalaciones de columna seca, debe tener un número suficiente para que la distancia entre las mismas, siguiendo recorridos de evacuación, sea menor de:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "60 metros."
+        },
+        {
+          "id": "b",
+          "text": "80 metros."
+        },
+        {
+          "id": "c",
+          "text": "100 metros."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: 60 metros.",
+      "categoryId": "prevention",
+      "subcategoryId": "fire_installations",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q44",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál es el número ONU de la gasolina?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "UN 1075."
+        },
+        {
+          "id": "b",
+          "text": "UN 1830."
+        },
+        {
+          "id": "c",
+          "text": "UN 1203."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: UN 1203.",
+      "categoryId": "hazmat",
+      "subcategoryId": "hazardous_materials",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q45",
+      "oppositionId": "firefighters_es",
+      "statement": "¿De qué diámetro son cada uno de los racores que tiene la turbobomba?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Todos los racores son de 45 mm."
+        },
+        {
+          "id": "b",
+          "text": "Todos los racores son de 70 mm."
+        },
+        {
+          "id": "c",
+          "text": "Los racores para el agua limpia son de 45 mm y el racor de salida de aguas sucias es de 70 mm."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Todos los racores son de 45 mm.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q46",
+      "oppositionId": "firefighters_es",
+      "statement": "El picoculombio es una unidad de medida de carga eléctrica del Sistema Internacional de medidas. Indique la respuesta correcta de su equivalencia a culombios",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Un Picoculombio (1 pC) = 10^-10 culombios"
+        },
+        {
+          "id": "b",
+          "text": "Un Picoculombio (1 pC) = 10^-12 culombios"
+        },
+        {
+          "id": "c",
+          "text": "Un Picoculombio (1 pC) = 10^-15 culombios"
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Un Picoculombio (1 pC) = 10^-12 culombios",
+      "categoryId": "electricity",
+      "subcategoryId": "electrical_safety",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 11,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q47",
+      "oppositionId": "firefighters_es",
+      "statement": "¿En qué unidades se mide la conductividad eléctrica?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Siemens por metro (S/m)."
+        },
+        {
+          "id": "b",
+          "text": "Ohmios por metro (O/m)."
+        },
+        {
+          "id": "c",
+          "text": "Amperios por metro (A/m)."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Siemens por metro (S/m).",
+      "categoryId": "electricity",
+      "subcategoryId": "electrical_safety",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q48",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el Reglamento Electrotécnico de Baja Tensión. Indique la respuesta correcta para definir el \"choque eléctrico\".",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Efecto fisiopatológico resultante del paso de corriente eléctrica a través del cuerpo humano o de un animal."
+        },
+        {
+          "id": "b",
+          "text": "Sobreintensidad que se produce en un circuito, en ausencia de un fallo eléctrico."
+        },
+        {
+          "id": "c",
+          "text": "Pico de valor que alcanza la corriente diferencial residual durante el mal funcionamiento de un dispositivo de protección."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Efecto fisiopatológico resultante del paso de corriente eléctrica a través del cuerpo humano o de un animal.",
+      "categoryId": "electricity",
+      "subcategoryId": "electrical_safety",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q49",
+      "oppositionId": "firefighters_es",
+      "statement": "Nombre que recibe la herramienta de construcción y carpintería similar a un mazo pesado. Indique la respuesta correcta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Espuerta."
+        },
+        {
+          "id": "b",
+          "text": "Almádena."
+        },
+        {
+          "id": "c",
+          "text": "Barrón."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Almádena.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q50",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál es la Norma UNE-EN sobre \"Guantes de protección contra riesgos mecánicos\"? Indique la respuesta correcta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "UNE-EN 374."
+        },
+        {
+          "id": "b",
+          "text": "UNE-EN 288."
+        },
+        {
+          "id": "c",
+          "text": "UNE-EN 388."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: UNE-EN 388.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q51",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Qué es el zorkil? Indica la respuesta verdadera",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Herramienta que combina un hacha y una azada"
+        },
+        {
+          "id": "b",
+          "text": "Herramienta que combina un pico y una azada."
+        },
+        {
+          "id": "c",
+          "text": "Producto de limpieza para desinfectar."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Producto de limpieza para desinfectar.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q52",
+      "oppositionId": "firefighters_es",
+      "statement": "¿Cuál es la Norma UNE-EN de \"Medios elevadores aéreos para los servicios de lucha contra incendios? Escaleras pivotantes con movimientos combinados. Requisitos de seguridad y prestación y métodos de ensayo\". Indique la respuesta correcta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "UNE-EN 1846."
+        },
+        {
+          "id": "b",
+          "text": "UNE-EN 1865."
+        },
+        {
+          "id": "c",
+          "text": "UNE-EN 14043."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: UNE-EN 14043.",
+      "categoryId": "equipment",
+      "subcategoryId": "standards_and_tools",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 12,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q53",
+      "oppositionId": "firefighters_es",
+      "statement": "En relación con las técnicas de remolque de una víctima en el medio acuático, uno de los errores más frecuentes del nado en posición dorsal es:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Mantener durante la acción del empuje una separación de rodillas similar a la anchura de las caderas."
+        },
+        {
+          "id": "b",
+          "text": "Adoptar una posición de \"sentados\"."
+        },
+        {
+          "id": "c",
+          "text": "Procurar que las rodillas no salgan del agua, formando un ángulo entre el tronco y el muslo menor que en la patada de braza normal."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Adoptar una posición de \"sentados\".",
+      "categoryId": "aquatic_rescue",
+      "subcategoryId": "water_rescue",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 13,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q54",
+      "oppositionId": "firefighters_es",
+      "statement": "En el caso de tener que realizar un rescate en una víctima inconsciente en una instalación acuática, con ayuda de un tubo de rescate, señale la mejor técnica.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "El desplazamiento se realiza controlando y estabilizando el tubo con la cadera y se encara a la víctima de frente."
+        },
+        {
+          "id": "b",
+          "text": "El desplazamiento se realiza arrastrando el tubo hasta acercarse al objetivo y se aborda a la víctima efectuando el contacto de frente."
+        },
+        {
+          "id": "c",
+          "text": "El desplazamiento se realiza controlando y estabilizando el tubo con la cadera y se aborda a la víctima efectuando el contacto por la espalda."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: El desplazamiento se realiza controlando y estabilizando el tubo con la cadera y se aborda a la víctima efectuando el contacto por la espalda.",
+      "categoryId": "aquatic_rescue",
+      "subcategoryId": "water_rescue",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 13,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q55",
+      "oppositionId": "firefighters_es",
+      "statement": "Si tenemos un paciente inconsciente al que queremos abrir la vía aérea, pero sospechamos que pueda tener una lesión cervical, señale que maniobra no debe hacerse:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "La maniobra frente-mentón."
+        },
+        {
+          "id": "b",
+          "text": "La triple maniobra modificada."
+        },
+        {
+          "id": "c",
+          "text": "La maniobra elevación de la mandíbula."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: La maniobra frente-mentón.",
+      "categoryId": "first_aid",
+      "subcategoryId": "emergency_care",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 13,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q56",
+      "oppositionId": "firefighters_es",
+      "statement": "En el caso de un ahogado en el mar al que haya que aplicarle maniobras de soporte vital básico, señale cuál de las siguientes indicaciones es incorrecta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Comenzar realizando una inmovilización cervical."
+        },
+        {
+          "id": "b",
+          "text": "Comenzar con 5 ventilaciones de rescate, y aplicar oxígeno."
+        },
+        {
+          "id": "c",
+          "text": "Realizar compresiones torácicas."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Comenzar realizando una inmovilización cervical.",
+      "categoryId": "first_aid",
+      "subcategoryId": "emergency_care",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 13,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q57",
+      "oppositionId": "firefighters_es",
+      "statement": "En el caso de tener que movilizar a un paciente en el suelo al que los rescatadores sólo tienen acceso desde un lado y haya que elevarlo y trasladarlo hasta una camilla, señale la maniobra a realizar.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Volteo lateral."
+        },
+        {
+          "id": "b",
+          "text": "Puente holandés."
+        },
+        {
+          "id": "c",
+          "text": "Método de cuchara."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Método de cuchara.",
+      "categoryId": "first_aid",
+      "subcategoryId": "emergency_care",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 13,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q58",
+      "oppositionId": "firefighters_es",
+      "statement": "Un paciente presenta una quemadura de aspecto seco, blanco intenso aunque puede haber zonas amarillentas o marrones, consistencia acartonada y ausencia de dolor por afectación de las terminaciones nerviosas. Según la valoración de la profundidad de las quemaduras, ¿de qué grado se trata?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "De segundo grado profundo."
+        },
+        {
+          "id": "b",
+          "text": "De tercer grado."
+        },
+        {
+          "id": "c",
+          "text": "De cuarto grado."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: De tercer grado.",
+      "categoryId": "first_aid",
+      "subcategoryId": "emergency_care",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 14,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q59",
+      "oppositionId": "firefighters_es",
+      "statement": "En relación con la regulación que establece el artículo 11 del Código Penal, y sobre la prestación de auxilio y la asunción del riesgo por parte del bombero, señale la respuesta incorrecta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "El que tenga la obligación de actuar y no lo haga, resultando un daño con resultado de muerte, podrá ser condenado por el delito de homicidio."
+        },
+        {
+          "id": "b",
+          "text": "Por razón de oficio o cargo, las profesiones incluidas en el ámbito de la emergencia están obligadas a la prestación de auxilio y socorro a terceros y sus bienes, salvo en el caso de riesgo para el profesional."
+        },
+        {
+          "id": "c",
+          "text": "La forma en la que debemos prestar este auxilio obligatorio por Ley es socorriendo a la víctima nosotros mismos o solicitando con urgencia auxilio externo cuando no podamos prestar servicio a una persona en visible peligro."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Por razón de oficio o cargo, las profesiones incluidas en el ámbito de la emergencia están obligadas a la prestación de auxilio y socorro a terceros y sus bienes, salvo en el caso de riesgo para el profesional.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 14,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q60",
+      "oppositionId": "firefighters_es",
+      "statement": "Según establece la Ley 17/2015, de 9 de julio, del Sistema Nacional de Protección Civil, en el artículo 21, \"Daños materiales\", señale la respuesta incorrecta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Los daños materiales habrán de ser ciertos, evaluables económicamente y referidos a bienes que podrán contar o no, con la cobertura de un seguro, público o privado."
+        },
+        {
+          "id": "b",
+          "text": "Las ayudas por daños materiales serán compatibles con las que puedan concederse por otras Administraciones públicas."
+        },
+        {
+          "id": "c",
+          "text": "La valoración de los daños materiales se hará por organismos especializados en tasación de siniestros o por los servicios técnicos dependientes de las Administraciones Públicas."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Los daños materiales habrán de ser ciertos, evaluables económicamente y referidos a bienes que podrán contar o no, con la cobertura de un seguro, público o privado.",
+      "categoryId": "legislation",
+      "subcategoryId": "public_law",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 14,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q61",
+      "oppositionId": "firefighters_es",
+      "statement": "El Plan de Autoprotección, regulado por la Norma Básica de Autoprotección (Real Decreto 393/2007, de 23 de marzo), debe tener un contenido mínimo especificado en dicha Norma, de forma que debe tener entre otros, un capítulo con un número y título determinado, señale cuál es correcto:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Capítulo 2. Análisis y evaluación de riesgos."
+        },
+        {
+          "id": "b",
+          "text": "Capítulo 3. Inventario de los medios de autoprotección."
+        },
+        {
+          "id": "c",
+          "text": "Capítulo 5. Programa de mantenimiento de instalaciones."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Capítulo 5. Programa de mantenimiento de instalaciones.",
+      "categoryId": "prevention",
+      "subcategoryId": "self_protection",
+      "difficulty": 4,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 14,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q62",
+      "oppositionId": "firefighters_es",
+      "statement": "¿En qué barrio de Cartagena se encuentra el \"Santo y Real Hospital de la Caridad\", conocido popularmente como \"Hospital de los Pinos\"?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Barrio de los Barreros."
+        },
+        {
+          "id": "b",
+          "text": "Barrio de la Concepción."
+        },
+        {
+          "id": "c",
+          "text": "Barriada de la Caridad."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Barrio de los Barreros.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q63",
+      "oppositionId": "firefighters_es",
+      "statement": "El Parque de los Juncos de Cartagena. ¿Entre qué calles se encuentra ubicado? Indique la respuesta correcta.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "C/Juan Fernández - C/Manuel Wssell de Guimbarda - Avd. Reina Victoria Eugenia - C/Jorge Juan."
+        },
+        {
+          "id": "b",
+          "text": "C/Juan Fernández - C/Manuel Wssell de Guimbarda - Avd. Reina Victoria Eugenia - C/Alfonso X El Sabio."
+        },
+        {
+          "id": "c",
+          "text": "C/Juan Fernández - C/Manuel Wssell de Guimbarda - Avd. Reina Victoria Eugenia - C/Jiménez de la Espada."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: C/Juan Fernández - C/Manuel Wssell de Guimbarda - Avd. Reina Victoria Eugenia - C/Alfonso X El Sabio.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q64",
+      "oppositionId": "firefighters_es",
+      "statement": "El pueblo de la Aparecida de Cartagena. ¿A qué diputación del Municipio de Cartagena pertenece?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Perín."
+        },
+        {
+          "id": "b",
+          "text": "Alumbres."
+        },
+        {
+          "id": "c",
+          "text": "La Palma."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: La Palma.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q65",
+      "oppositionId": "firefighters_es",
+      "statement": "En Cartagena el edificio conocido como \"La Casa Dorda\", de estilo modernista, del proyectista y arquitecto Víctor Beltrí. ¿En qué calle está situada su fachada principal?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Calle del Carmen."
+        },
+        {
+          "id": "b",
+          "text": "Calle Real."
+        },
+        {
+          "id": "c",
+          "text": "Calle Mayor."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Calle del Carmen.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q66",
+      "oppositionId": "firefighters_es",
+      "statement": "En el centro histórico de Cartagena se encuentra la Plaza de los Tres Reyes de Cartagena, indique entre qué calles se encuentra dicha plaza.",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Calle del Carmen y calle Jabonerías."
+        },
+        {
+          "id": "b",
+          "text": "Calle de la Caridad y calle de los Cuatro Santos."
+        },
+        {
+          "id": "c",
+          "text": "Calle de la Jara y Calle Honda."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Calle de la Jara y Calle Honda.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q67",
+      "oppositionId": "firefighters_es",
+      "statement": "La Asamblea Regional de Murcia tiene su sede en Cartagena. ¿A qué espacio público da su fachada principal?",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Paseo Alfonso XIII."
+        },
+        {
+          "id": "b",
+          "text": "Paseo Alfonso XII."
+        },
+        {
+          "id": "c",
+          "text": "Paseo Alfonso X."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Paseo Alfonso XIII.",
+      "categoryId": "local_knowledge",
+      "subcategoryId": "cartagena",
+      "difficulty": 4,
+      "scopeType": "municipal",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": "Murcia",
+      "municipality": "Cartagena",
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 15,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q68",
+      "oppositionId": "firefighters_es",
+      "statement": "Según establece el Plan Especial de Protección Civil sobre Transporte de Mercancías Peligrosas por Carretera y Ferrocarril de la Región de Murcia, (TRANSMUR), las funciones de \"estudio y valoración de los daños causados por la emergencia\" y \"medidas necesarias para rehabilitación de servicios esenciales\", corresponden al",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Grupo de Asesoramiento Técnico."
+        },
+        {
+          "id": "b",
+          "text": "Grupo Logístico."
+        },
+        {
+          "id": "c",
+          "text": "Grupo de Acción Social."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Grupo de Asesoramiento Técnico.",
+      "categoryId": "civil_protection",
+      "subcategoryId": "murcia_plans",
+      "difficulty": 4,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 16,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q69",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el Plan de Protección Civil de Emergencias por Incendios Forestales en la Región de Murcia, INFOMUR 2025, el Director de Extinción será:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "El Jefe de Defensa del Medio Natural o persona en quien delegue."
+        },
+        {
+          "id": "b",
+          "text": "El Subdirector General de Montes, Caza y Pesca Fluvial o persona en quien delegue."
+        },
+        {
+          "id": "c",
+          "text": "El Subdirector General de Política Forestal o persona en quien delegue."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: El Subdirector General de Política Forestal o persona en quien delegue.",
+      "categoryId": "civil_protection",
+      "subcategoryId": "murcia_plans",
+      "difficulty": 4,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 16,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-q70",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el Plan de Protección Civil de Emergencias por Incendios Forestales en la Región de Murcia, INFOMUR 2025, entre los medios aéreos dedicados a la extinción de incendios se encuentra un helicóptero biturbina con capacidad de descarga de 1200 litros y transporte de 12 personas que no se encuentra operativo todo el año, sino desde el 24 de mayo al 12 de octubre, y tiene su base en:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Zarcilla de Ramos."
+        },
+        {
+          "id": "b",
+          "text": "Alcantarilla."
+        },
+        {
+          "id": "c",
+          "text": "La Pila."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: Zarcilla de Ramos.",
+      "categoryId": "civil_protection",
+      "subcategoryId": "murcia_plans",
+      "difficulty": 4,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 16,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-r01",
+      "oppositionId": "firefighters_es",
+      "statement": "Según la Constitución Española en su TÍTULO IV del Gobierno y la Administración en su Artículo 97. El Gobierno dirige la política interior y exterior, la Administración civil y militar y la defensa del Estado. Ejerce la función ejecutiva:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "y la potestad reglamentaria será delegada necesariamente a las comunidades autónomas."
+        },
+        {
+          "id": "b",
+          "text": "y la potestad reglamentaria de acuerdo con la Constitución y las leyes."
+        },
+        {
+          "id": "c",
+          "text": "y la potestad reglamentaria únicamente de acuerdo con las leyes autonómicas."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: y la potestad reglamentaria de acuerdo con la Constitución y las leyes.",
+      "categoryId": "legislation",
+      "subcategoryId": "constitution",
+      "difficulty": 3,
+      "scopeType": "national",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 16,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-r02",
+      "oppositionId": "firefighters_es",
+      "statement": "Un líquido que se mueve dentro de una tubería tendrá un movimiento en régimen laminar si el número de Reynolds (R) es:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "R<2000."
+        },
+        {
+          "id": "b",
+          "text": "R>3000."
+        },
+        {
+          "id": "c",
+          "text": "R>4000."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: R<2000.",
+      "categoryId": "hydraulics",
+      "subcategoryId": "fluid_mechanics",
+      "difficulty": 3,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 16,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-r03",
+      "oppositionId": "firefighters_es",
+      "statement": "Según el Reglamento de instalaciones de protección contra incendios, aprobado por RD 513/2017 de 22 de mayo, para considerar una zona protegida por hidrantes contra incendios se harán cumplir unas condiciones, señale cuál de las siguientes es correcta:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "La distancia de recorrido real, medida horizontalmente, a cualquier hidrante, será inferior a 200 m en zonas urbanas."
+        },
+        {
+          "id": "b",
+          "text": "Al menos uno de los hidrantes (situado, a ser posible, en la entrada del edificio) deberá tener una salida de 100 mm, orientada perpendicular a la fachada y de espaldas a la misma."
+        },
+        {
+          "id": "c",
+          "text": "La distancia entre el emplazamiento de cada hidrante y el límite exterior del edificio protegido, medida perpendicularmente a la fachada, no será mayor de 20 m."
+        }
+      ],
+      "correctAnswerId": "b",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción B: Al menos uno de los hidrantes (situado, a ser posible, en la entrada del edificio) deberá tener una salida de 100 mm, orientada perpendicular a la fachada y de espaldas a la misma.",
+      "categoryId": "prevention",
+      "subcategoryId": "fire_hydrants",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 17,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-r04",
+      "oppositionId": "firefighters_es",
+      "statement": "Una cisterna de transporte de capacidad superior a 450 litros, pero que no está diseñada para el transporte de mercancías sin operaciones intermedias, es:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "Un contenedor cisterna."
+        },
+        {
+          "id": "b",
+          "text": "Una cisterna portátil."
+        },
+        {
+          "id": "c",
+          "text": "Una cisterna desmontable."
+        }
+      ],
+      "correctAnswerId": "c",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción C: Una cisterna desmontable.",
+      "categoryId": "hazmat",
+      "subcategoryId": "tank_transport",
+      "difficulty": 4,
+      "scopeType": "technical",
+      "country": "ES",
+      "autonomousCommunity": null,
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 17,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    },
+    {
+      "id": "cartagena-bomberos-2026-r05",
+      "oppositionId": "firefighters_es",
+      "statement": "Según establece el Plan Especial de Protección Civil sobre Transporte de Mercancías Peligrosas por Carretera y Ferrocarril de la Región de Murcia, (TRANSMUR) la función de establecer la situación o nivel de gravedad de la emergencia conforme a las características del siniestro por propia iniciativa o a petición del ayuntamiento/s implicado/s y hasta el nivel 2 inclusive, corresponde a:",
+      "answers": [
+        {
+          "id": "a",
+          "text": "El Consejero de Presidencia."
+        },
+        {
+          "id": "b",
+          "text": "El Delegado del Gobierno."
+        },
+        {
+          "id": "c",
+          "text": "El Jefe de Operaciones."
+        }
+      ],
+      "correctAnswerId": "a",
+      "explanation": "La plantilla oficial del examen señala como correcta la opción A: El Consejero de Presidencia.",
+      "categoryId": "civil_protection",
+      "subcategoryId": "transmur",
+      "difficulty": 4,
+      "scopeType": "autonomic",
+      "country": "ES",
+      "autonomousCommunity": "Murcia",
+      "province": null,
+      "municipality": null,
+      "specificCallId": "cartagena-firefighters-23-open-2025",
+      "officialExamId": "cartagena-firefighters-test-2026-04-25",
+      "year": 2026,
+      "source": "Ayuntamiento de Cartagena - Primer ejercicio Bomberos - 25/04/2026",
+      "sourceDocument": "resolución tipo trst.pdf",
+      "sourcePage": 17,
+      "verified": false,
+      "status": "pending_review",
+      "validFrom": null,
+      "validUntil": null
+    }
+  ]
+}

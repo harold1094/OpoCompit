@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -55,7 +55,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
+    minHeight: 50,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -63,11 +63,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  brand: { backgroundColor: colors.brand },
-  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  brand: { backgroundColor: colors.brand, ...shadows.floating },
+  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, ...shadows.card },
   quiet: { backgroundColor: colors.softBrand },
   pressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
   disabled: { opacity: 0.45 },
-  label: { color: colors.surface, fontSize: 16, fontWeight: '800' },
+  label: { color: colors.surface, fontSize: 15, fontWeight: '900', letterSpacing: 0.2 },
   darkLabel: { color: colors.ink },
 });

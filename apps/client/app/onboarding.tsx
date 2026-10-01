@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { availableTerritories } from '@/features/onboarding/data/options';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -90,20 +90,20 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 },
   logo: {
     width: 44,
     height: 44,
-    borderRadius: radius.md,
+    borderRadius: 22,
     backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   brand: { color: colors.ink, fontSize: 22, fontWeight: '900' },
-  hero: { marginTop: spacing.xxl, marginBottom: spacing.xl },
-  eyebrow: { color: colors.aqua, fontWeight: '900', fontSize: 12 },
-  title: { color: colors.ink, fontSize: 32, lineHeight: 38, fontWeight: '900', marginTop: spacing.sm },
-  subtitle: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: spacing.md, maxWidth: 560 },
+  hero: { marginTop: spacing.xl, marginBottom: spacing.xl, padding: 22, borderRadius: radius.xl, backgroundColor: colors.softBrand, ...shadows.card },
+  eyebrow: { color: colors.brand, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  title: { color: colors.ink, fontSize: 32, lineHeight: 37, fontWeight: '900', marginTop: spacing.sm },
+  subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: spacing.md, maxWidth: 560 },
   sectionHeader: { marginBottom: spacing.md },
   sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: '800' },
   sectionHint: { color: colors.muted, fontSize: 13, marginTop: 3 },
@@ -116,8 +116,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
+    ...shadows.card,
   },
   optionSelected: { borderColor: colors.brand, backgroundColor: colors.softBrand },
   optionPressed: { opacity: 0.82 },

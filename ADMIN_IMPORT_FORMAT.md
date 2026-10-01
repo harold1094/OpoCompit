@@ -87,6 +87,19 @@ npm run seed:emulator
 npm run import:emulator -- --file fixtures/admin-import.sample.json
 ```
 
+The versioned Cartagena firefighter exam can be imported into the review queue with:
+
+```bash
+cd functions
+npm run import:emulator -- --file fixtures/cartagena-firefighters-exam-2026.json
+```
+
+This batch contains the 70 ordinary questions and 5 reserve questions from the official
+25 April 2026 exam. Topic scope is classified independently from the exam origin: state law is
+`national`, operational knowledge is `technical`, Murcia plans and legislation are `autonomic`,
+and Cartagena local knowledge is `municipal`. Every question also keeps the shared
+`officialExamId` so the original exam can be reconstructed.
+
 The local command creates a disposable emulator-only administrator and calls the same
 `importQuestionBatch` endpoint used by a future admin interface. It cannot target a deployed
 Firebase project.

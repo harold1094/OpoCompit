@@ -4,7 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
@@ -91,9 +91,17 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.playZone}>
-        <Text style={styles.playEyebrow}>PARTIDA RÁPIDA</Text>
-        <Text style={styles.playTitle}>Una ronda. Diez preguntas.</Text>
-        <Text style={styles.playCopy}>Contenido adaptado a {profile.territory.label}.</Text>
+        <View style={styles.playTop}>
+          <View style={styles.playText}>
+            <Text style={styles.playEyebrow}>PARTIDA RÁPIDA</Text>
+            <Text style={styles.playTitle}>Una ronda.{`\n`}Diez preguntas.</Text>
+            <Text style={styles.playCopy}>Practica con contenido adaptado a {profile.territory.label}.</Text>
+          </View>
+          <View style={styles.playIllustration}>
+            <View style={styles.playIllustrationBack} />
+            <MaterialCommunityIcons name="school-outline" size={58} color={colors.ink} />
+          </View>
+        </View>
         <PrimaryButton
           label="JUGAR"
           icon="play"
@@ -210,41 +218,45 @@ function ModeButton({
 }
 
 const styles = StyleSheet.create({
-  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingTop: 2 },
   identity: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
-  avatar: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center' },
-  greeting: { color: colors.ink, fontWeight: '900', fontSize: 17 },
+  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', ...shadows.card },
+  greeting: { color: colors.ink, fontWeight: '900', fontSize: 18 },
   territory: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  wallet: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md },
+  wallet: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingVertical: 9, paddingHorizontal: 11, borderRadius: radius.md, ...shadows.card },
   walletValue: { color: colors.ink, fontWeight: '800', fontSize: 13 },
   walletDivider: { width: 1, height: 17, backgroundColor: colors.line, marginHorizontal: 3 },
   levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg },
   level: { color: colors.ink, fontWeight: '800', fontSize: 13 },
   xp: { color: colors.muted, fontWeight: '700', fontSize: 12 },
-  progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.line, marginTop: 7, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.aqua, borderRadius: 4 },
-  playZone: { marginTop: spacing.xl, marginHorizontal: -20, paddingHorizontal: 20, paddingVertical: 26, backgroundColor: colors.ink },
-  playEyebrow: { color: colors.gold, fontSize: 12, fontWeight: '900' },
-  playTitle: { color: colors.surface, fontSize: 27, lineHeight: 32, fontWeight: '900', marginTop: 7 },
-  playCopy: { color: '#CBD1D6', fontSize: 14, marginTop: 5, marginBottom: spacing.lg },
+  progressTrack: { height: 8, borderRadius: radius.pill, backgroundColor: colors.line, marginTop: 7, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.aqua, borderRadius: radius.pill },
+  playZone: { marginTop: spacing.lg, padding: 18, backgroundColor: colors.softBrand, borderRadius: radius.lg, overflow: 'hidden', ...shadows.card },
+  playTop: { minHeight: 150, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  playText: { flex: 1, zIndex: 1 },
+  playEyebrow: { color: colors.brand, fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
+  playTitle: { color: colors.ink, fontSize: 26, lineHeight: 29, fontWeight: '900', marginTop: 6 },
+  playCopy: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 7, marginBottom: spacing.md },
+  playIllustration: { width: 112, height: 112, alignItems: 'center', justifyContent: 'center' },
+  playIllustrationBack: { position: 'absolute', width: 128, height: 128, borderRadius: 64, backgroundColor: '#FFDCCB' },
   modes: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  mode: { flex: 1, minWidth: 0, height: 76, alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md },
+  mode: { flex: 1, minWidth: 0, height: 78, alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, ...shadows.card },
   modePressed: { backgroundColor: colors.softBrand },
   modeDisabled: { opacity: 0.5 },
   modeLabel: { color: colors.ink, fontSize: 11, fontWeight: '800', textAlign: 'center' },
-  rewardBand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: spacing.xl, backgroundColor: colors.softGold, borderWidth: 1, borderColor: '#F2D98D', borderRadius: radius.md, padding: spacing.md },
+  rewardBand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: spacing.lg, backgroundColor: colors.softGold, borderWidth: 1, borderColor: '#F3D678', borderRadius: radius.lg, padding: 14, ...shadows.card },
   rewardIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   rewardCopy: { flex: 1 },
   rewardTitle: { color: colors.ink, fontSize: 14, fontWeight: '900' },
   rewardSubtitle: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  claimButton: { minWidth: 76, minHeight: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8 },
+  claimButton: { minWidth: 76, minHeight: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8, ...shadows.card },
   claimedButton: { opacity: 0.45 },
   claimLabel: { color: colors.surface, fontSize: 12, fontWeight: '800' },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xl, marginBottom: spacing.sm },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900' },
   sectionCount: { color: colors.muted, fontSize: 13, fontWeight: '800' },
   missionList: { gap: spacing.sm, marginBottom: spacing.xl },
-  mission: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 12 },
+  mission: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 12, ...shadows.card },
   missionStatus: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.softAqua, alignItems: 'center', justifyContent: 'center' },
   missionReady: { backgroundColor: colors.aqua },
   missionCopy: { flex: 1 },

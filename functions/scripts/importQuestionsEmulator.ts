@@ -3,6 +3,7 @@ import {readFile} from "node:fs/promises";
 import {resolve} from "node:path";
 import {deleteApp, initializeApp} from "firebase-admin/app";
 import {getFirestore} from "firebase-admin/firestore";
+import {getImportFilePath} from "../src/importCliArgs.ts";
 
 const projectId = "opocompit-dev";
 const authBaseUrl = "http://127.0.0.1:9099";
@@ -60,8 +61,7 @@ async function createLocalAdmin() {
 }
 
 async function main() {
-  const fileFlagIndex = process.argv.indexOf("--file");
-  const inputPath = fileFlagIndex >= 0 ? process.argv[fileFlagIndex + 1] : undefined;
+  const inputPath = getImportFilePath(process.argv.slice(2));
   if (!inputPath) {
     throw new Error("Usage: npm run import:emulator -- --file <batch.json>");
   }

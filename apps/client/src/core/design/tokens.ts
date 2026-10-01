@@ -1,18 +1,23 @@
+import type { ViewStyle } from 'react-native';
+
 export const colors = {
-  ink: '#17202A',
-  muted: '#65758B',
-  paper: '#FFF9F2',
+  ink: '#10233F',
+  muted: '#6B809C',
+  paper: '#FFFCF8',
   surface: '#FFFFFF',
-  brand: '#F25C2A',
-  brandDark: '#C63E10',
-  aqua: '#0D9488',
-  gold: '#E8A317',
-  danger: '#D94343',
-  success: '#21883A',
-  line: '#E7E1D8',
-  softBrand: '#FFF0E8',
-  softAqua: '#E8F7F5',
-  softGold: '#FFF6DC',
+  brand: '#FF5738',
+  brandDark: '#E84427',
+  aqua: '#00A991',
+  gold: '#F5A900',
+  danger: '#E94D4D',
+  success: '#24AD5F',
+  line: '#E5EBF0',
+  softBrand: '#FFF0E9',
+  softAqua: '#E8F8F5',
+  softGold: '#FFF5D8',
+  softSky: '#EAF8FC',
+  navy: '#182C46',
+  field: '#F8FAFC',
 } as const;
 
 export const spacing = {
@@ -25,12 +30,25 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 4,
-  md: 8,
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 28,
   pill: 999,
 } as const;
 
 export const layout = {
-  maxWidth: 720,
+  maxWidth: 640,
   contentPadding: 20,
 } as const;
+
+export const shadows: Record<'card' | 'floating', ViewStyle> = {
+  card: {
+    boxShadow: '0 7px 16px rgba(16, 35, 63, 0.07)',
+    elevation: 3,
+  },
+  floating: {
+    boxShadow: '0 10px 22px rgba(16, 35, 63, 0.12)',
+    elevation: 7,
+  },
+};

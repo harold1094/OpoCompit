@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { seedQuestions } from '@/features/quiz/data/seedQuestions';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -69,12 +69,12 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1 },
   title: { color: colors.ink, fontSize: 28, fontWeight: '900' },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 3 },
-  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: 30 },
+  empty: { alignItems: 'center', paddingVertical: 54, paddingHorizontal: 30, backgroundColor: colors.surface, borderRadius: radius.xl, ...shadows.card },
   emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: spacing.md },
   emptyCopy: { color: colors.muted, textAlign: 'center', fontSize: 14, lineHeight: 21, marginTop: spacing.sm },
   list: { gap: spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md },
-  countBox: { width: 48, height: 48, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, ...shadows.card },
+  countBox: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC' },
   count: { color: colors.danger, fontSize: 17, fontWeight: '900' },
   countLabel: { color: colors.danger, fontSize: 9, fontWeight: '800' },
   rowCopy: { flex: 1 },

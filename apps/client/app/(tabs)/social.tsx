@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import {
   FriendDuelInvitation,
   MatchmakingState,
@@ -150,7 +150,7 @@ export default function SocialScreen() {
           <MaterialCommunityIcons
             name={showSearch ? 'close' : 'account-plus-outline'}
             size={22}
-            color={colors.surface}
+            color={colors.aqua}
           />
         </Pressable>
       </View>
@@ -666,16 +666,16 @@ const styles = StyleSheet.create({
   headingCopy: { flex: 1 },
   title: { color: colors.ink, fontSize: 30, fontWeight: '900' },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 4 },
-  addButton: { width: 43, height: 43, borderRadius: radius.md, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center' },
+  addButton: { width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.softAqua, alignItems: 'center', justifyContent: 'center', ...shadows.card },
   disabledButton: { opacity: 0.35 },
   iconPressed: { opacity: 0.72 },
-  socialBand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: -20, marginTop: spacing.xl, paddingHorizontal: 22, paddingVertical: 20, backgroundColor: colors.ink },
+  socialBand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: spacing.lg, paddingHorizontal: 18, paddingVertical: 20, backgroundColor: colors.navy, borderRadius: radius.lg, overflow: 'hidden', ...shadows.floating },
   socialBandCopy: { flex: 1 },
   socialBandTitle: { color: colors.surface, fontSize: 15, fontWeight: '900' },
   socialBandText: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   socialBandValue: { color: colors.gold, fontSize: 31, fontWeight: '900' },
-  matchPanel: { marginTop: spacing.xl, padding: 14, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
-  groupsEntry: { minHeight: 66, marginTop: spacing.md, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  matchPanel: { marginTop: spacing.md, padding: 14, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, ...shadows.card },
+  groupsEntry: { minHeight: 68, marginTop: spacing.md, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   groupsEntryIcon: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softAqua },
   matchHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   matchIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
@@ -685,7 +685,7 @@ const styles = StyleSheet.create({
   searchPanel: { marginTop: spacing.xl, gap: spacing.sm },
   panelTitle: { color: colors.ink, fontSize: 16, fontWeight: '900' },
   inputRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  input: { flex: 1, minHeight: 44, paddingHorizontal: 13, color: colors.ink, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, fontSize: 14 },
+  input: { flex: 1, minHeight: 46, paddingHorizontal: 13, color: colors.ink, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, fontSize: 14 },
   errorText: { color: colors.danger, fontSize: 12, lineHeight: 18, marginTop: spacing.sm },
   section: { marginTop: spacing.xl },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
@@ -701,11 +701,11 @@ const styles = StyleSheet.create({
   activityUsername: { fontWeight: '900' },
   activityStreak: { minWidth: 38, height: 28, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 14, backgroundColor: colors.softGold },
   activityStreakText: { color: '#8A5A00', fontSize: 11, fontWeight: '900' },
-  emptyActivity: { minHeight: 58, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  emptyActivity: { minHeight: 58, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
   emptyActivityText: { color: colors.muted, fontSize: 12 },
   list: { gap: spacing.sm },
-  row: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
+  row: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 10, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, ...shadows.card },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.softSky, alignItems: 'center', justifyContent: 'center' },
   online: { position: 'absolute', right: 0, bottom: 1, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success, borderWidth: 2, borderColor: colors.surface },
   rowCopy: { flex: 1 },
   rowName: { color: colors.ink, fontSize: 14, fontWeight: '900' },
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
   friendMetaRow: { marginTop: 2, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7 },
   sharedStreak: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   sharedStreakText: { color: colors.brandDark, fontSize: 10, fontWeight: '900' },
-  iconAction: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  iconAction: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', ...shadows.card },
   requestActions: { flexDirection: 'row', gap: 6 },
   pendingLabel: { color: colors.muted, fontSize: 11, fontWeight: '800' },
 });

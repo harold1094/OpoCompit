@@ -72,7 +72,7 @@ panel. Its local administrator bootstrap is rejected automatically outside the F
 1. Open the app.
 2. Configure the guest profile with `Bomberos` and a territory such as `Bomberos Cartagena`.
 3. Tap `JUGAR`.
-4. Answer or leave blank 10 questions.
+4. Answer 10 questions; each selection advances automatically.
 5. Finish the match.
 6. Check result, XP, coins, streak, and updated Home/Profile progress.
 7. Open `Duelo`, choose a training rival, finish the shared ten-question challenge, and compare score and time.

@@ -3,7 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { RankingEntry, RankingScope } from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -166,25 +166,25 @@ const styles = StyleSheet.create({
   headingCopy: { flex: 1 },
   title: { color: colors.ink, fontSize: 30, fontWeight: '900' },
   subtitle: { color: colors.muted, fontSize: 14, marginTop: 4 },
-  refreshButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softAqua },
+  refreshButton: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softAqua, ...shadows.card },
   pressed: { opacity: 0.72 },
   filters: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, marginBottom: spacing.lg },
-  filter: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  filter: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, ...shadows.card },
   filterActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   filterText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   filterActiveText: { color: colors.surface },
   list: { gap: spacing.sm },
-  row: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 10 },
+  row: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: 10, ...shadows.card },
   userRow: { borderColor: colors.brand, backgroundColor: colors.softBrand },
   positionWrap: { width: 27, alignItems: 'center', justifyContent: 'center' },
   position: { color: colors.muted, fontSize: 15, fontWeight: '900' },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softSky },
   userAvatar: { backgroundColor: colors.brand },
   copy: { flex: 1, minWidth: 0 },
   name: { color: colors.ink, fontSize: 14, fontWeight: '900' },
   territory: { color: colors.muted, fontSize: 11, marginTop: 2 },
   xp: { color: colors.ink, fontSize: 12, fontWeight: '900' },
-  messageBand: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.md, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  messageBand: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.md, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   errorText: { flex: 1, color: colors.danger, fontSize: 12, lineHeight: 17 },
   retryButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   loadingState: { minHeight: 260, alignItems: 'center', justifyContent: 'center' },

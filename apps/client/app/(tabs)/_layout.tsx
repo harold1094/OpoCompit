@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { colors } from '@/core/design/tokens';
+import { colors, shadows } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
 
 export default function TabLayout() {
@@ -27,12 +27,15 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.line,
-          height: 66,
-          paddingTop: 7,
-          paddingBottom: 8,
+          borderTopWidth: 0,
+          height: 74,
+          paddingTop: 9,
+          paddingBottom: 9,
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          ...shadows.floating,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '800' },
       }}
     >
       <Tabs.Screen
@@ -48,6 +51,7 @@ export default function TabLayout() {
         name="social"
         options={{
           title: 'Social',
+          tabBarActiveTintColor: colors.aqua,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-group-outline" color={color} size={size} />
           ),
@@ -66,6 +70,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Perfil',
+          tabBarActiveTintColor: colors.aqua,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-circle-outline" color={color} size={size} />
           ),

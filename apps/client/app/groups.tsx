@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { StudyGroup, StudyGroupMember } from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -354,9 +354,9 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1, minWidth: 0 },
   title: { color: colors.ink, fontSize: 27, fontWeight: '900' },
   subtitle: { marginTop: 3, color: colors.muted, fontSize: 12 },
-  iconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  iconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
   actionRow: { marginTop: spacing.xl, flexDirection: 'row', gap: spacing.sm },
-  modeButton: { flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  modeButton: { flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
   modeButtonActive: { borderColor: colors.ink, backgroundColor: colors.ink },
   modeLabel: { color: colors.ink, fontSize: 13, fontWeight: '900' },
   modeLabelActive: { color: colors.surface },
@@ -369,22 +369,22 @@ const styles = StyleSheet.create({
   error: { marginTop: spacing.md, color: colors.danger, fontSize: 12, lineHeight: 18 },
   sectionHeading: { marginTop: spacing.xl, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900' },
-  empty: { minHeight: 190, alignItems: 'center', justifyContent: 'center', gap: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line },
+  empty: { minHeight: 190, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, ...shadows.card },
   emptyTitle: { color: colors.ink, fontSize: 15, fontWeight: '900' },
   emptyText: { color: colors.muted, fontSize: 12 },
   groupList: { gap: spacing.sm },
-  groupRow: { minHeight: 72, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  groupRow: { minHeight: 72, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 11, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   groupIcon: { width: 45, height: 45, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softAqua },
   groupCopy: { flex: 1, minWidth: 0 },
   groupName: { color: colors.ink, fontSize: 14, lineHeight: 19, fontWeight: '900' },
   groupMeta: { marginTop: 3, color: colors.muted, fontSize: 11 },
-  codeBand: { marginHorizontal: -20, marginTop: spacing.xl, paddingHorizontal: 22, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, backgroundColor: colors.ink },
+  codeBand: { marginTop: spacing.xl, paddingHorizontal: 22, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, backgroundColor: colors.navy, borderRadius: radius.lg, ...shadows.floating },
   codeLabel: { color: '#CBD1D6', fontSize: 9, fontWeight: '900' },
   codeValue: { marginTop: 3, color: colors.gold, fontSize: 24, fontWeight: '900' },
   roleBadge: { minHeight: 28, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.softAqua },
   roleBadgeText: { color: colors.aqua, fontSize: 10, fontWeight: '900' },
-  rankingList: { borderTopWidth: 1, borderTopColor: colors.line },
-  memberRow: { minHeight: 66, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 9, borderBottomWidth: 1, borderBottomColor: colors.line },
+  rankingList: { gap: spacing.sm },
+  memberRow: { minHeight: 66, paddingVertical: 9, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
   viewerRow: { backgroundColor: '#FFF8F4' },
   position: { width: 24, textAlign: 'center', color: colors.brand, fontSize: 15, fontWeight: '900' },
   avatar: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.surface },

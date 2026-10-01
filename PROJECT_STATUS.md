@@ -24,7 +24,7 @@
 - Game-first home.
 - Quick quiz.
 - Territorial question filtering.
-- Explicit blank answers.
+- Required answers with automatic progression and submission on the final question.
 - Results with score, XP, coins, streak, and review.
 - Per-question user stats.
 - Error review mode.

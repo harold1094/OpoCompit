@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { isUsingFirebaseEmulators } from '@/core/firebase/firebaseClient';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -17,6 +17,8 @@ export default function ProfileScreen() {
   return (
     <AppScreen>
       <View style={styles.header}>
+        <View style={styles.profileGlowLeft} />
+        <View style={styles.profileGlowRight} />
         <View style={styles.avatar}>
           <MaterialCommunityIcons name="account-hard-hat-outline" size={47} color={colors.surface} />
         </View>
@@ -92,14 +94,16 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', paddingTop: spacing.md, paddingBottom: spacing.xl },
-  avatar: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center' },
+  header: { minHeight: 210, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.md, paddingBottom: spacing.lg, overflow: 'hidden' },
+  profileGlowLeft: { position: 'absolute', width: 150, height: 150, borderRadius: 75, left: -65, bottom: -55, backgroundColor: colors.softAqua, pointerEvents: 'none' },
+  profileGlowRight: { position: 'absolute', width: 130, height: 130, borderRadius: 65, right: -50, top: -45, backgroundColor: colors.softBrand, pointerEvents: 'none' },
+  avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: colors.surface, ...shadows.floating },
   name: { color: colors.ink, fontSize: 25, fontWeight: '900', marginTop: 12 },
   scope: { color: colors.muted, fontSize: 13, marginTop: 3 },
-  sessionBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 },
+  sessionBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5, ...shadows.card },
   sessionDot: { width: 7, height: 7, borderRadius: 4 },
   sessionText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
-  levelBand: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, backgroundColor: colors.ink, marginHorizontal: -20, paddingHorizontal: 26, paddingVertical: 20 },
+  levelBand: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, backgroundColor: colors.navy, paddingHorizontal: 22, paddingVertical: 18, borderRadius: radius.lg, ...shadows.floating },
   levelLabel: { color: colors.gold, fontSize: 10, fontWeight: '900' },
   levelValue: { color: colors.surface, fontSize: 40, fontWeight: '900' },
   levelDivider: { width: 1, height: 50, backgroundColor: '#42505A' },
@@ -108,13 +112,13 @@ const styles = StyleSheet.create({
   levelSubtitle: { color: '#CBD1D6', fontSize: 12, marginTop: 3 },
   sectionTitle: { color: colors.ink, fontSize: 18, fontWeight: '900', marginTop: spacing.xl, marginBottom: spacing.sm },
   grid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
+  adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   adminLinkPressed: { opacity: 0.78 },
   adminIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softBrand },
   adminCopy: { flex: 1 },
   adminTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },
   adminText: { color: colors.muted, fontSize: 11, marginTop: 3 },
-  accountNote: { flexDirection: 'row', gap: 12, padding: spacing.md, marginTop: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.md, backgroundColor: colors.softAqua },
+  accountNote: { flexDirection: 'row', gap: 12, padding: spacing.md, marginTop: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.softAqua },
   accountCopy: { flex: 1 },
   accountTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },
   accountText: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 3 },

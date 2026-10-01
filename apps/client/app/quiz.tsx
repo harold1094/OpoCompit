@@ -1,14 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '@/core/design/tokens';
+import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
-import { BLANK_ANSWER_ID } from '@/features/quiz/domain/scoring';
 import { AppScreen } from '@/shared/components/AppScreen';
-import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 const answerLetters = ['A', 'B', 'C', 'D'];
 
@@ -21,6 +19,13 @@ export default function QuizScreen() {
   const activeGameMode = useAppStore((state) => state.activeGameMode);
   const duelOpponent = useAppStore((state) => state.activeDuelOpponent);
   const [index, setIndex] = useState(0);
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const transitionLock = useRef(false);
+
+  useEffect(() => {
+    transitionLock.current = false;
+    setIsAdvancing(false);
+  }, [index]);
 
   const question = questions[index];
   if (!question) {
@@ -29,22 +34,30 @@ export default function QuizScreen() {
   }
 
   const selectedAnswer = answers[question.id];
-  const answered = selectedAnswer !== null && selectedAnswer !== undefined;
   const isLast = index === questions.length - 1;
+  const answersDisabled = isAdvancing || isSubmittingQuiz;
 
-  const next = async () => {
-    void Haptics.selectionAsync();
+  const selectAnswer = async (answerId: string) => {
+    if (transitionLock.current || isSubmittingQuiz) return;
+
+    transitionLock.current = true;
+    setIsAdvancing(true);
+    answerQuestion(question.id, answerId);
+    void Haptics.selectionAsync?.();
+
     if (!isLast) {
       setIndex((value) => value + 1);
       return;
     }
     if (await finishQuiz()) {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void Haptics.notificationAsync?.(Haptics.NotificationFeedbackType.Success);
       router.replace('/results');
       return;
     }
     const message = useAppStore.getState().quizError;
     if (message) Alert.alert('No se pudo validar la partida', message);
+    transitionLock.current = false;
+    setIsAdvancing(false);
   };
 
   return (
@@ -90,15 +103,14 @@ export default function QuizScreen() {
             return (
               <Pressable
                 accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
+                accessibilityState={{ checked: selected, disabled: answersDisabled }}
+                disabled={answersDisabled}
                 key={answer.id}
-                onPress={() => {
-                  answerQuestion(question.id, answer.id);
-                  void Haptics.selectionAsync();
-                }}
+                onPress={() => void selectAnswer(answer.id)}
                 style={({ pressed }) => [
                   styles.answer,
                   selected && styles.answerSelected,
+                  answersDisabled && styles.answerDisabled,
                   pressed && styles.answerPressed,
                 ]}
               >
@@ -112,25 +124,7 @@ export default function QuizScreen() {
             );
           })}
         </View>
-
-        <Pressable
-          onPress={() => answerQuestion(question.id, null)}
-          style={[styles.blank, selectedAnswer === BLANK_ANSWER_ID && styles.blankSelected]}
-        >
-          <MaterialCommunityIcons name="minus-circle-outline" size={19} color={colors.muted} />
-          <Text style={styles.blankText}>Dejar en blanco</Text>
-        </Pressable>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <PrimaryButton
-          disabled={!answered}
-          label={isLast ? 'Terminar partida' : 'Siguiente'}
-          icon={isLast ? 'flag-checkered' : 'arrow-right'}
-          loading={isLast && isSubmittingQuiz}
-          onPress={() => void next()}
-        />
-      </View>
     </AppScreen>
   );
 }
@@ -150,14 +144,14 @@ function categoryLabel(category: string): string {
 }
 
 const styles = StyleSheet.create({
-  header: { height: 68, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 14, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: colors.surface },
-  iconButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  header: { height: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 14, backgroundColor: 'transparent' },
+  iconButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, ...shadows.card },
   progressWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  progressTrack: { flex: 1, height: 8, backgroundColor: colors.line, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.aqua, borderRadius: 4 },
+  progressTrack: { flex: 1, height: 9, backgroundColor: colors.line, borderRadius: radius.pill, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.aqua, borderRadius: radius.pill },
   counter: { width: 45, color: colors.muted, fontSize: 12, fontWeight: '800', textAlign: 'right' },
-  content: { padding: 20, paddingBottom: 32 },
-  duelBand: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.lg, paddingHorizontal: 14, backgroundColor: colors.softAqua, borderWidth: 1, borderColor: colors.aqua, borderRadius: radius.md },
+  content: { padding: 20, paddingTop: 12, paddingBottom: 32 },
+  duelBand: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.lg, paddingHorizontal: 14, backgroundColor: colors.softAqua, borderWidth: 1, borderColor: '#BFEAE3', borderRadius: radius.lg, ...shadows.card },
   duelCopy: { flex: 1 },
   duelLabel: { color: colors.aqua, fontSize: 10, fontWeight: '900' },
   duelOpponent: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 2 },
@@ -167,16 +161,13 @@ const styles = StyleSheet.create({
   difficulty: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   statement: { color: colors.ink, fontSize: 25, lineHeight: 33, fontWeight: '900', marginTop: spacing.lg, marginBottom: spacing.xl },
   answers: { gap: 10 },
-  answer: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line },
+  answer: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, ...shadows.card },
   answerSelected: { borderColor: colors.brand, backgroundColor: colors.softBrand },
+  answerDisabled: { opacity: 0.72 },
   answerPressed: { opacity: 0.82 },
   answerLetter: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   answerLetterSelected: { backgroundColor: colors.brand, borderColor: colors.brand },
   answerLetterText: { color: colors.ink, fontSize: 13, fontWeight: '900' },
   answerLetterTextSelected: { color: colors.surface },
   answerText: { flex: 1, color: colors.ink, fontSize: 15, lineHeight: 21, fontWeight: '600' },
-  blank: { height: 48, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: spacing.lg, borderRadius: radius.md },
-  blankSelected: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
-  blankText: { color: colors.muted, fontSize: 14, fontWeight: '700' },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface },
 });
