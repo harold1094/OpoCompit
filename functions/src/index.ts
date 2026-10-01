@@ -11,6 +11,13 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {onDocumentWritten} from "firebase-functions/v2/firestore";
 
 import {
+  AdminCatalogItem,
+  AdminCatalogKind,
+  AdminCatalogValidationError,
+  isAdminCatalogKind,
+  parseAdminCatalogItem,
+} from "./adminCatalog.js";
+import {
   AdminImportValidationError,
   ImportedQuestion,
   parseQuestionBatch,
@@ -203,6 +210,12 @@ type BulkReviewQuestionsInput = {
   decision: "publish" | "disable";
 };
 
+type UpsertAdminCatalogItemInput = {
+  kind: AdminCatalogKind;
+  id: string;
+  item: unknown;
+};
+
 export const bootstrapEmulatorAdmin = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   if (env.FUNCTIONS_EMULATOR !== "true") {
@@ -239,12 +252,100 @@ export const getQuestionReviewQueue = onCall(async (request) => {
     db.collection("questions").where("status", "==", "pending_review").limit(limit).get(),
     db.collection("questions").where("status", "==", "draft").limit(limit).get(),
   ]);
-  const questions = [...pendingSnapshot.docs, ...draftSnapshot.docs]
+  const snapshots = [...pendingSnapshot.docs, ...draftSnapshot.docs]
     .sort((first, second) => timestampMillis(second.data().updatedAt) -
       timestampMillis(first.data().updatedAt))
-    .slice(0, limit)
-    .map((snapshot) => adminQuestion(snapshot.id, snapshot.data()));
+    .slice(0, limit);
+  const duplicateMap = await questionDuplicateMap(snapshots);
+  const questions = snapshots.map((snapshot) => adminQuestion(
+    snapshot.id,
+    snapshot.data(),
+    (duplicateMap.get(stringValue(snapshot.data().contentFingerprint)) ?? [])
+      .filter((duplicate) => duplicate.id !== snapshot.id),
+  ));
   return {questions};
+});
+
+export const getAdminCatalog = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  requireAdmin(userSnapshot);
+
+  const kinds: AdminCatalogKind[] = [
+    "oppositions",
+    "territories",
+    "categories",
+    "officialExams",
+  ];
+  const snapshots = await Promise.all(kinds.map((kind) => db.collection(kind).limit(300).get()));
+  const catalog = Object.fromEntries(kinds.map((kind, index) => [
+    kind,
+    snapshots[index].docs
+      .map((snapshot) => parseAdminCatalogItem(kind, snapshot.id, snapshot.data()))
+      .sort(catalogSort),
+  ]));
+  return {catalog};
+});
+
+export const upsertAdminCatalogItem = onCall<UpsertAdminCatalogItemInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  if (!isAdminCatalogKind(request.data?.kind)) {
+    throw new HttpsError("invalid-argument", "Invalid catalog kind.");
+  }
+
+  let item: AdminCatalogItem;
+  try {
+    item = parseAdminCatalogItem(request.data.kind, request.data?.id, request.data?.item);
+  } catch (error) {
+    if (error instanceof AdminCatalogValidationError) {
+      throw new HttpsError("invalid-argument", error.message);
+    }
+    throw error;
+  }
+
+  const kind = request.data.kind;
+  const userRef = db.collection("users").doc(uid);
+  const itemRef = db.collection(kind).doc(item.id);
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, existingSnapshot] = await transaction.getAll(userRef, itemRef);
+    requireAdmin(userSnapshot);
+
+    if (kind === "categories" || kind === "officialExams") {
+      const linkedItem = item as {oppositionId: string};
+      const oppositionSnapshot = await transaction.get(
+        db.collection("oppositions").doc(linkedItem.oppositionId),
+      );
+      if (!oppositionSnapshot.exists) {
+        throw new HttpsError("failed-precondition", "The linked opposition does not exist.");
+      }
+    }
+    if (kind === "categories") {
+      const category = item as Extract<AdminCatalogItem, {parentId: string | null}>;
+      if (category.parentId) {
+        const parentSnapshot = await transaction.get(
+          db.collection("categories").doc(category.parentId),
+        );
+        if (!parentSnapshot.exists ||
+          parentSnapshot.data()?.oppositionId !== category.oppositionId) {
+          throw new HttpsError(
+            "failed-precondition",
+            "The parent category must exist in the same opposition.",
+          );
+        }
+      }
+    }
+
+    const data = {...item} as Record<string, unknown>;
+    delete data.id;
+    const now = Timestamp.now();
+    transaction.set(itemRef, {
+      ...data,
+      updatedAt: now,
+      updatedBy: uid,
+      ...(existingSnapshot.exists ? {} : {createdAt: now, createdBy: uid}),
+    }, {merge: true});
+    return {item};
+  });
 });
 
 export const reviewQuestion = onCall<ReviewQuestionInput>(async (request) => {
@@ -293,6 +394,23 @@ export const reviewQuestion = onCall<ReviewQuestionInput>(async (request) => {
     if (oppositionSnapshot &&
       (!oppositionSnapshot.exists || oppositionSnapshot.data()?.active !== true)) {
       throw new HttpsError("failed-precondition", "Question opposition is missing or inactive.");
+    }
+
+    if (decision === "publish" && reviewedQuestion) {
+      const duplicateSnapshot = await transaction.get(
+        db.collection("questions")
+          .where("contentFingerprint", "==", reviewedQuestion.contentFingerprint)
+          .limit(10),
+      );
+      const duplicate = duplicateSnapshot.docs.find((snapshot) =>
+        snapshot.id !== questionId && snapshot.data().status !== "disabled",
+      );
+      if (duplicate) {
+        throw new HttpsError(
+          "already-exists",
+          `Question duplicates ${duplicate.id}; disable one before publishing.`,
+        );
+      }
     }
 
     const now = Timestamp.now();
@@ -402,6 +520,33 @@ export const bulkReviewQuestions = onCall<BulkReviewQuestionsInput>(async (reque
           );
         }
       });
+
+      const fingerprints = questionSnapshots.map((snapshot) =>
+        requireString(snapshot.data()?.contentFingerprint, "contentFingerprint", 80),
+      );
+      if (new Set(fingerprints).size !== fingerprints.length) {
+        throw new HttpsError(
+          "already-exists",
+          "The selection contains duplicate question statements.",
+        );
+      }
+      const selectedIds = new Set(questionIds);
+      for (const fingerprintChunk of chunks(fingerprints, 30)) {
+        const duplicateSnapshot = await transaction.get(
+          db.collection("questions")
+            .where("contentFingerprint", "in", fingerprintChunk)
+            .limit(100),
+        );
+        const duplicate = duplicateSnapshot.docs.find((snapshot) =>
+          !selectedIds.has(snapshot.id) && snapshot.data().status !== "disabled",
+        );
+        if (duplicate) {
+          throw new HttpsError(
+            "already-exists",
+            `The selection contains a duplicate of ${duplicate.id}.`,
+          );
+        }
+      }
     }
 
     const now = Timestamp.now();
@@ -2999,7 +3144,63 @@ function reviewedQuizQuestion(id: string, question: QuestionDoc) {
   };
 }
 
-function adminQuestion(id: string, question: Record<string, unknown>) {
+type AdminQuestionDuplicate = {
+  id: string;
+  status: string;
+  statement: string;
+};
+
+async function questionDuplicateMap(
+  snapshots: Array<DocumentSnapshot<Record<string, unknown>>>,
+): Promise<Map<string, AdminQuestionDuplicate[]>> {
+  const fingerprints = [...new Set(snapshots
+    .map((snapshot) => stringValue(snapshot.data()?.contentFingerprint))
+    .filter(Boolean))];
+  const result = new Map<string, AdminQuestionDuplicate[]>();
+  for (const fingerprintChunk of chunks(fingerprints, 30)) {
+    const duplicateSnapshot = await db.collection("questions")
+      .where("contentFingerprint", "in", fingerprintChunk)
+      .limit(200)
+      .get();
+    duplicateSnapshot.docs.forEach((snapshot) => {
+      const data = snapshot.data();
+      const fingerprint = stringValue(data.contentFingerprint);
+      const duplicates = result.get(fingerprint) ?? [];
+      duplicates.push({
+        id: snapshot.id,
+        status: stringValue(data.status),
+        statement: stringValue(data.statement),
+      });
+      result.set(fingerprint, duplicates);
+    });
+  }
+  return result;
+}
+
+function catalogSort(first: AdminCatalogItem, second: AdminCatalogItem): number {
+  const firstPriority = "priority" in first ? first.priority : 0;
+  const secondPriority = "priority" in second ? second.priority : 0;
+  if (firstPriority !== secondPriority) return secondPriority - firstPriority;
+  return catalogItemName(first).localeCompare(catalogItemName(second), "es");
+}
+
+function catalogItemName(item: AdminCatalogItem): string {
+  return "name" in item ? item.name : item.label;
+}
+
+function chunks<T>(values: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
+function adminQuestion(
+  id: string,
+  question: Record<string, unknown>,
+  duplicates: AdminQuestionDuplicate[] = [],
+) {
   return {
     id,
     oppositionId: stringValue(question.oppositionId),
@@ -3031,6 +3232,7 @@ function adminQuestion(id: string, question: Record<string, unknown>) {
     createdAt: timestampIso(question.createdAt),
     updatedAt: timestampIso(question.updatedAt),
     lastReviewedAt: timestampIso(question.lastReviewedAt),
+    duplicates,
   };
 }
 

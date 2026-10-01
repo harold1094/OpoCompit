@@ -82,13 +82,14 @@ Daily mission document IDs include the Madrid date, for example `2026-09-28_dail
 
 ```json
 {
+  "label": "Cartagena (Murcia)",
   "country": "ES",
   "autonomousCommunity": "Murcia",
   "province": "Murcia",
   "municipality": "Cartagena",
   "specificBody": "Bomberos Cartagena",
-  "parentIds": ["ES", "ES-MC", "ES-MC-Murcia"],
-  "active": true
+  "active": true,
+  "priority": 10
 }
 ```
 
@@ -131,6 +132,7 @@ Daily mission document IDs include the Madrid date, for example `2026-09-28_dail
   "source": "Manual CEIS Guadalajara",
   "sourceDocument": "ceis_guadalajara.pdf",
   "sourcePage": 12,
+  "contentFingerprint": "sha256 of opposition and normalized statement",
   "verified": true,
   "status": "draft|pending_review|published|disabled",
   "validFrom": null,
@@ -158,12 +160,11 @@ Indexes:
   "date": "2026-04-25",
   "year": 2026,
   "territoryKeys": ["ES", "ES-MC", "ES-MC-Cartagena"],
-  "questionIds": [],
   "rules": {
     "questionCount": 53,
-    "durationSeconds": null,
+    "durationSeconds": 7200,
     "correctPoints": 1,
-    "incorrectPenalty": -0.33,
+    "incorrectPenalty": 0.33,
     "blankPoints": 0
   },
   "source": "Official exam",

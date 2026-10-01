@@ -142,6 +142,14 @@ async function main() {
   }
   assert.equal(nonAdminBulkReviewBlocked, true);
 
+  let nonAdminCatalogBlocked = false;
+  try {
+    await call("getAdminCatalog", {}, auth.idToken);
+  } catch (error) {
+    nonAdminCatalogBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminCatalogBlocked, true);
+
   const importPayload = {
     batchId: "smoke-admin-import",
     sourceDocument: "smoke-manual.pdf",
@@ -174,6 +182,36 @@ async function main() {
 
   const emulatorAdmin = await call<{role: string}>("bootstrapEmulatorAdmin", {}, auth.idToken);
   assert.equal(emulatorAdmin.role, "admin");
+  const initialCatalog = await call<{
+    catalog: {
+      oppositions: Array<{id: string}>;
+      territories: Array<{id: string}>;
+      categories: Array<{id: string}>;
+      officialExams: Array<{id: string}>;
+    };
+  }>("getAdminCatalog", {}, auth.idToken);
+  assert.equal(initialCatalog.catalog.oppositions.some((item) => item.id === "firefighters_es"), true);
+  assert.equal(initialCatalog.catalog.territories.some((item) => item.id === "es_murcia_cartagena"), true);
+  assert.equal(initialCatalog.catalog.officialExams.some(
+    (item) => item.id === "cartagena_firefighters_2025",
+  ), true);
+  const savedCategory = await call<{item: {id: string; name: string}}>(
+    "upsertAdminCatalogItem",
+    {
+      kind: "categories",
+      id: "smoke_admin_category",
+      item: {
+        id: "smoke_admin_category",
+        oppositionId: "firefighters_es",
+        name: "Categoría de prueba administrativa",
+        parentId: null,
+        active: true,
+        priority: 1,
+      },
+    },
+    auth.idToken,
+  );
+  assert.equal(savedCategory.item.id, "smoke_admin_category");
   const firstImport = await call<{
     importedCount: number;
     questionIds: string[];
@@ -193,6 +231,13 @@ async function main() {
   assert.equal(repeatedImport.idempotent, true);
   assert.deepEqual(repeatedImport.questionIds, firstImport.questionIds);
 
+  const duplicateImportPayload = {
+    ...importPayload,
+    batchId: "smoke-admin-import-duplicate",
+    questions: [{...importPayload.questions[0], id: "admin-import-smoke-duplicate"}],
+  };
+  await call("importQuestionBatch", duplicateImportPayload, auth.idToken);
+
   type ReviewQuestion = typeof importPayload.questions[0] & {
     territoryKeys: string[];
     subcategoryId: string | null;
@@ -206,6 +251,7 @@ async function main() {
     sourcePage: number | null;
     validFrom: string | null;
     validUntil: string | null;
+    duplicates: Array<{id: string; status: string; statement: string}>;
   };
   const initialReviewQueue = await call<{questions: ReviewQuestion[]}>(
     "getQuestionReviewQueue",
@@ -216,6 +262,10 @@ async function main() {
     (question) => question.id === "admin-import-smoke-question",
   );
   assert.ok(importedForReview);
+  assert.equal(
+    importedForReview.duplicates.some((question) => question.id === "admin-import-smoke-duplicate"),
+    true,
+  );
 
   let publishedImportBlocked = false;
   try {
@@ -1098,6 +1148,27 @@ async function main() {
     "Human-reviewed explanation kept pending before publication.",
   );
 
+  let duplicatePublishBlocked = false;
+  try {
+    await call(
+      "reviewQuestion",
+      {
+        questionId: importedForReview.id,
+        decision: "publish",
+        question: savedReview.question,
+      },
+      auth.idToken,
+    );
+  } catch (error) {
+    duplicatePublishBlocked = error instanceof Error && error.message.includes("ALREADY_EXISTS");
+  }
+  assert.equal(duplicatePublishBlocked, true);
+  await call(
+    "reviewQuestion",
+    {questionId: "admin-import-smoke-duplicate", decision: "disable"},
+    auth.idToken,
+  );
+
   const publishedReview = await call<{question: ReviewQuestion & {status: string; verified: boolean}}>(
     "reviewQuestion",
     {
@@ -1193,9 +1264,13 @@ async function main() {
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,
+    adminCatalogValidated: true,
+    duplicateQuestionDetectionValidated: true,
+    duplicatePublishBlocked,
     nonAdminImportBlocked,
     nonAdminReviewBlocked,
     nonAdminBulkReviewBlocked,
+    nonAdminCatalogBlocked,
     publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));

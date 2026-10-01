@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,9 +29,10 @@ import {
   reviewQuestionRemote,
 } from '@/core/firebase/firebaseClient';
 import { CsvImportError, csvToQuestionBatch } from '@/features/admin/csvImport';
+import { AdminCatalogPanel } from '@/features/admin/AdminCatalogPanel';
 
-type AdminView = 'review' | 'import';
-type QueueFilter = 'all' | 'pending_review' | 'draft';
+type AdminView = 'review' | 'import' | 'catalog';
+type QueueFilter = 'all' | 'pending_review' | 'draft' | 'duplicates';
 type ImportFormat = 'json' | 'csv';
 
 const importTemplate = JSON.stringify({
@@ -74,9 +75,10 @@ const csvTemplate = [
 ].join('\n');
 
 export default function AdminScreen() {
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { width } = useWindowDimensions();
   const isWide = width >= 920;
-  const [view, setView] = useState<AdminView>('review');
+  const [view, setView] = useState<AdminView>(() => adminViewFromParam(tab));
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [query, setQuery] = useState('');
   const [questions, setQuestions] = useState<AdminQuestion[]>([]);
@@ -84,6 +86,7 @@ export default function AdminScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [draft, setDraft] = useState<AdminQuestion | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adminReady, setAdminReady] = useState(false);
   const [saving, setSaving] = useState<AdminReviewDecision | null>(null);
   const [bulkSaving, setBulkSaving] = useState<AdminBulkReviewDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +124,7 @@ export default function AdminScreen() {
       }
       try {
         await bootstrapEmulatorAdminRemote();
+        setAdminReady(true);
         await loadQueue();
       } catch (initializeError) {
         setError(readableFirebaseError(initializeError));
@@ -139,7 +143,9 @@ export default function AdminScreen() {
   const visibleQuestions = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('es');
     return questions.filter((question) => {
-      if (filter !== 'all' && question.status !== filter) return false;
+      if (filter === 'duplicates') {
+        if (question.duplicates.length === 0) return false;
+      } else if (filter !== 'all' && question.status !== filter) return false;
       if (!normalizedQuery) return true;
       return [question.statement, question.categoryId, question.source]
         .some((value) => value.toLocaleLowerCase('es').includes(normalizedQuery));
@@ -289,21 +295,23 @@ export default function AdminScreen() {
           <MaterialCommunityIcons name="arrow-left" size={22} color={colors.ink} />
         </Pressable>
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>Administración de preguntas</Text>
+          <Text style={styles.title}>Administración</Text>
           <View style={styles.environmentRow}>
             <View style={styles.environmentDot} />
             <Text style={styles.environmentText}>Emulador local</Text>
           </View>
         </View>
-        <Pressable
-          accessibilityLabel="Actualizar cola"
-          disabled={loading}
-          onPress={() => void loadQueue()}
-          style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
-        >
-          <MaterialCommunityIcons name="refresh" size={19} color={colors.ink} />
-          {isWide ? <Text style={styles.refreshLabel}>Actualizar</Text> : null}
-        </Pressable>
+        {view === 'review' ? (
+          <Pressable
+            accessibilityLabel="Actualizar cola"
+            disabled={loading}
+            onPress={() => void loadQueue()}
+            style={({ pressed }) => [styles.refreshButton, pressed && styles.pressed]}
+          >
+            <MaterialCommunityIcons name="refresh" size={19} color={colors.ink} />
+            {isWide ? <Text style={styles.refreshLabel}>Actualizar</Text> : null}
+          </Pressable>
+        ) : <View style={styles.headerSpacer} />}
       </View>
 
       <View style={styles.viewTabs}>
@@ -318,6 +326,12 @@ export default function AdminScreen() {
           icon="file-import-outline"
           label="Importar"
           onPress={() => setView('import')}
+        />
+        <TabButton
+          active={view === 'catalog'}
+          icon="database-cog-outline"
+          label="Catálogos"
+          onPress={() => setView('catalog')}
         />
       </View>
 
@@ -359,6 +373,11 @@ export default function AdminScreen() {
                   active={filter === 'draft'}
                   label="Borradores"
                   onPress={() => setFilter('draft')}
+                />
+                <FilterButton
+                  active={filter === 'duplicates'}
+                  label="Duplicadas"
+                  onPress={() => setFilter('duplicates')}
                 />
               </View>
 
@@ -455,7 +474,7 @@ export default function AdminScreen() {
             </View>
           </View>
         </ScrollView>
-      ) : (
+      ) : view === 'import' ? (
         <ScrollView contentContainerStyle={styles.importScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.importHeader}>
             <View>
@@ -541,6 +560,11 @@ export default function AdminScreen() {
             />
           </View>
         </ScrollView>
+      ) : adminReady ? <AdminCatalogPanel /> : (
+        <View style={styles.centerState}>
+          <ActivityIndicator color={colors.brand} />
+          <Text style={styles.stateText}>Preparando sesión administrativa…</Text>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -579,6 +603,20 @@ function QuestionEditor({
         </View>
         <StatusBadge status={question.status} />
       </View>
+
+      {question.duplicates.length > 0 ? (
+        <View style={styles.duplicateWarning}>
+          <MaterialCommunityIcons name="content-duplicate" size={21} color={colors.gold} />
+          <View style={styles.duplicateCopy}>
+            <Text style={styles.duplicateTitle}>
+              {question.duplicates.length === 1 ? 'Coincidencia exacta detectada' : `${question.duplicates.length} coincidencias exactas`}
+            </Text>
+            <Text style={styles.duplicateDetail} numberOfLines={2}>
+              {question.duplicates.map((duplicate) => `${duplicate.id} (${duplicate.status})`).join(', ')}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <FieldLabel label="Enunciado" />
       <TextInput
@@ -791,7 +829,12 @@ function QuestionRow({ active, selected, question, onPress, onToggleSelection }:
       </View>
       <Text numberOfLines={3} style={styles.questionStatement}>{question.statement}</Text>
       <View style={styles.questionRowMeta}>
-        <Text numberOfLines={1} style={styles.questionCategory}>{question.categoryId}</Text>
+        <View style={styles.questionCategoryRow}>
+          {question.duplicates.length > 0 ? (
+            <MaterialCommunityIcons name="content-duplicate" size={15} color={colors.gold} />
+          ) : null}
+          <Text numberOfLines={1} style={styles.questionCategory}>{question.categoryId}</Text>
+        </View>
         <MaterialCommunityIcons name="chevron-right" size={18} color={colors.muted} />
       </View>
     </Pressable>
@@ -869,7 +912,15 @@ function scopeLabel(question: AdminQuestion): string {
 }
 
 function cloneQuestion(question: AdminQuestion): AdminQuestion {
-  return { ...question, answers: question.answers.map((answer) => ({ ...answer })) };
+  return {
+    ...question,
+    answers: question.answers.map((answer) => ({ ...answer })),
+    duplicates: question.duplicates.map((duplicate) => ({ ...duplicate })),
+  };
+}
+
+function adminViewFromParam(tab: string | undefined): AdminView {
+  return tab === 'catalog' || tab === 'import' ? tab : 'review';
 }
 
 const styles = StyleSheet.create({
@@ -883,6 +934,7 @@ const styles = StyleSheet.create({
   environmentText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   refreshButton: { minHeight: 40, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
   refreshLabel: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  headerSpacer: { width: 40, height: 40 },
   viewTabs: { minHeight: 52, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'flex-end', gap: spacing.lg, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
   tabButton: { height: 51, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 2, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabButtonActive: { borderBottomColor: colors.brand },
@@ -925,12 +977,17 @@ const styles = StyleSheet.create({
   questionDifficulty: { color: colors.muted, fontSize: 10, fontWeight: '900' },
   questionStatement: { minHeight: 54, marginTop: 9, color: colors.ink, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   questionRowMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  questionCategoryRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 5 },
   questionCategory: { flex: 1, color: colors.aqua, fontSize: 11, fontWeight: '800' },
   editorPane: { flex: 1, minWidth: 0, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, ...shadows.card },
   editorEmpty: { minHeight: 420, alignItems: 'center', justifyContent: 'center', gap: spacing.sm, padding: spacing.lg },
   editorContent: { padding: spacing.lg },
   editorHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.line },
   editorHeaderCopy: { flex: 1, minWidth: 0 },
+  duplicateWarning: { marginTop: spacing.md, padding: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 9, borderWidth: 1, borderColor: '#F0D89A', borderRadius: radius.sm, backgroundColor: colors.softGold },
+  duplicateCopy: { flex: 1, minWidth: 0 },
+  duplicateTitle: { color: '#765000', fontSize: 12, fontWeight: '900' },
+  duplicateDetail: { color: '#765000', fontSize: 11, lineHeight: 16, marginTop: 2 },
   sectionEyebrow: { color: colors.brand, fontSize: 10, fontWeight: '900' },
   questionId: { color: colors.muted, fontSize: 12, marginTop: 5 },
   statusBadge: { minHeight: 26, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },

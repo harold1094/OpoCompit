@@ -115,6 +115,69 @@ export type AdminQuestion = {
   createdAt: string | null;
   updatedAt: string | null;
   lastReviewedAt: string | null;
+  duplicates: Array<{
+    id: string;
+    status: string;
+    statement: string;
+  }>;
+};
+
+export type AdminCatalogKind = 'oppositions' | 'territories' | 'categories' | 'officialExams';
+
+export type AdminOpposition = {
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  priority: number;
+};
+
+export type AdminTerritory = {
+  id: string;
+  label: string;
+  country: string;
+  autonomousCommunity: string | null;
+  province: string | null;
+  municipality: string | null;
+  specificBody: string | null;
+  active: boolean;
+  priority: number;
+};
+
+export type AdminCategory = {
+  id: string;
+  oppositionId: string;
+  name: string;
+  parentId: string | null;
+  active: boolean;
+  priority: number;
+};
+
+export type AdminOfficialExam = {
+  id: string;
+  oppositionId: string;
+  name: string;
+  date: string;
+  year: number;
+  territoryKeys: string[];
+  source: string;
+  status: 'draft' | 'published' | 'disabled';
+  rules: {
+    questionCount: number;
+    durationSeconds: number;
+    correctPoints: number;
+    incorrectPenalty: number;
+    blankPoints: number;
+  };
+};
+
+export type AdminCatalogItem = AdminOpposition | AdminTerritory | AdminCategory | AdminOfficialExam;
+
+export type AdminCatalog = {
+  oppositions: AdminOpposition[];
+  territories: AdminTerritory[];
+  categories: AdminCategory[];
+  officialExams: AdminOfficialExam[];
 };
 
 export type AdminReviewDecision = 'save' | 'publish' | 'disable';
@@ -512,6 +575,24 @@ export async function getQuestionReviewQueueRemote(limit = 50): Promise<AdminQue
   );
   const response = await invoke({ limit });
   return response.data.questions;
+}
+
+export async function getAdminCatalogRemote(): Promise<AdminCatalog> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, { catalog: AdminCatalog }>('getAdminCatalog');
+  return (await invoke({})).data.catalog;
+}
+
+export async function upsertAdminCatalogItemRemote<T extends AdminCatalogItem>(
+  kind: AdminCatalogKind,
+  item: T,
+): Promise<T> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { kind: AdminCatalogKind; id: string; item: T },
+    { item: T }
+  >('upsertAdminCatalogItem');
+  return (await invoke({ kind, id: item.id, item })).data.item;
 }
 
 export async function reviewQuestionRemote(

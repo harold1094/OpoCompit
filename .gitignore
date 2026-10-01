@@ -31,3 +31,4 @@ artifacts/
 .chrome-capture*/
 .chrome-cdp/
 .chrome-social*/
+.chrome-admin*/

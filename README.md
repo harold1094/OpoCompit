@@ -70,8 +70,9 @@ cd apps/client
 npm run web:emulator
 ```
 
-Open `http://localhost:8082/admin` for the responsive CSV/JSON import and individual or bulk review
-panel. Its local administrator bootstrap is rejected automatically outside the Functions emulator.
+Open `http://localhost:8082/admin` for the responsive CSV/JSON import, individual or bulk review,
+duplicate detection, and management of oppositions, territories, categories, and official exams.
+Its local administrator bootstrap is rejected automatically outside the Functions emulator.
 
 ## Vertical Slice Ready To Test
 

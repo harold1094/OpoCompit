@@ -81,7 +81,7 @@ function parseQuestion(
   const data = requireObject(value, prefix);
   const oppositionId = requireIdentifier(data.oppositionId, `${prefix}.oppositionId`, 80);
   const statement = requireString(data.statement, `${prefix}.statement`, 1_000);
-  const contentFingerprint = fingerprint(`${oppositionId}\n${normalizeText(statement)}`);
+  const contentFingerprint = questionContentFingerprint(oppositionId, statement);
   const id = optionalIdentifier(data.id, `${prefix}.id`, 160) ??
     `q_import_${contentFingerprint.slice(0, 24)}`;
   const answers = parseAnswers(data.answers, prefix);
@@ -294,6 +294,10 @@ function normalizeText(value: string): string {
 
 function fingerprint(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function questionContentFingerprint(oppositionId: string, statement: string): string {
+  return fingerprint(`${oppositionId}\n${normalizeText(statement)}`);
 }
 
 function fail(message: string): never {
