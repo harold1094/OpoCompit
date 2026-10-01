@@ -44,6 +44,10 @@ import {
   ratingsAreCompatible,
   updatedRatings,
 } from "./matchmaking.js";
+import {
+  parseSubscriptionPlan,
+  subscriptionEntitlement,
+} from "./monetization.js";
 import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 import {sharedStreak, StreakProfile} from "./socialActivity.js";
@@ -589,6 +593,43 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
 export const getAvatarShop = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   return {inventory: await avatarInventoryForUid(uid)};
+});
+
+export const getMonetizationOverview = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const [userSnapshot, subscriptionSnapshot, plansSnapshot, configSnapshot] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db.collection("subscriptions").doc(uid).get(),
+    db.collection("subscriptionPlans").where("active", "==", true).limit(10).get(),
+    db.collection("appConfig").doc("monetization").get(),
+  ]);
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+
+  const plans = plansSnapshot.docs
+    .map((document) => parseSubscriptionPlan(document.id, document.data()))
+    .filter((plan) => plan !== null)
+    .sort((first, second) => second.priority - first.priority || first.id.localeCompare(second.id));
+  const subscription = subscriptionSnapshot.data() ?? null;
+  const expiresAt = subscription?.expiresAt;
+  const entitlement = subscriptionEntitlement(subscription ? {
+    ...subscription,
+    expiresAtMs: expiresAt instanceof Timestamp ? expiresAt.toMillis() : null,
+  } : null, Date.now());
+  const config = configSnapshot.data() ?? {};
+  const providerReady = config.adProviderReady === true;
+
+  return {
+    plans,
+    entitlement,
+    gemBalance: numberValue(userSnapshot.data()?.gems),
+    ads: {
+      enabled: providerReady && config.adsEnabled === true,
+      rewardedEnabled: providerReady && config.rewardedAdsEnabled === true,
+      resultInterval: Math.max(1, Math.min(20, numberValue(config.resultInterval) || 3)),
+    },
+  };
 });
 
 export const purchaseAvatarItem = onCall<AvatarItemInput>(async (request) => {

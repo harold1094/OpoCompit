@@ -87,6 +87,24 @@ export default function ProfileScreen() {
         <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
       </Pressable>
 
+      <Pressable
+        onPress={() => router.push('/premium')}
+        style={({ pressed }) => [styles.premiumLink, pressed && styles.adminLinkPressed]}
+      >
+        <View style={styles.premiumIcon}>
+          <MaterialCommunityIcons name="crown-outline" size={22} color={colors.gold} />
+        </View>
+        <View style={styles.adminCopy}>
+          <Text style={styles.adminTitle}>OpoCompit Premium</Text>
+          <Text style={styles.adminText}>Plan gratuito y ventajas Premium</Text>
+        </View>
+        <View style={styles.shopWallet}>
+          <MaterialCommunityIcons name="diamond-stone" size={15} color={colors.aqua} />
+          <Text style={styles.shopBalance}>{profile.gems}</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+      </Pressable>
+
       {backendMode === 'firebase' && isUsingFirebaseEmulators() ? (
         <Pressable
           onPress={() => router.push('/admin')}
@@ -139,6 +157,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   shopLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   shopIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
+  premiumLink: { minHeight: 68, marginTop: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
+  premiumIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softGold },
   shopWallet: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   shopBalance: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },

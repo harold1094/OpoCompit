@@ -108,6 +108,44 @@ export type AvatarInventory = {
   gems: number;
 };
 
+export type PremiumFeature =
+  | 'ad_free'
+  | 'monthly_gems'
+  | 'exclusive_cosmetics'
+  | 'advanced_stats';
+
+export type SubscriptionPlan = {
+  id: string;
+  name: string;
+  priceLabel: string;
+  billingPeriod: 'monthly' | 'yearly';
+  features: PremiumFeature[];
+  gemReward: number;
+  adFree: boolean;
+  exclusiveCosmetics: boolean;
+  priority: number;
+  storeProductId: string | null;
+  purchasable: boolean;
+};
+
+export type SubscriptionEntitlement = {
+  tier: 'free' | 'premium';
+  status: 'free' | 'trialing' | 'active' | 'expired';
+  planId: string | null;
+  renewsAt: string | null;
+};
+
+export type MonetizationOverview = {
+  plans: SubscriptionPlan[];
+  entitlement: SubscriptionEntitlement;
+  gemBalance: number;
+  ads: {
+    enabled: boolean;
+    rewardedEnabled: boolean;
+    resultInterval: number;
+  };
+};
+
 export type QuizAnswerSubmission = {
   questionId: string;
   selectedAnswerId: string | null;

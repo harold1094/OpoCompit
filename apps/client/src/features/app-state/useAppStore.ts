@@ -11,6 +11,7 @@ import {
   FriendRequest,
   MatchmakingState,
   Mission,
+  MonetizationOverview,
   PlayerProfile,
   PendingFriendDuel,
   Question,
@@ -36,6 +37,7 @@ import {
   getAvatarShopRemote,
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
+  getMonetizationOverviewRemote,
   getRankingRemote,
   getSocialOverviewRemote,
   getStudyGroupRemote,
@@ -70,6 +72,7 @@ import {
   localDailyEngagement,
   progressLocalMissions,
 } from '@/features/gamification/domain/engagement';
+import { localMonetizationOverview } from '@/features/premium/domain/monetization';
 import {
   FIREFIGHTER_OPPOSITION_ID,
   FIREFIGHTER_OPPOSITION_NAME,
@@ -101,6 +104,7 @@ type AppStore = {
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
+  monetization: MonetizationOverview;
   friends: SocialUser[];
   socialActivity: SocialActivity[];
   studyGroups: StudyGroup[];
@@ -125,6 +129,8 @@ type AppStore = {
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
+  isLoadingMonetization: boolean;
+  monetizationError: string | null;
   isLoadingSocial: boolean;
   isLoadingGroups: boolean;
   isMatchmakingLoading: boolean;
@@ -149,6 +155,7 @@ type AppStore = {
   refreshAvatarShop: () => Promise<void>;
   purchaseAvatarItem: (itemId: string) => Promise<boolean>;
   equipAvatarItem: (itemId: string) => Promise<boolean>;
+  refreshMonetization: () => Promise<void>;
   refreshSocial: () => Promise<void>;
   refreshStudyGroups: () => Promise<void>;
   createStudyGroup: (name: string) => Promise<StudyGroup | null>;
@@ -194,6 +201,7 @@ export const useAppStore = create<AppStore>()(
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
+      monetization: localMonetizationOverview(0),
       friends: [],
       socialActivity: [],
       studyGroups: [],
@@ -218,6 +226,8 @@ export const useAppStore = create<AppStore>()(
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
+      isLoadingMonetization: false,
+      monetizationError: null,
       isLoadingSocial: false,
       isLoadingGroups: false,
       isMatchmakingLoading: false,
@@ -268,6 +278,7 @@ export const useAppStore = create<AppStore>()(
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
+          monetization: localMonetizationOverview(profile.gems),
           friends: [],
           socialActivity: [],
           studyGroups: [],
@@ -287,6 +298,7 @@ export const useAppStore = create<AppStore>()(
           socialError: null,
           groupsError: null,
           rankingError: null,
+          monetizationError: null,
         });
       },
       startQuickMatch: async () => {
@@ -763,6 +775,21 @@ export const useAppStore = create<AppStore>()(
           return false;
         } finally {
           set({ avatarActionId: null });
+        }
+      },
+      refreshMonetization: async () => {
+        const state = get();
+        if (!state.profile || state.isLoadingMonetization) return;
+        set({ isLoadingMonetization: true, monetizationError: null });
+        try {
+          const monetization = state.backendMode === 'firebase'
+            ? await getMonetizationOverviewRemote()
+            : localMonetizationOverview(state.profile.gems);
+          set({ monetization });
+        } catch (error) {
+          set({ monetizationError: readableFirebaseError(error) });
+        } finally {
+          set({ isLoadingMonetization: false });
         }
       },
       refreshSocial: async () => {
@@ -1349,6 +1376,7 @@ export const useAppStore = create<AppStore>()(
         dailyReward: state.dailyReward,
         missions: state.missions,
         avatarInventory: state.avatarInventory,
+        monetization: state.monetization,
         friends: state.friends,
         socialActivity: state.socialActivity,
         incomingRequests: state.incomingRequests,

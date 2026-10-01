@@ -125,6 +125,15 @@ The catalog and visuals ship with the application, so browsing the shop needs no
 paid commerce infrastructure. Purchase document identifiers are deterministic, making repeat calls
 idempotent and preventing a second deduction.
 
+## Monetization callable
+
+- `getMonetizationOverview`: returns at most 10 active plans, the server-owned entitlement, current gem balance, and bounded advertising policy.
+
+Plan pricing and product identifiers are never decided by the client. A plan is purchasable only when
+Firestore marks it purchasable and provides a real store product identifier. Advertising remains off
+unless both the product configuration and provider-ready flag are enabled. Interstitial policy allows
+only the results surface at a configured interval; quiz questions and duels are always excluded.
+
 ## Ranking callable
 
 - `getRanking`: returns the all-time global, most-specific territorial, or friends ranking using server-owned XP aggregates.

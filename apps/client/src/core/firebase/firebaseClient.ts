@@ -26,6 +26,7 @@ import {
   FriendRequest,
   MatchmakingState,
   Mission,
+  MonetizationOverview,
   PlayerProfile,
   PlayerProgress,
   Question,
@@ -250,6 +251,12 @@ export async function getAvatarShopRemote(): Promise<AvatarInventory> {
   await startAnonymousSession();
   const invoke = callable<Record<string, never>, AvatarInventoryResponse>('getAvatarShop');
   return (await invoke({})).data.inventory;
+}
+
+export async function getMonetizationOverviewRemote(): Promise<MonetizationOverview> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, MonetizationOverview>('getMonetizationOverview');
+  return (await invoke({})).data;
 }
 
 export async function purchaseAvatarItemRemote(itemId: string): Promise<AvatarInventory> {

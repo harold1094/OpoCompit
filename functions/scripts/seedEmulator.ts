@@ -22,6 +22,29 @@ async function main() {
     updatedAt: now,
   });
 
+  batch.set(db.collection("subscriptionPlans").doc("premium_monthly_preview"), {
+    name: "OpoCompit Premium",
+    priceLabel: "Próximamente",
+    billingPeriod: "monthly",
+    features: ["ad_free", "monthly_gems", "exclusive_cosmetics", "advanced_stats"],
+    gemReward: 10,
+    adFree: true,
+    exclusiveCosmetics: true,
+    active: true,
+    priority: 10,
+    storeProductId: null,
+    purchasable: false,
+    updatedAt: now,
+  });
+
+  batch.set(db.collection("appConfig").doc("monetization"), {
+    adsEnabled: false,
+    rewardedAdsEnabled: false,
+    adProviderReady: false,
+    resultInterval: 3,
+    updatedAt: now,
+  });
+
   for (const question of seedQuestions) {
     batch.set(db.collection("questions").doc(question.id), {
       ...question,

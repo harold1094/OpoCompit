@@ -27,6 +27,7 @@ export default function RootLayout() {
           <Stack.Screen name="errors" />
           <Stack.Screen name="groups" />
           <Stack.Screen name="avatar-shop" />
+          <Stack.Screen name="premium" />
           <Stack.Screen name="admin" />
         </Stack>
       </SafeAreaProvider>

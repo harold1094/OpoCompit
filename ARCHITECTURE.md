@@ -42,6 +42,7 @@ functions/             # trusted Firebase backend
 - `results`: scoring, XP, coins, streak updates, review.
 - `profile`: aggregate progress and public player identity.
 - `avatar`: local visual catalog, modular preview, owned inventory, and server-authoritative purchases/equipment.
+- `premium`: server-configured plans, trusted entitlements, gem benefits, and interruption-safe ad policy.
 - `groups`: private memberships, join codes, live member XP ranking, and bounded temporary competitions through callable Functions and an idempotent activity trigger.
 - `admin`: import format and question management surface, initially documented and scaffold-ready.
 
@@ -60,6 +61,7 @@ Server must:
 - Score official and competitive results.
 - Award XP, coins, gems, achievements, missions, streaks, and rankings.
 - Validate purchases, subscriptions, premium status, and inventory.
+- Keep billing products and ad-provider availability disabled until verified production integrations exist.
 - Maintain anti-cheat transaction logs.
 
 ## Vertical Slice Flow

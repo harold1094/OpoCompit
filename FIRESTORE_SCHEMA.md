@@ -323,6 +323,31 @@ map bounded. Only validated activity inside the competition timestamps can chang
 markers for competition scoring. These records prevent retries of the same Firestore event from
 adding the same score twice and are never readable by clients.
 
+## subscriptionPlans/{planId}
+
+Public-to-authenticated configuration read through the monetization callable. The client never
+hardcodes a purchasable price.
+
+```json
+{
+  "name": "OpoCompit Premium",
+  "priceLabel": "Store-provided display price",
+  "billingPeriod": "monthly|yearly",
+  "features": ["ad_free", "monthly_gems", "exclusive_cosmetics", "advanced_stats"],
+  "gemReward": 10,
+  "adFree": true,
+  "exclusiveCosmetics": true,
+  "active": true,
+  "priority": 10,
+  "storeProductId": "nullable until billing launch",
+  "purchasable": false
+}
+```
+
+`subscriptions/{uid}` is private and server-owned. It stores `planId`, `status`, provider references,
+`expiresAt`, and audit timestamps. `appConfig/monetization` keeps the ad-provider readiness flags and
+results-screen interval; direct client writes are denied.
+
 ## Other Collections
 
 - `usernames/{normalizedUsername}`: private unique username reservation owned by Functions.

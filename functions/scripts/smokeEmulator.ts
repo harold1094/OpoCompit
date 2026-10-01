@@ -105,6 +105,23 @@ async function main() {
   assert.equal(bootstrap.profile.xp, 0);
   assert.equal(bootstrap.profile.coins, 0);
 
+  const monetization = await call<{
+    plans: Array<{id: string; purchasable: boolean; storeProductId: string | null}>;
+    entitlement: {tier: string; status: string};
+    gemBalance: number;
+    ads: {enabled: boolean; rewardedEnabled: boolean; resultInterval: number};
+  }>("getMonetizationOverview", {}, auth.idToken);
+  assert.equal(monetization.plans.length, 1);
+  assert.equal(monetization.plans[0].id, "premium_monthly_preview");
+  assert.equal(monetization.plans[0].purchasable, false);
+  assert.equal(monetization.plans[0].storeProductId, null);
+  assert.equal(monetization.entitlement.tier, "free");
+  assert.equal(monetization.entitlement.status, "free");
+  assert.equal(monetization.gemBalance, 0);
+  assert.equal(monetization.ads.enabled, false);
+  assert.equal(monetization.ads.rewardedEnabled, false);
+  assert.equal(monetization.ads.resultInterval, 3);
+
   let nonAdminReviewBlocked = false;
   try {
     await call("getQuestionReviewQueue", {}, auth.idToken);
@@ -1171,6 +1188,8 @@ async function main() {
     avatarShopPurchaseValidated: true,
     duplicateAvatarPurchaseProtected: true,
     unownedAvatarItemBlocked,
+    monetizationConfigurationValidated: true,
+    disruptiveAdsDisabled: true,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,

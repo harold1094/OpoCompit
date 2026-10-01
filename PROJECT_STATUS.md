@@ -67,6 +67,8 @@
 - Time-bounded group competitions for XP, questions, correct answers, or duels with idempotent event scoring.
 - Modular 2D avatar, local-assets wardrobe, cosmetic shop, trusted purchases, and persisted equipment.
 - Callable avatar API for bounded inventory reads, idempotent purchases, and ownership-validated equipment.
+- Server-configured Premium preview with trusted entitlement lookup and gem benefits.
+- Advertising policy that is disabled by default and excludes quizzes and duels by construction.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -76,8 +78,11 @@
 ## Still Local / Not Production-Safe Yet
 
 - Firebase is not deployed: Firestore and Cloud Functions APIs are currently disabled in `opocompit-dev`.
+- Real Play Billing and AdMob are intentionally not connected; no purchase or advertisement is simulated.
 
 ## Next Implementation Steps
 
 1. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-2. Remove Flutter only after React reaches verified feature parity.
+2. Connect verified Play Billing and AdMob credentials only after business approval.
+3. Complete the remaining admin and release instrumentation work from phases 12 and 13.
+4. Remove Flutter only after React reaches verified feature parity.
