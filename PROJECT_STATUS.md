@@ -64,6 +64,7 @@
 - Atomic bulk publication and rejection for up to 50 selected review questions.
 - Live friend profiles, shared study streaks, and a private 20-event social activity feed.
 - Private study groups with create/join codes, bounded membership, live XP rankings, leave, and empty-group deletion.
+- Time-bounded group competitions for XP, questions, correct answers, or duels with idempotent event scoring.
 - Server-side scoring and economy transaction log skeleton.
 - Flutter Firebase dependencies.
 - Firebase bootstrap behind `OPOCOMPIT_USE_FIREBASE`.
@@ -76,7 +77,6 @@
 
 ## Next Implementation Steps
 
-1. Add time-bounded group competitions and configurable group ranking periods.
-2. Add the first local-assets avatar and shop workflow without payment infrastructure.
-3. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
-4. Remove Flutter only after React reaches verified feature parity.
+1. Add the first local-assets avatar and shop workflow without payment infrastructure.
+2. Choose the permanent Firestore location and enable Blaze only when production testing is approved.
+3. Remove Flutter only after React reaches verified feature parity.

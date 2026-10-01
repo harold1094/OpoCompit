@@ -20,6 +20,7 @@ import {
   SocialActivity,
   SocialUser,
   StudyGroup,
+  StudyGroupCompetitionMetric,
   StudyGroupDetail,
   TerritorySelection,
   UserQuestionStat,
@@ -29,6 +30,7 @@ import {
   claimDailyRewardRemote,
   claimMissionRemote,
   createStudyGroupRemote,
+  createStudyGroupCompetitionRemote,
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
   getRankingRemote,
@@ -118,7 +120,7 @@ type AppStore = {
   isLoadingRanking: boolean;
   isSavingUsername: boolean;
   socialActionId: string | null;
-  groupAction: 'create' | 'join' | 'leave' | null;
+  groupAction: 'create' | 'join' | 'leave' | 'competition' | null;
   socialError: string | null;
   groupsError: string | null;
   rankingError: string | null;
@@ -138,6 +140,12 @@ type AppStore = {
   createStudyGroup: (name: string) => Promise<StudyGroup | null>;
   joinStudyGroup: (code: string) => Promise<StudyGroup | null>;
   openStudyGroup: (groupId: string) => Promise<boolean>;
+  createStudyGroupCompetition: (input: {
+    groupId: string;
+    name: string;
+    metric: StudyGroupCompetitionMetric;
+    durationDays: number;
+  }) => Promise<boolean>;
   leaveStudyGroup: (groupId: string) => Promise<boolean>;
   setPublicUsername: (username: string) => Promise<boolean>;
   searchSocialUsers: (query: string) => Promise<void>;
@@ -725,6 +733,26 @@ export const useAppStore = create<AppStore>()(
           return false;
         } finally {
           set({ isLoadingGroups: false });
+        }
+      },
+      createStudyGroupCompetition: async (input) => {
+        const state = get();
+        if (!state.profile || state.groupAction || state.backendMode !== 'firebase') return false;
+        const name = input.name.trim().replace(/\s+/g, ' ');
+        if (name.length < 3 || name.length > 40) {
+          set({ groupsError: 'El nombre debe tener entre 3 y 40 caracteres.' });
+          return false;
+        }
+        set({ groupAction: 'competition', groupsError: null });
+        try {
+          await createStudyGroupCompetitionRemote({ ...input, name });
+          set({ activeStudyGroup: await getStudyGroupRemote(input.groupId) });
+          return true;
+        } catch (error) {
+          set({ groupsError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ groupAction: null });
         }
       },
       leaveStudyGroup: async (groupId) => {

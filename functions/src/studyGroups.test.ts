@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {describe, it} from "node:test";
 
 import {
+  competitionMetricDelta,
   groupCodeFromBytes,
+  normalizeCompetitionMetric,
   normalizeGroupCode,
   normalizeGroupName,
 } from "./studyGroups.js";
@@ -26,5 +28,19 @@ describe("private study group rules", () => {
       "ABCDEFGH",
     );
     assert.equal(groupCodeFromBytes(Uint8Array.from([31, 32, 33, 34, 35, 36, 37, 38])).length, 8);
+  });
+
+  it("accepts only supported competition metrics", () => {
+    assert.equal(normalizeCompetitionMetric("correct"), "correct");
+    assert.equal(normalizeCompetitionMetric("coins"), null);
+  });
+
+  it("scores only the trusted positive delta for the selected metric", () => {
+    const before = {xp: 80, questions: 10, correct: 7, duels: 0};
+    const after = {xp: 100, questions: 20, correct: 15, duels: 1};
+    assert.equal(competitionMetricDelta("xp", before, after), 20);
+    assert.equal(competitionMetricDelta("questions", before, after), 10);
+    assert.equal(competitionMetricDelta("correct", after, before), 0);
+    assert.equal(competitionMetricDelta("duels", before, after), 1);
   });
 });

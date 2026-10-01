@@ -28,6 +28,8 @@ The Social screen now refreshes current friend profiles, displays the real overl
 study streaks, and shows a private feed capped at 20 validated quiz or duel activities.
 From Social, users with a public username can create or join private study groups by code and see a
 live XP ranking. Membership and join codes are only exposed through authenticated callable Functions.
+Owners and group administrators can also run a 7, 14, or 30-day competition based on XP, answered
+questions, correct answers, or completed duels. Results stop changing automatically at the deadline.
 
 ## Verify
 

@@ -1,5 +1,9 @@
 const groupCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+export type StudyGroupCompetitionMetric = "xp" | "questions" | "correct" | "duels";
+
+export type StudyActivityTotals = Record<StudyGroupCompetitionMetric, number>;
+
 export function normalizeGroupName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.normalize("NFKC").trim().replace(/\s+/g, " ");
@@ -24,4 +28,17 @@ export function groupCodeFromBytes(bytes: Uint8Array): string {
   return Array.from(bytes.slice(0, 8), (value) =>
     groupCodeAlphabet[value % groupCodeAlphabet.length],
   ).join("");
+}
+
+export function normalizeCompetitionMetric(value: unknown): StudyGroupCompetitionMetric | null {
+  return value === "xp" || value === "questions" || value === "correct" || value === "duels" ?
+    value : null;
+}
+
+export function competitionMetricDelta(
+  metric: StudyGroupCompetitionMetric,
+  before: StudyActivityTotals,
+  after: StudyActivityTotals,
+): number {
+  return Math.max(0, after[metric] - before[metric]);
 }

@@ -14,7 +14,12 @@ import {
 } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
-import { StudyGroup, StudyGroupMember } from '@/core/domain/types';
+import {
+  StudyGroup,
+  StudyGroupCompetition,
+  StudyGroupCompetitionMetric,
+  StudyGroupMember,
+} from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 
@@ -32,10 +37,15 @@ export default function GroupsScreen() {
   const createGroup = useAppStore((state) => state.createStudyGroup);
   const joinGroup = useAppStore((state) => state.joinStudyGroup);
   const openGroup = useAppStore((state) => state.openStudyGroup);
+  const createCompetition = useAppStore((state) => state.createStudyGroupCompetition);
   const leaveGroup = useAppStore((state) => state.leaveStudyGroup);
   const [form, setForm] = useState<GroupForm>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [competitionFormOpen, setCompetitionFormOpen] = useState(false);
+  const [competitionName, setCompetitionName] = useState('Reto del grupo');
+  const [competitionMetric, setCompetitionMetric] = useState<StudyGroupCompetitionMetric>('xp');
+  const [competitionDays, setCompetitionDays] = useState(7);
 
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -87,9 +97,24 @@ export default function GroupsScreen() {
     );
   };
 
+  const submitCompetition = async () => {
+    if (!activeGroup) return;
+    const created = await createCompetition({
+      groupId: activeGroup.id,
+      name: competitionName,
+      metric: competitionMetric,
+      durationDays: competitionDays,
+    });
+    if (!created) return;
+    setCompetitionFormOpen(false);
+    setCompetitionName('Reto del grupo');
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   if (activeGroup) {
     const ownerCanDelete = activeGroup.viewerRole === 'owner' && activeGroup.memberCount === 1;
     const canLeave = activeGroup.viewerRole !== 'owner' || ownerCanDelete;
+    const canManageCompetition = ['owner', 'admin'].includes(activeGroup.viewerRole);
     return (
       <AppScreen>
         <View style={styles.header}>
@@ -120,8 +145,23 @@ export default function GroupsScreen() {
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        <CompetitionSection
+          action={action}
+          canManage={canManageCompetition}
+          competition={activeGroup.competition}
+          days={competitionDays}
+          formOpen={competitionFormOpen}
+          metric={competitionMetric}
+          name={competitionName}
+          onDaysChange={setCompetitionDays}
+          onFormToggle={() => setCompetitionFormOpen((current) => !current)}
+          onMetricChange={setCompetitionMetric}
+          onNameChange={setCompetitionName}
+          onRefresh={() => void openGroup(activeGroup.id)}
+          onSubmit={() => void submitCompetition()}
+        />
         <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle}>Clasificación</Text>
+          <Text style={styles.sectionTitle}>Clasificación general</Text>
           {loading ? <ActivityIndicator color={colors.aqua} size="small" /> : null}
         </View>
         <View style={styles.rankingList}>
@@ -237,6 +277,152 @@ export default function GroupsScreen() {
   );
 }
 
+function CompetitionSection({
+  action,
+  canManage,
+  competition,
+  days,
+  formOpen,
+  metric,
+  name,
+  onDaysChange,
+  onFormToggle,
+  onMetricChange,
+  onNameChange,
+  onRefresh,
+  onSubmit,
+}: {
+  action: 'create' | 'join' | 'leave' | 'competition' | null;
+  canManage: boolean;
+  competition: StudyGroupCompetition | null;
+  days: number;
+  formOpen: boolean;
+  metric: StudyGroupCompetitionMetric;
+  name: string;
+  onDaysChange: (days: number) => void;
+  onFormToggle: () => void;
+  onMetricChange: (metric: StudyGroupCompetitionMetric) => void;
+  onNameChange: (name: string) => void;
+  onRefresh: () => void;
+  onSubmit: () => void;
+}) {
+  const canCreate = !competition || competition.status === 'finished';
+  return (
+    <View>
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>Competición</Text>
+        {competition ? (
+          <IconButton label="Actualizar clasificación" icon="refresh" onPress={onRefresh} />
+        ) : null}
+      </View>
+
+      {competition ? (
+        <View style={styles.competitionBand}>
+          <View style={styles.competitionTitleRow}>
+            <View style={styles.competitionIcon}>
+              <MaterialCommunityIcons name="trophy-outline" size={22} color={colors.gold} />
+            </View>
+            <View style={styles.groupCopy}>
+              <Text style={styles.competitionName} numberOfLines={2}>{competition.name}</Text>
+              <Text style={styles.groupMeta}>
+                {metricLabel(competition.metric)} · {formatCompetitionPeriod(competition)}
+              </Text>
+            </View>
+            <View style={competition.status === 'active' ? styles.activeBadge : styles.finishedBadge}>
+              <Text style={competition.status === 'active'
+                ? styles.activeBadgeText
+                : styles.finishedBadgeText}
+              >
+                {competition.status === 'active' ? 'EN CURSO' : 'FINALIZADA'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.competitionRanking}>
+            {competition.entries.map((member) => (
+              <MemberRow
+                key={member.uid}
+                member={member}
+                scoreUnit={metricUnit(competition.metric)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.competitionEmpty}>
+          <MaterialCommunityIcons name="trophy-outline" size={30} color={colors.gold} />
+          <Text style={styles.emptyTitle}>Sin competición activa</Text>
+        </View>
+      )}
+
+      {canManage && canCreate ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onFormToggle}
+          style={({ pressed }) => [styles.competitionToggle, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons
+            name={formOpen ? 'close' : 'trophy-award'}
+            size={19}
+            color={colors.ink}
+          />
+          <Text style={styles.competitionToggleText}>
+            {formOpen ? 'Cerrar' : competition ? 'Nueva competición' : 'Crear competición'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {canManage && canCreate && formOpen ? (
+        <View style={styles.competitionForm}>
+          <TextInput
+            maxLength={40}
+            onChangeText={onNameChange}
+            placeholder="Reto de octubre"
+            placeholderTextColor={colors.muted}
+            style={[styles.input, styles.competitionInput]}
+            value={name}
+          />
+          <Text style={styles.optionLabel}>MÉTRICA</Text>
+          <View style={styles.optionGrid}>
+            {(['xp', 'questions', 'correct', 'duels'] as const).map((option) => (
+              <OptionButton
+                active={metric === option}
+                key={option}
+                label={metricLabel(option)}
+                onPress={() => onMetricChange(option)}
+              />
+            ))}
+          </View>
+          <Text style={styles.optionLabel}>DURACIÓN</Text>
+          <View style={styles.durationRow}>
+            {[7, 14, 30].map((option) => (
+              <OptionButton
+                active={days === option}
+                compact
+                key={option}
+                label={`${option} días`}
+                onPress={() => onDaysChange(option)}
+              />
+            ))}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={action === 'competition'}
+            onPress={onSubmit}
+            style={({ pressed }) => [styles.competitionSubmit, pressed && styles.pressed]}
+          >
+            {action === 'competition' ? (
+              <ActivityIndicator color={colors.surface} size="small" />
+            ) : (
+              <MaterialCommunityIcons name="flag-checkered" size={19} color={colors.surface} />
+            )}
+            <Text style={styles.competitionSubmitText}>Iniciar competición</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function GroupRow({ group, loading, onPress }: {
   group: StudyGroup;
   loading: boolean;
@@ -261,7 +447,10 @@ function GroupRow({ group, loading, onPress }: {
   );
 }
 
-function MemberRow({ member }: { member: StudyGroupMember }) {
+function MemberRow({ member, scoreUnit = 'XP' }: {
+  member: StudyGroupMember;
+  scoreUnit?: string;
+}) {
   return (
     <View style={[styles.memberRow, member.isViewer && styles.viewerRow]}>
       <Text style={styles.position}>{member.position}</Text>
@@ -270,12 +459,12 @@ function MemberRow({ member }: { member: StudyGroupMember }) {
       </View>
       <View style={styles.groupCopy}>
         <View style={styles.memberNameRow}>
-          <Text style={styles.memberName}>{member.username}</Text>
+          <Text style={styles.memberName} numberOfLines={1}>{member.username}</Text>
           {member.role !== 'member' ? <Text style={styles.memberRole}>{roleLabel(member.role)}</Text> : null}
         </View>
         <Text style={styles.groupMeta}>Nivel {member.level} · {member.territoryLabel}</Text>
       </View>
-      <Text style={styles.score}>{member.score} XP</Text>
+      <Text style={styles.score}>{member.score} {scoreUnit}</Text>
     </View>
   );
 }
@@ -349,6 +538,49 @@ function roleLabel(role: StudyGroup['viewerRole']): string {
   return 'Miembro';
 }
 
+function metricLabel(metric: StudyGroupCompetitionMetric): string {
+  if (metric === 'questions') return 'Preguntas';
+  if (metric === 'correct') return 'Aciertos';
+  if (metric === 'duels') return 'Duelos';
+  return 'XP';
+}
+
+function metricUnit(metric: StudyGroupCompetitionMetric): string {
+  if (metric === 'questions') return 'preg.';
+  if (metric === 'correct') return 'aciertos';
+  if (metric === 'duels') return 'duelos';
+  return 'XP';
+}
+
+function formatCompetitionPeriod(competition: StudyGroupCompetition): string {
+  const formatter = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+  return `${formatter.format(new Date(competition.startsAt))} - ${
+    formatter.format(new Date(competition.endsAt))
+  }`;
+}
+
+function OptionButton({ active, compact = false, label, onPress }: {
+  active: boolean;
+  compact?: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.optionButton,
+        compact && styles.durationButton,
+        active && styles.optionButtonActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.optionButtonText, active && styles.optionButtonTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headerCopy: { flex: 1, minWidth: 0 },
@@ -383,15 +615,39 @@ const styles = StyleSheet.create({
   codeValue: { marginTop: 3, color: colors.gold, fontSize: 24, fontWeight: '900' },
   roleBadge: { minHeight: 28, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.softAqua },
   roleBadgeText: { color: colors.aqua, fontSize: 10, fontWeight: '900' },
+  competitionBand: { paddingVertical: 4 },
+  competitionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  competitionIcon: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md, backgroundColor: colors.softGold },
+  competitionName: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '900' },
+  activeBadge: { minHeight: 26, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.softAqua },
+  activeBadgeText: { color: colors.aqua, fontSize: 9, fontWeight: '900' },
+  finishedBadge: { minHeight: 26, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#EEF0F2' },
+  finishedBadgeText: { color: colors.muted, fontSize: 9, fontWeight: '900' },
+  competitionRanking: { marginTop: spacing.md, gap: spacing.sm },
+  competitionEmpty: { minHeight: 112, alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.surface, ...shadows.card },
+  competitionToggle: { minHeight: 42, marginTop: spacing.md, alignSelf: 'flex-start', paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
+  competitionToggleText: { color: colors.ink, fontSize: 12, fontWeight: '900' },
+  competitionForm: { marginTop: spacing.md, paddingVertical: spacing.md, gap: spacing.sm, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line },
+  competitionInput: { flex: 0, width: '100%' },
+  optionLabel: { marginTop: spacing.xs, color: colors.muted, fontSize: 9, fontWeight: '900' },
+  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  durationRow: { flexDirection: 'row', gap: spacing.sm },
+  optionButton: { minWidth: 0, flexBasis: '47%', flexGrow: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
+  durationButton: { flexBasis: 0 },
+  optionButtonActive: { borderColor: colors.aqua, backgroundColor: colors.softAqua },
+  optionButtonText: { color: colors.muted, fontSize: 11, fontWeight: '800' },
+  optionButtonTextActive: { color: colors.aqua },
+  competitionSubmit: { minHeight: 44, marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: radius.md, backgroundColor: colors.aqua, ...shadows.floating },
+  competitionSubmitText: { color: colors.surface, fontSize: 12, fontWeight: '900' },
   rankingList: { gap: spacing.sm },
   memberRow: { minHeight: 66, paddingVertical: 9, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
   viewerRow: { backgroundColor: '#FFF8F4' },
   position: { width: 24, textAlign: 'center', color: colors.brand, fontSize: 15, fontWeight: '900' },
   avatar: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.surface },
   memberNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  memberName: { color: colors.ink, fontSize: 13, fontWeight: '900' },
+  memberName: { maxWidth: '100%', color: colors.ink, fontSize: 13, fontWeight: '900' },
   memberRole: { color: colors.aqua, fontSize: 9, fontWeight: '900' },
-  score: { color: colors.ink, fontSize: 12, fontWeight: '900' },
+  score: { maxWidth: 92, textAlign: 'right', color: colors.ink, fontSize: 12, fontWeight: '900' },
   leaveButton: { minHeight: 42, marginTop: spacing.xl, alignSelf: 'flex-start', paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#F3C7C7', borderRadius: radius.md, backgroundColor: '#FFF1F1' },
   leaveText: { color: colors.danger, fontSize: 12, fontWeight: '900' },
   pressed: { opacity: 0.76 },

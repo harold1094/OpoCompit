@@ -261,6 +261,19 @@ export type StudyGroupMember = SocialUser & {
   isViewer: boolean;
 };
 
+export type StudyGroupCompetitionMetric = 'xp' | 'questions' | 'correct' | 'duels';
+
+export type StudyGroupCompetition = {
+  id: string;
+  name: string;
+  metric: StudyGroupCompetitionMetric;
+  startsAt: string;
+  endsAt: string;
+  status: 'active' | 'finished';
+  entries: StudyGroupMember[];
+};
+
 export type StudyGroupDetail = StudyGroup & {
   members: StudyGroupMember[];
+  competition: StudyGroupCompetition | null;
 };

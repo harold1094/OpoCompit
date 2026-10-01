@@ -282,6 +282,14 @@ membership documents directly.
   "joinCode": "ABCD2345",
   "memberCount": 2,
   "rankingMetric": "xp",
+  "competition": {
+    "id": "competition id",
+    "name": "Reto de octubre",
+    "metric": "xp|questions|correct|duels",
+    "startsAt": "serverTimestamp",
+    "endsAt": "serverTimestamp",
+    "scores": {"member uid": 120}
+  },
   "active": true,
   "createdAt": "serverTimestamp",
   "updatedAt": "serverTimestamp"
@@ -291,8 +299,13 @@ membership documents directly.
 `groups/{groupId}/members/{uid}` stores `uid`, `groupId`, `role`, and `joinedAt`. Membership queries
 are capped at 20 groups per user, while a group is capped at 50 members. `groupCodes/{code}` is a
 private reservation that maps a join code to its group and is deleted with an empty owner group.
-The current ranking reads each member's trusted all-time XP live; period snapshots and temporary
-competitions remain a later extension.
+The general ranking reads each member's trusted all-time XP live. One current or most-recent
+temporary competition is stored compactly in the group document; the 50-member cap keeps its score
+map bounded. Only validated activity inside the competition timestamps can change that map.
+
+`socialActivities/{activityId}/competitionApplications/{applicationId}` stores private idempotency
+markers for competition scoring. These records prevent retries of the same Firestore event from
+adding the same score twice and are never readable by clients.
 
 ## Other Collections
 

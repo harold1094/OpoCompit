@@ -35,6 +35,7 @@ import {
   SocialOverview,
   SocialUser,
   StudyGroup,
+  StudyGroupCompetitionMetric,
   StudyGroupDetail,
 } from '@/core/domain/types';
 
@@ -361,6 +362,19 @@ export async function leaveStudyGroupRemote(groupId: string): Promise<void> {
   await invoke({ groupId });
 }
 
+export async function createStudyGroupCompetitionRemote(input: {
+  groupId: string;
+  name: string;
+  metric: StudyGroupCompetitionMetric;
+  durationDays: number;
+}): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<typeof input, { groupId: string; competitionId: string }>(
+    'createStudyGroupCompetition',
+  );
+  await invoke(input);
+}
+
 export async function sendFriendRequestRemote(targetUid: string): Promise<FriendRequest> {
   await startAnonymousSession();
   const invoke = callable<{ targetUid: string }, FriendRequestResponse>('sendFriendRequest');
@@ -523,7 +537,7 @@ export function readableFirebaseError(error: unknown): string {
       'failed-precondition': 'La operación no está disponible en su estado actual.',
       'deadline-exceeded': 'La partida ha caducado. Empieza una nueva.',
       'not-found': 'No se ha encontrado el contenido solicitado.',
-      'already-exists': 'Esa solicitud o nombre de usuario ya existe.',
+      'already-exists': 'Ya existe un registro activo con esos datos.',
       'invalid-argument': 'Revisa los datos introducidos.',
       'permission-denied': 'No tienes permisos para completar esta operación.',
       'resource-exhausted': 'Has alcanzado el límite permitido para esta operación.',

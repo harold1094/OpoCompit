@@ -746,6 +746,12 @@ async function main() {
       position: number;
       role: "owner" | "admin" | "member";
     }>;
+    competition: null | {
+      id: string;
+      metric: string;
+      status: string;
+      entries: Array<{uid: string; score: number; position: number}>;
+    };
   };
 
   const createdGroup = await call<{group: StudyGroup}>(
@@ -762,6 +768,75 @@ async function main() {
   assert.equal(ownerGroups.groups.length, 1);
   assert.equal(ownerGroups.groups[0].id, createdGroup.group.id);
 
+  const createdCompetition = await call<{groupId: string; competitionId: string}>(
+    "createStudyGroupCompetition",
+    {
+      groupId: createdGroup.group.id,
+      name: "Reto de precisión",
+      metric: "correct",
+      durationDays: 7,
+    },
+    auth.idToken,
+  );
+  assert.equal(createdCompetition.groupId, createdGroup.group.id);
+  assert.ok(createdCompetition.competitionId);
+  const competitionBeforeActivity = await call<{group: StudyGroupDetail}>(
+    "getStudyGroup",
+    {groupId: createdGroup.group.id},
+    auth.idToken,
+  );
+  assert.equal(competitionBeforeActivity.group.competition?.metric, "correct");
+  assert.equal(competitionBeforeActivity.group.competition?.entries[0].score, 0);
+
+  let duplicateCompetitionBlocked = false;
+  try {
+    await call(
+      "createStudyGroupCompetition",
+      {
+        groupId: createdGroup.group.id,
+        name: "Segundo reto",
+        metric: "xp",
+        durationDays: 14,
+      },
+      auth.idToken,
+    );
+  } catch (error) {
+    duplicateCompetitionBlocked = error instanceof Error && error.message.includes("ALREADY_EXISTS");
+  }
+  assert.equal(duplicateCompetitionBlocked, true);
+
+  const competitionQuiz = await call<{
+    sessionId: string;
+    questions: Array<{id: string}>;
+  }>("startQuickQuiz", {questionCount: 10}, auth.idToken);
+  await call(
+    "submitQuizSession",
+    {
+      sessionId: competitionQuiz.sessionId,
+      answers: competitionQuiz.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: answersByQuestion.get(question.id),
+      })),
+    },
+    auth.idToken,
+  );
+
+  let competitionAfterActivity: StudyGroupDetail | null = null;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const detail = await call<{group: StudyGroupDetail}>(
+      "getStudyGroup",
+      {groupId: createdGroup.group.id},
+      auth.idToken,
+    );
+    if (detail.group.competition?.entries[0]?.score === 10) {
+      competitionAfterActivity = detail.group;
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  assert.ok(competitionAfterActivity);
+  assert.equal(competitionAfterActivity.competition?.entries[0].position, 1);
+
   const joinedGroup = await call<{group: StudyGroup}>(
     "joinStudyGroup",
     {
@@ -774,6 +849,23 @@ async function main() {
   assert.equal(joinedGroup.group.id, createdGroup.group.id);
   assert.equal(joinedGroup.group.memberCount, 2);
   assert.equal(joinedGroup.group.viewerRole, "member");
+
+  let memberCompetitionBlocked = false;
+  try {
+    await call(
+      "createStudyGroupCompetition",
+      {
+        groupId: createdGroup.group.id,
+        name: "Reto no autorizado",
+        metric: "duels",
+        durationDays: 7,
+      },
+      friendAuth.idToken,
+    );
+  } catch (error) {
+    memberCompetitionBlocked = error instanceof Error && error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(memberCompetitionBlocked, true);
 
   const repeatedJoin = await call<{group: StudyGroup}>(
     "joinStudyGroup",
@@ -791,6 +883,11 @@ async function main() {
   assert.equal(groupDetail.group.members[0].uid, auth.localId);
   assert.equal(groupDetail.group.members[0].username, "HaroldCT");
   assert.equal(groupDetail.group.members[0].position, 1);
+  assert.equal(groupDetail.group.competition?.entries.length, 2);
+  assert.equal(
+    groupDetail.group.competition?.entries.find((entry) => entry.uid === friendAuth.localId)?.score,
+    0,
+  );
   assert.equal(
     groupDetail.group.members.some((member) => member.uid === friendAuth.localId),
     true,
@@ -1002,9 +1099,9 @@ async function main() {
 
   console.log(JSON.stringify({
     uid: auth.localId,
-    quizzesCompleted: 3,
-    questionsAnswered: 30,
-    correctAnswers: 30,
+    quizzesCompleted: 4,
+    questionsAnswered: 40,
+    correctAnswers: 40,
     finalProgress: submittedDuel.progress,
     duplicateClaimsBlocked: true,
     duelValidated: true,
@@ -1020,6 +1117,9 @@ async function main() {
     privateStudyGroupsValidated: true,
     groupMembershipPrivacyValidated: true,
     groupWithoutPublicUsernameBlocked,
+    temporaryGroupCompetitionValidated: true,
+    duplicateCompetitionBlocked,
+    memberCompetitionBlocked,
     adminQuestionImportValidated: true,
     adminQuestionReviewValidated: true,
     adminBulkReviewValidated: true,

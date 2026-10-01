@@ -12,6 +12,10 @@ jest.mock('expo-router', () => ({
   router: { replace: mockReplace },
 }));
 
+jest.mock('@expo/vector-icons', () => ({
+  MaterialCommunityIcons: () => null,
+}));
+
 jest.mock('expo-haptics', () => ({
   __esModule: true,
   selectionAsync: mockSelectionAsync,

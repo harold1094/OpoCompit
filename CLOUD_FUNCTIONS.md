@@ -103,11 +103,17 @@ sets. Direct reads of `socialActivities` are denied so the server always enforce
 - `joinStudyGroup`: resolves a private code and adds the authenticated user transactionally.
 - `getStudyGroup`: validates membership and returns the group with a live XP ranking of its members.
 - `leaveStudyGroup`: removes a member, or deletes an owner-only group and its join code.
+- `createStudyGroupCompetition`: lets an owner or administrator start one 1-to-90-day competition scored by XP, questions, correct answers, or completed duels.
 
 Users must have a public username and may belong to at most 10 groups. A group supports at most 50
 members. Group documents, memberships, and code reservations reject every direct client read and
 write so that callable Functions always enforce membership privacy. Owners cannot leave a non-empty
 group until ownership transfer is implemented.
+
+`scoreStudyGroupActivity` reacts only to server-validated quiz and duel activity. It applies the
+trusted delta to each active group competition and writes a deterministic application marker, so a
+retried Firestore event cannot score twice. Activity outside the stored start/end timestamps is
+ignored, which freezes the final table without a paid scheduler or historical full-table scans.
 
 ## Ranking callable
 

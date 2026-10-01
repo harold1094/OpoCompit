@@ -1,5 +1,5 @@
 import {initializeApp} from "firebase-admin/app";
-import {randomBytes} from "node:crypto";
+import {createHash, randomBytes} from "node:crypto";
 import {env} from "node:process";
 import {
   DocumentReference,
@@ -8,6 +8,7 @@ import {
   getFirestore,
 } from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onDocumentWritten} from "firebase-functions/v2/firestore";
 
 import {
   AdminImportValidationError,
@@ -38,9 +39,13 @@ import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 import {sharedStreak, StreakProfile} from "./socialActivity.js";
 import {
+  competitionMetricDelta,
   groupCodeFromBytes,
+  normalizeCompetitionMetric,
   normalizeGroupCode,
   normalizeGroupName,
+  StudyActivityTotals,
+  StudyGroupCompetitionMetric,
 } from "./studyGroups.js";
 
 initializeApp();
@@ -162,6 +167,12 @@ type JoinStudyGroupInput = {
 
 type StudyGroupInput = {
   groupId: string;
+};
+
+type CreateStudyGroupCompetitionInput = StudyGroupInput & {
+  name: string;
+  metric: StudyGroupCompetitionMetric;
+  durationDays: number;
 };
 
 type ReviewQuestionInput = {
@@ -952,8 +963,10 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     transaction.set(db.collection("socialActivities").doc(`quiz_${sessionRef.id}`), {
       actorUid: uid,
       type: "quiz_completed",
+      xpEarned,
       correct,
       total: questions.length,
+      duelCompleted: false,
       streak,
       oppositionId: stringValue(user.oppositionId),
       createdAt: completedAt,
@@ -1250,8 +1263,10 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       type: "duel_completed",
       mode: "training",
       outcome,
+      xpEarned,
       correct,
       total: questions.length,
+      duelCompleted: true,
       streak,
       oppositionId: stringValue(user.oppositionId),
       createdAt: completedAt,
@@ -1462,10 +1477,12 @@ export const joinStudyGroup = onCall<JoinStudyGroupInput>(async (request) => {
     }
 
     const now = Timestamp.now();
+    const competition = addCompetitionMember(group.competition, uid, now);
     transaction.create(memberRef, {uid, groupId, role: "member", joinedAt: now});
     transaction.update(groupRef, {
       memberCount: numberValue(group.memberCount) + 1,
       updatedAt: now,
+      ...(competition ? {competition} : {}),
     });
     transaction.update(userRef, {groupCount: numberValue(user.groupCount) + 1, updatedAt: now});
     return {group: serializeStudyGroup(groupId, {
@@ -1499,30 +1516,94 @@ export const getStudyGroup = onCall<StudyGroupInput>(async (request) => {
     membership.id,
     String(membership.data().role),
   ]));
-  const members = rankEntries(userSnapshots
+  const memberProfiles = userSnapshots
     .filter((snapshot) => snapshot.exists)
     .map((snapshot) => {
       const user = snapshot.data() ?? {};
       const publicUser = serializeSocialUser(snapshot.id, user);
+      const storedRole = roleByUid.get(snapshot.id);
+      const role: "owner" | "admin" | "member" = storedRole === "owner" ? "owner" :
+        storedRole === "admin" ? "admin" : "member";
       return {
         ...publicUser,
-        role: roleByUid.get(snapshot.id) === "owner" ? "owner" :
-          roleByUid.get(snapshot.id) === "admin" ? "admin" : "member",
-        score: numberValue(user.xp),
+        role,
+        xp: numberValue(user.xp),
         isViewer: snapshot.id === uid,
       };
-    }));
+    });
+  const members = rankEntries(memberProfiles.map(({xp, ...member}) => ({
+    ...member,
+    score: xp,
+  })));
+  const groupData = groupSnapshot.data() ?? {};
   return {
     group: {
       ...serializeStudyGroup(
         groupId,
-        groupSnapshot.data() ?? {},
+        groupData,
         String(viewerMembership.data()?.role),
       ),
       members,
+      competition: serializeStudyGroupCompetition(groupData.competition, memberProfiles),
     },
   };
 });
+
+export const createStudyGroupCompetition = onCall<CreateStudyGroupCompetitionInput>(
+  async (request) => {
+    const uid = requireUid(request.auth?.uid);
+    const groupId = requireDocumentId(request.data?.groupId, "groupId");
+    const name = normalizeGroupName(request.data?.name);
+    const metric = normalizeCompetitionMetric(request.data?.metric);
+    const durationDays = requireInteger(request.data?.durationDays, "durationDays", 1, 90);
+    if (!name || !metric) {
+      throw new HttpsError("invalid-argument", "Invalid competition configuration.");
+    }
+
+    const groupRef = db.collection("groups").doc(groupId);
+    const membershipRef = groupRef.collection("members").doc(uid);
+    return db.runTransaction(async (transaction) => {
+      const [groupSnapshot, membershipSnapshot, memberSnapshots] = await Promise.all([
+        transaction.get(groupRef),
+        transaction.get(membershipRef),
+        transaction.get(groupRef.collection("members").limit(50)),
+      ]);
+      if (!groupSnapshot.exists || groupSnapshot.data()?.active !== true) {
+        throw new HttpsError("not-found", "Study group not found.");
+      }
+      const role = String(membershipSnapshot.data()?.role);
+      if (!membershipSnapshot.exists || !["owner", "admin"].includes(role)) {
+        throw new HttpsError("permission-denied", "Group administrator role required.");
+      }
+
+      const group = groupSnapshot.data() ?? {};
+      const previousCompetition = storedRecord(group.competition);
+      if (previousCompetition.endsAt instanceof Timestamp &&
+        previousCompetition.endsAt.toMillis() > Date.now()) {
+        throw new HttpsError("already-exists", "The group already has an active competition.");
+      }
+
+      const startsAt = Timestamp.now();
+      const endsAt = Timestamp.fromMillis(
+        startsAt.toMillis() + durationDays * 24 * 60 * 60 * 1000,
+      );
+      const scores = Object.fromEntries(memberSnapshots.docs.map((member) => [member.id, 0]));
+      const competition = {
+        id: groupRef.collection("competitionIds").doc().id,
+        name,
+        metric,
+        startsAt,
+        endsAt,
+        scores,
+        createdBy: uid,
+        createdAt: startsAt,
+        updatedAt: startsAt,
+      };
+      transaction.update(groupRef, {competition, updatedAt: startsAt});
+      return {groupId, competitionId: competition.id};
+    });
+  },
+);
 
 export const leaveStudyGroup = onCall<StudyGroupInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
@@ -1557,7 +1638,12 @@ export const leaveStudyGroup = onCall<StudyGroupInput>(async (request) => {
       transaction.delete(db.collection("groupCodes").doc(joinCode));
       transaction.delete(groupRef);
     } else {
-      transaction.update(groupRef, {memberCount: Math.max(0, memberCount - 1), updatedAt: now});
+      const competition = removeCompetitionMember(group.competition, uid);
+      transaction.update(groupRef, {
+        memberCount: Math.max(0, memberCount - 1),
+        updatedAt: now,
+        ...(competition ? {competition} : {}),
+      });
     }
     if (userSnapshot.exists) {
       transaction.update(userRef, {
@@ -1568,6 +1654,74 @@ export const leaveStudyGroup = onCall<StudyGroupInput>(async (request) => {
     return {groupId, left: true};
   });
 });
+
+export const scoreStudyGroupActivity = onDocumentWritten(
+  "socialActivities/{activityId}",
+  async (event) => {
+    const afterSnapshot = event.data?.after;
+    if (!afterSnapshot?.exists) return;
+    const after = afterSnapshot.data() ?? {};
+    const before = event.data?.before.exists ? event.data.before.data() ?? {} : {};
+    const actorUid = stringValue(after.actorUid);
+    const occurredAt = after.updatedAt instanceof Timestamp ? after.updatedAt : after.createdAt;
+    if (!actorUid || !(occurredAt instanceof Timestamp)) return;
+
+    const memberships = await db.collectionGroup("members")
+      .where("uid", "==", actorUid)
+      .limit(10)
+      .get();
+    await Promise.all(memberships.docs.map(async (membership) => {
+      const groupId = stringValue(membership.data().groupId);
+      if (!groupId) return;
+      const groupRef = db.collection("groups").doc(groupId);
+      const memberRef = groupRef.collection("members").doc(actorUid);
+
+      await db.runTransaction(async (transaction) => {
+        const [groupSnapshot, memberSnapshot] = await transaction.getAll(groupRef, memberRef);
+        if (!groupSnapshot.exists || !memberSnapshot.exists) return;
+        const group = groupSnapshot.data() ?? {};
+        const competition = storedCompetition(group.competition);
+        if (!competition || occurredAt.toMillis() < competition.startsAt.toMillis() ||
+          occurredAt.toMillis() > competition.endsAt.toMillis()) return;
+
+        const scoreDelta = competitionMetricDelta(
+          competition.metric,
+          studyActivityTotals(before),
+          studyActivityTotals(after),
+        );
+        if (scoreDelta <= 0) return;
+
+        const applicationId = createHash("sha256")
+          .update(`${competition.id}:${event.id}`)
+          .digest("hex");
+        const applicationRef = afterSnapshot.ref
+          .collection("competitionApplications")
+          .doc(applicationId);
+        const applicationSnapshot = await transaction.get(applicationRef);
+        if (applicationSnapshot.exists) return;
+
+        const currentScore = numberValue(competition.scores[actorUid]);
+        const updatedAt = Timestamp.now();
+        transaction.update(groupRef, {
+          competition: {
+            ...competition,
+            scores: {...competition.scores, [actorUid]: currentScore + scoreDelta},
+            updatedAt,
+          },
+        });
+        transaction.create(applicationRef, {
+          groupId,
+          competitionId: competition.id,
+          actorUid,
+          metric: competition.metric,
+          scoreDelta,
+          activityEventId: event.id,
+          createdAt: updatedAt,
+        });
+      });
+    }));
+  },
+);
 
 export const getRanking = onCall<GetRankingInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
@@ -2432,6 +2586,7 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       submittedAt: completedAt,
     }];
     let duelResult = null;
+    let opponentActivityUpdate: Record<string, unknown> | null = null;
     if (previousSubmission && outcome) {
       const opponentOutcome = oppositeOutcome(outcome);
       const opponentBonusXp = opponentOutcome === "win" ? 20 : opponentOutcome === "draw" ? 10 : 0;
@@ -2457,6 +2612,12 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       transaction.update(userRef, profileUpdate);
       transaction.update(opponentRef, opponentUpdate);
       const previousResult = storedRecord(previousSubmission.result);
+      opponentActivityUpdate = {
+        outcome: opponentOutcome,
+        xpEarned: numberValue(previousResult.xpEarned) + opponentBonusXp,
+        duelCompleted: true,
+        updatedAt: completedAt,
+      };
       updatedSubmissions = updatedSubmissions.map((submission) => submission.uid === opponentUid ? {
         ...submission,
         outcome: opponentOutcome,
@@ -2525,16 +2686,17 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       type: "duel_completed",
       mode: duel.mode === "classic_matchmaking" ? "matchmaking" : "friend",
       outcome,
+      xpEarned,
       correct: scored.correct,
       total: questions.length,
+      duelCompleted: isCompleted,
       streak,
       oppositionId: stringValue(user.oppositionId),
       createdAt: completedAt,
     });
-    if (previousSubmission && outcome) {
+    if (previousSubmission && opponentActivityUpdate) {
       transaction.set(db.collection("socialActivities").doc(`duel_${duelId}_${opponentUid}`), {
-        outcome: oppositeOutcome(outcome),
-        updatedAt: completedAt,
+        ...opponentActivityUpdate,
       }, {merge: true});
     }
 
@@ -2914,6 +3076,102 @@ function serializeStudyGroup(id: string, data: Record<string, unknown>, role: st
       role === "admin" ? "admin" as const : "member" as const,
     createdAt: timestampIso(data.createdAt) ?? new Date(0).toISOString(),
     updatedAt: timestampIso(data.updatedAt) ?? new Date(0).toISOString(),
+  };
+}
+
+type StoredStudyGroupCompetition = {
+  id: string;
+  name: string;
+  metric: StudyGroupCompetitionMetric;
+  startsAt: Timestamp;
+  endsAt: Timestamp;
+  scores: Record<string, number>;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};
+
+type StudyGroupMemberProfile = ReturnType<typeof serializeSocialUser> & {
+  role: "owner" | "admin" | "member";
+  xp: number;
+  isViewer: boolean;
+};
+
+function storedCompetition(value: unknown): StoredStudyGroupCompetition | null {
+  const data = storedRecord(value);
+  const metric = normalizeCompetitionMetric(data.metric);
+  if (!stringValue(data.id) || !stringValue(data.name) || !metric ||
+    !(data.startsAt instanceof Timestamp) || !(data.endsAt instanceof Timestamp)) return null;
+  const rawScores = storedRecord(data.scores);
+  const scores = Object.fromEntries(Object.entries(rawScores)
+    .filter(([uid]) => /^[A-Za-z0-9_-]{1,160}$/.test(uid))
+    .slice(0, 50)
+    .map(([uid, score]) => [uid, Math.max(0, numberValue(score))]));
+  return {
+    id: stringValue(data.id),
+    name: stringValue(data.name),
+    metric,
+    startsAt: data.startsAt,
+    endsAt: data.endsAt,
+    scores,
+    createdBy: stringValue(data.createdBy),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt : data.startsAt,
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : data.startsAt,
+  };
+}
+
+function addCompetitionMember(value: unknown, uid: string, now: Timestamp) {
+  const competition = storedCompetition(value);
+  if (!competition || now.toMillis() > competition.endsAt.toMillis()) return null;
+  return {
+    ...competition,
+    scores: {...competition.scores, [uid]: numberValue(competition.scores[uid])},
+    updatedAt: now,
+  };
+}
+
+function removeCompetitionMember(value: unknown, uid: string) {
+  const competition = storedCompetition(value);
+  if (!competition) return null;
+  const scores = {...competition.scores};
+  delete scores[uid];
+  return {...competition, scores, updatedAt: Timestamp.now()};
+}
+
+function serializeStudyGroupCompetition(
+  value: unknown,
+  members: StudyGroupMemberProfile[],
+) {
+  const competition = storedCompetition(value);
+  if (!competition) return null;
+  const entries = rankEntries(members.map((member) => ({
+    uid: member.uid,
+    username: member.username,
+    level: member.level,
+    territoryLabel: member.territoryLabel,
+    currentStreak: member.currentStreak,
+    duelWins: member.duelWins,
+    role: member.role,
+    isViewer: member.isViewer,
+    score: numberValue(competition.scores[member.uid]),
+  })));
+  return {
+    id: competition.id,
+    name: competition.name,
+    metric: competition.metric,
+    startsAt: competition.startsAt.toDate().toISOString(),
+    endsAt: competition.endsAt.toDate().toISOString(),
+    status: Date.now() <= competition.endsAt.toMillis() ? "active" as const : "finished" as const,
+    entries,
+  };
+}
+
+function studyActivityTotals(data: Record<string, unknown>): StudyActivityTotals {
+  return {
+    xp: Math.max(0, numberValue(data.xpEarned)),
+    questions: Math.max(0, numberValue(data.total)),
+    correct: Math.max(0, numberValue(data.correct)),
+    duels: data.duelCompleted === true ? 1 : 0,
   };
 }
 
