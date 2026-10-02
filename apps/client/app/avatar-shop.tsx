@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
+import { trackEvent } from '@/core/analytics/analytics';
 import { AvatarItemCategory } from '@/core/domain/types';
 import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import {
@@ -36,6 +37,7 @@ export default function AvatarShopScreen() {
 
   useFocusEffect(useCallback(() => {
     void refresh();
+    void trackEvent('shop_viewed');
   }, [refresh]));
 
   const effectiveCatalog = useMemo(() => {

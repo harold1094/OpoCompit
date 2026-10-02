@@ -5,6 +5,8 @@ import {seedQuestions} from "../../apps/client/src/features/quiz/data/seedQuesti
 const projectId = "opocompit-dev";
 const authBaseUrl = "http://127.0.0.1:9099";
 const functionsBaseUrl = `http://127.0.0.1:5001/${projectId}/us-central1`;
+const firestoreBaseUrl =
+  `http://127.0.0.1:8080/v1/projects/${projectId}/databases/(default)/documents`;
 
 type CallableEnvelope<T> = {result?: T; error?: {message?: string; status?: string}};
 type Progress = {
@@ -89,6 +91,22 @@ async function createAnonymousAuth() {
   return auth;
 }
 
+async function firestoreRequest(
+  documentPath: string,
+  idToken: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const encodedPath = documentPath.split("/").map(encodeURIComponent).join("/");
+  return fetch(`${firestoreBaseUrl}/${encodedPath}`, {
+    ...init,
+    headers: {
+      authorization: `Bearer ${idToken}`,
+      "content-type": "application/json",
+      ...init.headers,
+    },
+  });
+}
+
 async function main() {
   const auth = await createAnonymousAuth();
 
@@ -110,6 +128,25 @@ async function main() {
   );
   assert.equal(bootstrap.profile.xp, 0);
   assert.equal(bootstrap.profile.coins, 0);
+
+  const securityProbeAuth = await createAnonymousAuth();
+  const ownProfileRead = await firestoreRequest(`users/${auth.localId}`, auth.idToken);
+  assert.equal(ownProfileRead.status, 200);
+  const privateProfileRead = await firestoreRequest(
+    `users/${auth.localId}`,
+    securityProbeAuth.idToken,
+  );
+  assert.equal(privateProfileRead.status, 403);
+  const questionBankRead = await firestoreRequest(
+    `questions/${seedQuestions[0].id}`,
+    auth.idToken,
+  );
+  assert.equal(questionBankRead.status, 403);
+  const directUserWrite = await firestoreRequest(`users/${auth.localId}`, auth.idToken, {
+    method: "PATCH",
+    body: JSON.stringify({fields: {role: {stringValue: "admin"}}}),
+  });
+  assert.equal(directUserWrite.status, 403);
 
   const monetization = await call<{
     plans: Array<{id: string; purchasable: boolean; storeProductId: string | null}>;
@@ -196,6 +233,11 @@ async function main() {
 
   const emulatorAdmin = await call<{role: string}>("bootstrapEmulatorAdmin", {}, auth.idToken);
   assert.equal(emulatorAdmin.role, "admin");
+  const adminQuestionRead = await firestoreRequest(
+    `questions/${seedQuestions[0].id}`,
+    auth.idToken,
+  );
+  assert.equal(adminQuestionRead.status, 200);
   const initialCatalog = await call<{
     catalog: {
       oppositions: Array<{id: string}>;
@@ -1354,6 +1396,11 @@ async function main() {
     adminCatalogValidated: true,
     adminOperationsValidated: true,
     runtimeConfigurationValidated: true,
+    firestoreRulesValidated: true,
+    directUserWriteBlocked: true,
+    privateProfileReadBlocked: true,
+    questionBankReadBlocked: true,
+    adminQuestionReadValidated: true,
     duplicateQuestionDetectionValidated: true,
     duplicatePublishBlocked,
     nonAdminImportBlocked,

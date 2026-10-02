@@ -727,6 +727,10 @@ export function isFirebaseEnabled(): boolean {
   return firebaseEnabled;
 }
 
+export function getFirebaseAppForAnalytics(): FirebaseApp | null {
+  return firebaseApp();
+}
+
 export function isUsingFirebaseEmulators(): boolean {
   return usingFirebaseEmulators();
 }

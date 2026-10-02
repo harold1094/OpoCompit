@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
+import { trackEvent } from '@/core/analytics/analytics';
 import { PremiumFeature, SubscriptionPlan } from '@/core/domain/types';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { premiumFeatureCopy } from '@/features/premium/domain/monetization';
@@ -19,6 +20,7 @@ export default function PremiumScreen() {
 
   useFocusEffect(useCallback(() => {
     void refresh();
+    void trackEvent('paywall_viewed');
   }, [refresh]));
 
   if (!profile) return <Redirect href="/onboarding" />;

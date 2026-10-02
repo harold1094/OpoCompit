@@ -27,6 +27,7 @@ import {
   TerritorySelection,
   UserQuestionStat,
 } from '@/core/domain/types';
+import { trackEvent } from '@/core/analytics/analytics';
 import {
   bootstrapGuestProfile,
   claimDailyRewardRemote,
@@ -300,6 +301,14 @@ export const useAppStore = create<AppStore>()(
           rankingError: null,
           monetizationError: null,
         });
+        void trackEvent('guest_started', {
+          backend_mode: backendMode,
+          territory_scope: territory.municipality
+            ? 'municipal'
+            : territory.autonomousCommunity
+              ? 'regional'
+              : 'national',
+        });
       },
       startQuickMatch: async () => {
         const { profile, backendMode } = get();
@@ -329,6 +338,11 @@ export const useAppStore = create<AppStore>()(
             lastResult: null,
             lastDuelResult: null,
             lastPendingFriendDuel: null,
+          });
+          void trackEvent('quiz_started', {
+            game_mode: 'quick',
+            question_count: activeQuestions.length,
+            backend_mode: backendMode,
           });
           return activeQuestions.length;
         } catch (error) {
@@ -370,6 +384,15 @@ export const useAppStore = create<AppStore>()(
             lastDuelResult: null,
             lastPendingFriendDuel: null,
           });
+          void trackEvent('duel_created', {
+            duel_kind: 'training',
+            question_count: activeQuestions.length,
+          });
+          void trackEvent('quiz_started', {
+            game_mode: 'duel',
+            question_count: activeQuestions.length,
+            backend_mode: backendMode,
+          });
           return activeQuestions.length;
         } catch (error) {
           set({ quizError: readableFirebaseError(error) });
@@ -406,15 +429,24 @@ export const useAppStore = create<AppStore>()(
           lastPendingFriendDuel: null,
           quizError: null,
         });
+        if (activeQuestions.length > 0) {
+          void trackEvent('quiz_started', {
+            game_mode: 'error_review',
+            question_count: activeQuestions.length,
+            backend_mode: 'local',
+          });
+        }
         return activeQuestions.length;
       },
-      answerQuestion: (questionId, answerId) =>
+      answerQuestion: (questionId, answerId) => {
         set((state) => ({
           selectedAnswers: {
             ...state.selectedAnswers,
             [questionId]: answerId ?? BLANK_ANSWER_ID,
           },
-        })),
+        }));
+        void trackEvent('question_answered', { answered: answerId !== null });
+      },
       finishQuiz: async () => {
         const state = get();
         if (!state.profile || state.activeQuestions.length === 0) return null;
@@ -575,6 +607,27 @@ export const useAppStore = create<AppStore>()(
             matchmaking,
             activeSessionId: null,
           });
+          void trackEvent('quiz_completed', {
+            game_mode: state.activeGameMode,
+            question_count: state.activeQuestions.length,
+            correct_count: result.correct,
+            blank_count: result.blank,
+            duration_ms: Math.max(0, Date.now() - (state.activeStartedAt ?? Date.now())),
+          });
+          if (duelResult) {
+            void trackEvent('duel_completed', {
+              duel_kind: duelResult.kind,
+              outcome: duelResult.outcome,
+            });
+          }
+          if (profile.level > state.profile.level) {
+            void trackEvent('level_up', { level: profile.level });
+          }
+          if (profile.currentStreak > state.profile.currentStreak) {
+            void trackEvent('streak_extended', { streak_days: profile.currentStreak });
+          } else if (profile.currentStreak < state.profile.currentStreak) {
+            void trackEvent('streak_lost', { previous_streak_days: state.profile.currentStreak });
+          }
           return result;
         } catch (error) {
           set({ quizError: readableFirebaseError(error) });
@@ -623,6 +676,11 @@ export const useAppStore = create<AppStore>()(
               missions: engagement.missions,
             });
           }
+          void trackEvent('daily_reward_claimed', {
+            reward_day: state.dailyReward.day,
+            coins: state.dailyReward.coins,
+            gems: state.dailyReward.gems,
+          });
           return true;
         } catch (error) {
           set({ engagementError: readableFirebaseError(error) });
@@ -660,6 +718,11 @@ export const useAppStore = create<AppStore>()(
               ),
             });
           }
+          void trackEvent('mission_completed', {
+            mission_type: mission.type,
+            reward_xp: mission.rewardXp,
+            reward_coins: mission.rewardCoins,
+          });
           return true;
         } catch (error) {
           set({ engagementError: readableFirebaseError(error) });
@@ -740,6 +803,11 @@ export const useAppStore = create<AppStore>()(
               },
             });
           }
+          void trackEvent('item_purchased', {
+            item_category: item.category,
+            currency: item.currency,
+            price: item.price,
+          });
           return true;
         } catch (error) {
           set({ avatarError: readableFirebaseError(error) });
@@ -770,6 +838,10 @@ export const useAppStore = create<AppStore>()(
               },
             });
           }
+          void trackEvent('item_equipped', {
+            item_category: item.category,
+            item_slot: item.slot,
+          });
           return true;
         } catch (error) {
           set({ avatarError: readableFirebaseError(error) });
@@ -842,6 +914,7 @@ export const useAppStore = create<AppStore>()(
           set({
             studyGroups: [group, ...state.studyGroups.filter((item) => item.id !== group.id)],
           });
+          void trackEvent('group_created');
           return group;
         } catch (error) {
           set({ groupsError: readableFirebaseError(error) });
@@ -868,6 +941,7 @@ export const useAppStore = create<AppStore>()(
           set({
             studyGroups: [group, ...state.studyGroups.filter((item) => item.id !== group.id)],
           });
+          void trackEvent('group_joined');
           return group;
         } catch (error) {
           set({ groupsError: readableFirebaseError(error) });
@@ -1020,6 +1094,7 @@ export const useAppStore = create<AppStore>()(
               (item) => item.uid !== user.uid,
             ),
           });
+          void trackEvent('friend_request_sent');
           return true;
         } catch (error) {
           set({ socialError: readableFirebaseError(error) });
@@ -1045,6 +1120,7 @@ export const useAppStore = create<AppStore>()(
               friends: accept ? [...state.friends, request.user] : state.friends,
             });
           }
+          if (accept) void trackEvent('friend_added');
           return true;
         } catch (error) {
           set({ socialError: readableFirebaseError(error) });
@@ -1129,6 +1205,7 @@ export const useAppStore = create<AppStore>()(
           } else {
             set({ duelInvitations: state.duelInvitations.filter((item) => item.id !== invitationId) });
           }
+          if (accept) void trackEvent('duel_joined', { duel_kind: 'friend' });
           return true;
         } catch (error) {
           set({ socialError: readableFirebaseError(error) });
@@ -1223,6 +1300,7 @@ export const useAppStore = create<AppStore>()(
           return;
         }
         set({ isMatchmakingLoading: true, socialError: null });
+        void trackEvent('matchmaking_started');
         try {
           if (state.backendMode === 'firebase') {
             set({ matchmaking: await joinMatchmakingRemote() });

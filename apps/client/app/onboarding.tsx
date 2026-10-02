@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
+import { trackEvent } from '@/core/analytics/analytics';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { availableTerritories } from '@/features/onboarding/data/options';
 import { AppScreen } from '@/shared/components/AppScreen';
@@ -13,6 +14,10 @@ export default function OnboardingScreen() {
   const startGuest = useAppStore((state) => state.startGuest);
   const [territoryIndex, setTerritoryIndex] = useState(2);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void trackEvent('onboarding_started');
+  }, []);
 
   const continueAsGuest = async () => {
     setLoading(true);

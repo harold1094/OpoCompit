@@ -23,6 +23,9 @@ For Android, install Expo Go or use an Android emulator, then run `npm run andro
 The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, missions, training and asynchronous friend duels, compatible real-player matchmaking, Elo, global/territorial/friends rankings, usernames, friendships, and private study groups.
 
 Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
+Firebase Analytics is also opt-in and disabled in emulator sessions. The web adapter records only
+bounded product metrics, without names, emails, user IDs, tokens, or selected answers. Native
+analytics remains disabled until the Android production build is configured.
 
 The Social screen now refreshes current friend profiles, displays the real overlap between both
 study streaks, and shows a private feed capped at 20 validated quiz or duel activities.
@@ -42,6 +45,9 @@ cd apps/client
 npm run typecheck
 npm test -- --runInBand
 ```
+
+The same client, backend, security-rule, and emulator checks run in `.github/workflows/ci.yml` on
+every push and pull request. See `RELEASE_CHECKLIST.md` for the remaining production gates.
 
 Verify the complete Firebase backend locally, without Blaze or deployed services:
 

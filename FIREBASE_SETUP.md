@@ -40,6 +40,8 @@ firebase deploy --only functions
 7. Copy `apps/client/.env.example` to `apps/client/.env` and fill in the existing Firebase web app values.
 8. Set `EXPO_PUBLIC_FIREBASE_ENABLED=true` and restart Expo.
 9. Import reviewed questions with `status: published` and `verified: true`.
+10. To enable privacy-filtered web analytics, provide a real measurement ID and set
+    `EXPO_PUBLIC_ANALYTICS_ENABLED=true`. Keep it `false` for local emulator work.
 
 ## Callable Flow
 
@@ -75,12 +77,15 @@ Run the complete isolated backend verification from `functions`:
 npm run verify:emulator
 ```
 
-This command starts clean emulators, imports the 12 existing development questions, creates an anonymous user, completes three quizzes, claims all daily rewards, verifies duplicate-claim protection, and shuts the emulators down.
+This command starts clean emulators, imports the existing development questions, exercises the main
+game, social, group, economy, and admin workflows, verifies direct Firestore access rules, and shuts
+the emulators down.
 
 For the React client, set:
 
 ```dotenv
 EXPO_PUBLIC_FIREBASE_ENABLED=true
+EXPO_PUBLIC_ANALYTICS_ENABLED=false
 EXPO_PUBLIC_USE_FIREBASE_EMULATORS=true
 EXPO_PUBLIC_FIREBASE_EMULATOR_HOST=
 ```
@@ -90,3 +95,7 @@ Leave the host empty to use `127.0.0.1` on web and `10.0.2.2` on the standard An
 ## Security Principle
 
 Clients cannot create or update user progress, claim rewards directly, read question answers, create quiz sessions, or write economy transactions. Admin SDK code in callable Functions performs those operations after validating the authenticated user and raw actions.
+
+The analytics adapter refuses to start against emulators and removes sensitive parameter keys before
+delivery. It is currently web-only because Firebase's JavaScript Analytics SDK does not provide the
+native Android transport used by Expo development builds.
