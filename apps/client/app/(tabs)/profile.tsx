@@ -32,9 +32,13 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{profile.username}</Text>
         <Text style={styles.scope}>{profile.oppositionName} · {profile.territory.label}</Text>
         <View style={styles.sessionBadge}>
-          <View style={[styles.sessionDot, { backgroundColor: profile.uid === 'local_guest' ? colors.gold : colors.success }]} />
+          <View style={[styles.sessionDot, { backgroundColor: profile.isGuest ? colors.gold : colors.success }]} />
           <Text style={styles.sessionText}>
-            {profile.uid === 'local_guest' ? 'Modo local' : 'Invitado Firebase'}
+            {!profile.isGuest
+              ? 'Cuenta vinculada'
+              : profile.uid === 'local_guest'
+                ? 'Modo local'
+                : 'Invitado Firebase'}
           </Text>
         </View>
       </View>
@@ -121,17 +125,30 @@ export default function ProfileScreen() {
         </Pressable>
       ) : null}
 
-      <View style={styles.accountNote}>
-        <MaterialCommunityIcons name="shield-check-outline" size={22} color={colors.aqua} />
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/account')}
+        style={({ pressed }) => [styles.accountNote, pressed && styles.adminLinkPressed]}
+      >
+        <MaterialCommunityIcons
+          name={profile.isGuest ? 'shield-plus-outline' : 'shield-check-outline'}
+          size={22}
+          color={profile.isGuest ? colors.brand : colors.success}
+        />
         <View style={styles.accountCopy}>
-          <Text style={styles.accountTitle}>Sesión preparada</Text>
+          <Text style={styles.accountTitle}>
+            {profile.isGuest ? 'Guarda tu progreso' : 'Cuenta y acceso'}
+          </Text>
           <Text style={styles.accountText}>
-            {backendMode === 'firebase'
-              ? 'Tu invitado anónimo puede vincularse después sin perder el progreso.'
+            {!profile.isGuest
+              ? 'Gestiona tu sesión y el acceso a tu progreso.'
+              : backendMode === 'firebase'
+                ? 'Crea una cuenta sin perder XP, monedas, amigos ni inventario.'
               : 'Activa Firebase en el entorno para sincronizar este progreso entre dispositivos.'}
           </Text>
         </View>
-      </View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+      </Pressable>
     </AppScreen>
   );
 }

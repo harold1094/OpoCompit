@@ -838,6 +838,50 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
   return {profile};
 });
 
+export const getCurrentProfile = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const snapshot = await db.collection("users").doc(uid).get();
+  if (!snapshot.exists) {
+    throw new HttpsError("not-found", "User profile missing.");
+  }
+  return {profile: serializeProfile(uid, snapshot.data() ?? {})};
+});
+
+export const completeAccountLink = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const provider = authProvider(request.auth?.token.firebase);
+  if (!provider || provider === "anonymous") {
+    throw new HttpsError("failed-precondition", "A permanent authentication provider is required.");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const profile = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    if (!snapshot.exists) {
+      throw new HttpsError("not-found", "User profile missing.");
+    }
+    const current = snapshot.data() ?? {};
+    const updated = {
+      ...current,
+      isAnonymous: false,
+      role: current.role === "guest" ? "user" : current.role,
+      accountProvider: provider,
+      linkedAt: current.linkedAt ?? Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+    transaction.update(userRef, {
+      isAnonymous: false,
+      role: updated.role,
+      accountProvider: provider,
+      linkedAt: updated.linkedAt,
+      updatedAt: updated.updatedAt,
+    });
+    return serializeProfile(uid, updated);
+  });
+
+  return {profile};
+});
+
 export const getAvatarShop = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   return {inventory: await avatarInventoryForUid(uid)};
@@ -3338,6 +3382,12 @@ async function questionDuplicateMap(
     });
   }
   return result;
+}
+
+function authProvider(firebaseClaim: unknown): string | null {
+  if (!firebaseClaim || typeof firebaseClaim !== "object") return null;
+  const provider = (firebaseClaim as {sign_in_provider?: unknown}).sign_in_provider;
+  return typeof provider === "string" ? provider : null;
 }
 
 function catalogSort(first: AdminCatalogItem, second: AdminCatalogItem): number {

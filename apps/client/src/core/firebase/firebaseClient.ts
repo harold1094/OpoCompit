@@ -4,10 +4,18 @@ import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
   connectAuthEmulator,
+  EmailAuthProvider,
   getAuth,
+  GoogleAuthProvider,
   initializeAuth,
+  linkWithCredential,
+  linkWithPopup,
   Persistence,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
   signInAnonymously,
+  signInWithPopup,
+  signOut,
 } from 'firebase/auth';
 import {
   connectFunctionsEmulator,
@@ -384,6 +392,83 @@ export async function bootstrapGuestProfile(profile: PlayerProfile): Promise<Pla
   return response.data.profile;
 }
 
+async function currentProfileRemote(): Promise<PlayerProfile> {
+  const invoke = callable<Record<string, never>, { profile: PlayerProfile }>('getCurrentProfile');
+  return (await invoke({})).data.profile;
+}
+
+async function completeAccountLinkRemote(): Promise<PlayerProfile> {
+  const invoke = callable<Record<string, never>, { profile: PlayerProfile }>('completeAccountLink');
+  return (await invoke({})).data.profile;
+}
+
+export async function linkEmailAccountRemote(
+  email: string,
+  password: string,
+): Promise<PlayerProfile> {
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  if (!auth.currentUser?.isAnonymous) {
+    throw new Error('La sesión actual ya está vinculada a una cuenta.');
+  }
+  await linkWithCredential(
+    auth.currentUser,
+    EmailAuthProvider.credential(email, password),
+  );
+  await auth.currentUser.getIdToken(true);
+  return completeAccountLinkRemote();
+}
+
+export async function signInEmailAccountRemote(
+  email: string,
+  password: string,
+): Promise<PlayerProfile> {
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  await signInWithEmailAndPassword(auth, email, password);
+  return currentProfileRemote();
+}
+
+export async function linkGoogleAccountRemote(): Promise<PlayerProfile> {
+  if (Platform.OS !== 'web') {
+    throw new Error('Google para Android necesita los identificadores OAuth de producción.');
+  }
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  if (!auth.currentUser?.isAnonymous) {
+    throw new Error('La sesión actual ya está vinculada a una cuenta.');
+  }
+  await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+  await auth.currentUser.getIdToken(true);
+  return completeAccountLinkRemote();
+}
+
+export async function signInGoogleAccountRemote(): Promise<PlayerProfile> {
+  if (Platform.OS !== 'web') {
+    throw new Error('Google para Android necesita los identificadores OAuth de producción.');
+  }
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  await signInWithPopup(auth, new GoogleAuthProvider());
+  return currentProfileRemote();
+}
+
+export async function sendAccountPasswordResetRemote(email: string): Promise<void> {
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  await sendPasswordResetEmail(firebaseAuth(app), email);
+}
+
+export async function signOutAccountRemote(): Promise<void> {
+  const app = firebaseApp();
+  if (!app) return;
+  await signOut(firebaseAuth(app));
+}
+
 export async function getAvatarShopRemote(): Promise<AvatarInventory> {
   await startAnonymousSession();
   const invoke = callable<Record<string, never>, AvatarInventoryResponse>('getAvatarShop');
@@ -737,7 +822,8 @@ export function isUsingFirebaseEmulators(): boolean {
 
 export function readableFirebaseError(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'code' in error) {
-    const code = String((error as { code: unknown }).code).replace('functions/', '');
+    const rawCode = String((error as { code: unknown }).code);
+    const code = rawCode.replace('functions/', '').replace('auth/', '');
     const messages: Record<string, string> = {
       unauthenticated: 'La sesión de invitado ha caducado. Vuelve a entrar.',
       'failed-precondition': 'La operación no está disponible en su estado actual.',
@@ -749,6 +835,14 @@ export function readableFirebaseError(error: unknown): string {
       'resource-exhausted': 'Has alcanzado el límite permitido para esta operación.',
       aborted: 'Los datos han cambiado. Actualiza y vuelve a intentarlo.',
       unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
+      'email-already-in-use': 'Ese correo ya está asociado a otra cuenta.',
+      'credential-already-in-use': 'Esa cuenta ya está vinculada a otro usuario.',
+      'invalid-credential': 'El correo o la contraseña no son correctos.',
+      'invalid-email': 'Introduce un correo electrónico válido.',
+      'weak-password': 'La contraseña debe tener al menos 6 caracteres.',
+      'too-many-requests': 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
+      'popup-closed-by-user': 'Se cerró el acceso con Google antes de terminar.',
+      'popup-blocked': 'El navegador ha bloqueado la ventana de acceso con Google.',
     };
     return messages[code] ?? 'No se pudo completar la operación con Firebase.';
   }

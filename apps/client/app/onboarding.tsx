@@ -89,6 +89,13 @@ export default function OnboardingScreen() {
           loading={loading}
           onPress={() => void continueAsGuest()}
         />
+        <PrimaryButton
+          label="Ya tengo una cuenta"
+          icon="login"
+          disabled={loading}
+          onPress={() => router.push('/account')}
+          variant="secondary"
+        />
       </View>
     </AppScreen>
   );
@@ -130,5 +137,5 @@ const styles = StyleSheet.create({
   optionCopy: { flex: 1 },
   optionTitle: { color: colors.ink, fontWeight: '800', fontSize: 15 },
   optionSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  action: { marginTop: spacing.xl, marginBottom: spacing.lg },
+  action: { gap: spacing.sm, marginTop: spacing.xl, marginBottom: spacing.lg },
 });

@@ -3,6 +3,8 @@ export type AnalyticsEventName =
   | 'screen_view'
   | 'onboarding_started'
   | 'guest_started'
+  | 'signup_completed'
+  | 'login_completed'
   | 'quiz_started'
   | 'quiz_completed'
   | 'quiz_abandoned'

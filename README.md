@@ -37,6 +37,9 @@ The Profile now opens a modular 2D avatar wardrobe and local-assets shop. Purcha
 or gems, while callable Functions validate ownership, balances, idempotency, and equipped items.
 The Profile also exposes the server-configured Premium preview. Plans, benefits, gem grants, and ad
 policy come from Firestore; billing and AdMob remain disabled until production credentials are approved.
+Guests can now protect their progress by linking an email/password account on Android or web, then
+sign back into the same Firebase profile later. Google linking and login are available on web; the
+native Android Google flow remains a production OAuth setup task.
 
 ## Verify
 
@@ -93,5 +96,6 @@ Functions emulator.
 7. Open `Duelo`, choose a training rival, finish the shared ten-question challenge, and compare score and time.
 8. Open `Perfil` and enter `Avatar y tienda` to equip starter items or buy cosmetics with earned currency.
 9. Open `Premium` to inspect the current free entitlement and backend-configured future plan.
+10. Open `Cuenta` from Profile to link an email/password account, sign out, and recover the same progress.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

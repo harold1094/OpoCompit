@@ -18,7 +18,7 @@ Choosing a Firestore location is a long-lived decision. Select the database loca
 ## Production Activation Order
 
 1. Choose and create the Firestore database location.
-2. Enable Anonymous Authentication in Firebase Authentication.
+2. Enable Anonymous, Email/Password, and Google Authentication in Firebase Authentication.
 3. Upgrade to Blaze and create budget alerts before deploying Functions.
 4. Set the same Functions region in the server exports and `EXPO_PUBLIC_FIREBASE_FUNCTIONS_REGION`.
 5. Deploy rules and indexes:
@@ -46,6 +46,8 @@ firebase deploy --only functions
 ## Callable Flow
 
 - `bootstrapGuestProfile`: creates the protected server profile with zero economy values.
+- `getCurrentProfile`: restores the protected profile after a returning user signs in.
+- `completeAccountLink`: marks a guest profile as linked only after Auth confirms a non-anonymous provider.
 - `startQuickQuiz`: reads opposition and territory from the trusted user profile and returns questions without answers or explanations.
 - `submitQuizSession`: validates ownership, expiry, question IDs, answer options, scoring, XP, coins, level, streak, question statistics, mission progress, and the economy transaction.
 - `getDailyEngagement`: returns today's reward and missions using the Madrid calendar day.
@@ -53,6 +55,10 @@ firebase deploy --only functions
 - `claimMission`: validates server-owned mission progress before granting XP and coins.
 
 The React client falls back to local mode when Firebase is disabled or guest bootstrap cannot complete.
+Guests can link an email/password account on Android or web without changing their Firebase UID, so
+their XP, coins, streaks, friends, and groups remain attached to the same profile. Google linking is
+implemented for web; native Android Google sign-in still requires the production OAuth client IDs and
+a signed-build verification pass.
 
 ## Local Emulators
 

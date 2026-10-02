@@ -91,6 +91,34 @@ async function createAnonymousAuth() {
   return auth;
 }
 
+async function linkEmailAuth(idToken: string, email: string, password: string) {
+  const response = await fetch(
+    `${authBaseUrl}/identitytoolkit.googleapis.com/v1/accounts:update?key=emulator-key`,
+    {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({idToken, email, password, returnSecureToken: true}),
+    },
+  );
+  const text = await response.text();
+  assert.equal(response.ok, true, `Email link failed: ${text}`);
+  return JSON.parse(text) as {idToken: string; localId: string};
+}
+
+async function signInEmailAuth(email: string, password: string) {
+  const response = await fetch(
+    `${authBaseUrl}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-key`,
+    {
+      method: "POST",
+      headers: {"content-type": "application/json"},
+      body: JSON.stringify({email, password, returnSecureToken: true}),
+    },
+  );
+  const text = await response.text();
+  assert.equal(response.ok, true, `Email sign-in failed: ${text}`);
+  return JSON.parse(text) as {idToken: string; localId: string};
+}
+
 async function firestoreRequest(
   documentPath: string,
   idToken: string,
@@ -147,6 +175,15 @@ async function main() {
     body: JSON.stringify({fields: {role: {stringValue: "admin"}}}),
   });
   assert.equal(directUserWrite.status, 403);
+
+  let anonymousAccountLinkBlocked = false;
+  try {
+    await call("completeAccountLink", {}, auth.idToken);
+  } catch (error) {
+    anonymousAccountLinkBlocked = error instanceof Error &&
+      error.message.includes("FAILED_PRECONDITION");
+  }
+  assert.equal(anonymousAccountLinkBlocked, true);
 
   const monetization = await call<{
     plans: Array<{id: string; purchasable: boolean; storeProductId: string | null}>;
@@ -1362,6 +1399,44 @@ async function main() {
     false,
   );
 
+  const profileBeforeLink = await call<{
+    profile: Progress & {
+      uid: string;
+      isGuest: boolean;
+      totalQuestions: number;
+      testsCompleted: number;
+    };
+  }>("getCurrentProfile", {}, auth.idToken);
+  assert.equal(profileBeforeLink.profile.isGuest, true);
+
+  const accountEmail = `${auth.localId.toLowerCase()}@opocompit.test`;
+  const accountPassword = "SmokePassword123!";
+  const linkedAuth = await linkEmailAuth(auth.idToken, accountEmail, accountPassword);
+  assert.equal(linkedAuth.localId, auth.localId);
+  const linkedAccount = await call<{profile: Progress & {uid: string; isGuest: boolean}}>(
+    "completeAccountLink",
+    {},
+    linkedAuth.idToken,
+  );
+  assert.equal(linkedAccount.profile.uid, auth.localId);
+  assert.equal(linkedAccount.profile.isGuest, false);
+  assert.equal(linkedAccount.profile.xp, profileBeforeLink.profile.xp);
+  assert.equal(linkedAccount.profile.coins, profileBeforeLink.profile.coins);
+  assert.equal(linkedAccount.profile.totalQuestions, profileBeforeLink.profile.totalQuestions);
+  assert.equal(linkedAccount.profile.testsCompleted, profileBeforeLink.profile.testsCompleted);
+
+  const signedInAuth = await signInEmailAuth(accountEmail, accountPassword);
+  assert.equal(signedInAuth.localId, auth.localId);
+  const restoredAccount = await call<{profile: Progress & {uid: string; isGuest: boolean}}>(
+    "getCurrentProfile",
+    {},
+    signedInAuth.idToken,
+  );
+  assert.equal(restoredAccount.profile.uid, auth.localId);
+  assert.equal(restoredAccount.profile.isGuest, false);
+  assert.equal(restoredAccount.profile.xp, linkedAccount.profile.xp);
+  assert.equal(restoredAccount.profile.coins, linkedAccount.profile.coins);
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 4,
@@ -1401,6 +1476,10 @@ async function main() {
     privateProfileReadBlocked: true,
     questionBankReadBlocked: true,
     adminQuestionReadValidated: true,
+    anonymousAccountLinkBlocked,
+    guestAccountConversionValidated: true,
+    returningEmailLoginValidated: true,
+    linkedProgressPreserved: true,
     duplicateQuestionDetectionValidated: true,
     duplicatePublishBlocked,
     nonAdminImportBlocked,

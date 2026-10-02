@@ -48,6 +48,8 @@ import {
   joinStudyGroupRemote,
   leaveStudyGroupRemote,
   leaveMatchmakingRemote,
+  linkEmailAccountRemote,
+  linkGoogleAccountRemote,
   readableFirebaseError,
   removeFriendRemote,
   respondFriendRequestRemote,
@@ -55,7 +57,11 @@ import {
   searchUsersRemote,
   sendFriendDuelInvitationRemote,
   sendFriendRequestRemote,
+  sendAccountPasswordResetRemote,
   setPublicUsernameRemote,
+  signInEmailAccountRemote,
+  signInGoogleAccountRemote,
+  signOutAccountRemote,
   startAnonymousSession,
   startQuickQuizRemote,
   startClassicDuelRemote,
@@ -142,7 +148,16 @@ type AppStore = {
   socialError: string | null;
   groupsError: string | null;
   rankingError: string | null;
+  isAccountLoading: boolean;
+  accountError: string | null;
   setHydrated: (hydrated: boolean) => void;
+  linkEmailAccount: (email: string, password: string) => Promise<boolean>;
+  linkGoogleAccount: () => Promise<boolean>;
+  signInEmailAccount: (email: string, password: string) => Promise<boolean>;
+  signInGoogleAccount: () => Promise<boolean>;
+  sendAccountPasswordReset: (email: string) => Promise<boolean>;
+  signOutAccount: () => Promise<void>;
+  clearAccountError: () => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
@@ -239,7 +254,113 @@ export const useAppStore = create<AppStore>()(
       socialError: null,
       groupsError: null,
       rankingError: null,
+      isAccountLoading: false,
+      accountError: null,
       setHydrated: (hydrated) => set({ hydrated }),
+      linkEmailAccount: async (email, password) => {
+        const state = get();
+        if (!state.profile || state.backendMode !== 'firebase' || state.isAccountLoading) {
+          set({ accountError: 'Necesitas una sesión de invitado conectada con Firebase.' });
+          return false;
+        }
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          const profile = await linkEmailAccountRemote(email, password);
+          set({ profile });
+          void trackEvent('signup_completed', { auth_method: 'email' });
+          return true;
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      linkGoogleAccount: async () => {
+        const state = get();
+        if (!state.profile || state.backendMode !== 'firebase' || state.isAccountLoading) {
+          set({ accountError: 'Necesitas una sesión de invitado conectada con Firebase.' });
+          return false;
+        }
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          const profile = await linkGoogleAccountRemote();
+          set({ profile });
+          void trackEvent('signup_completed', { auth_method: 'google' });
+          return true;
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      signInEmailAccount: async (email, password) => {
+        const state = get();
+        if (!isFirebaseEnabled() || state.isAccountLoading) {
+          set({ accountError: 'El acceso necesita Firebase activado.' });
+          return false;
+        }
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          const profile = await signInEmailAccountRemote(email, password);
+          set(authenticatedSessionState(profile));
+          void trackEvent('login_completed', { auth_method: 'email' });
+          return true;
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      signInGoogleAccount: async () => {
+        const state = get();
+        if (!isFirebaseEnabled() || state.isAccountLoading) {
+          set({ accountError: 'El acceso necesita Firebase activado.' });
+          return false;
+        }
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          const profile = await signInGoogleAccountRemote();
+          set(authenticatedSessionState(profile));
+          void trackEvent('login_completed', { auth_method: 'google' });
+          return true;
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      sendAccountPasswordReset: async (email) => {
+        if (!isFirebaseEnabled()) {
+          set({ accountError: 'La recuperación necesita Firebase activado.' });
+          return false;
+        }
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          await sendAccountPasswordResetRemote(email);
+          return true;
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+          return false;
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      signOutAccount: async () => {
+        set({ isAccountLoading: true, accountError: null });
+        try {
+          await signOutAccountRemote();
+          set(authenticatedSessionState(null));
+        } catch (error) {
+          set({ accountError: readableFirebaseError(error) });
+        } finally {
+          set({ isAccountLoading: false });
+        }
+      },
+      clearAccountError: () => set({ accountError: null }),
       startGuest: async (territory) => {
         let backendMode: BackendMode = 'local';
         let uid = 'local_guest';
@@ -1475,6 +1596,46 @@ function socialUserToDuelOpponent(user: SocialUser): DuelOpponent {
     name: user.username,
     level: user.level,
     territoryLabel: user.territoryLabel,
+  };
+}
+
+function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppStore> {
+  return {
+    backendMode: isFirebaseEnabled() ? 'firebase' : 'local',
+    profile,
+    activeQuestions: [],
+    activeSessionId: null,
+    activeGameMode: 'quick',
+    activeDuelOpponent: null,
+    activeStartedAt: null,
+    selectedAnswers: {},
+    questionStats: {},
+    dailyReward: null,
+    missions: [],
+    avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
+    monetization: localMonetizationOverview(profile?.gems ?? 0),
+    friends: [],
+    socialActivity: [],
+    studyGroups: [],
+    activeStudyGroup: null,
+    incomingRequests: [],
+    outgoingRequests: [],
+    duelInvitations: [],
+    matchmaking: { status: 'idle', rating: 1000 },
+    ranking: null,
+    rankingScope: 'global',
+    socialSearchResults: [],
+    lastResult: null,
+    lastDuelResult: null,
+    lastPendingFriendDuel: null,
+    quizError: null,
+    engagementError: null,
+    avatarError: null,
+    monetizationError: null,
+    socialError: null,
+    groupsError: null,
+    rankingError: null,
+    accountError: null,
   };
 }
 

@@ -11,7 +11,9 @@
 
 ## Product gates
 
-- [ ] Add Google and email account linking without losing guest progress.
+- [x] Add email/password account linking and returning login without losing guest progress.
+- [x] Add Google account linking and login on web.
+- [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Add official-exam mode after reviewed question content is available.
 - [ ] Complete accessibility and physical Android device testing.
 - [ ] Validate empty, loading, offline, expired-session, and recovery states on Android.
@@ -20,7 +22,7 @@
 ## Production infrastructure
 
 - [ ] Select the permanent Firestore location and matching Functions region.
-- [ ] Enable Authentication providers and configure production Firebase apps.
+- [ ] Enable Email/Password and Google Authentication providers and configure production Firebase apps.
 - [ ] Upgrade Firebase only after budget alerts and spending limits are agreed.
 - [ ] Replace preview billing and ad configuration with approved store credentials.
 - [ ] Add a native Android analytics adapter and verify consent requirements.
