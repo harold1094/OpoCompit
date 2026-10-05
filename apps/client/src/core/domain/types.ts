@@ -120,6 +120,30 @@ export type AchievementOverview = {
   newlyUnlockedIds: string[];
 };
 
+export type AppNotificationType =
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'duel_invitation'
+  | 'duel_accepted'
+  | 'duel_result'
+  | 'achievement';
+
+export type AppNotification = {
+  id: string;
+  type: AppNotificationType;
+  title: string;
+  body: string;
+  route: string;
+  entityId: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationOverview = {
+  items: AppNotification[];
+  unreadCount: number;
+};
+
 export type AvatarItemCategory =
   | 'avatars'
   | 'clothing'

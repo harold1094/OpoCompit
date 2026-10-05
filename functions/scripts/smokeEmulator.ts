@@ -637,6 +637,26 @@ async function main() {
     {targetUid: friendAuth.localId},
     auth.idToken,
   );
+  const requestNotifications = await call<{
+    items: Array<{id: string; type: string; readAt: string | null}>;
+    unreadCount: number;
+  }>("getNotifications", {}, friendAuth.idToken);
+  const friendRequestNotification = requestNotifications.items.find(
+    (item) => item.type === "friend_request",
+  );
+  assert.ok(friendRequestNotification);
+  assert.equal(requestNotifications.unreadCount, 1);
+  await call(
+    "markNotificationsRead",
+    {notificationIds: [friendRequestNotification.id]},
+    friendAuth.idToken,
+  );
+  const readRequestNotifications = await call<{unreadCount: number}>(
+    "getNotifications",
+    {},
+    friendAuth.idToken,
+  );
+  assert.equal(readRequestNotifications.unreadCount, 0);
   const friendBeforeAccept = await call<SocialOverview>(
     "getSocialOverview",
     {},
@@ -658,6 +678,13 @@ async function main() {
   assert.equal(secondOverview.friends[0].username, "HaroldCT");
   assert.equal(firstOverview.outgoingRequests.length, 0);
   assert.equal(secondOverview.incomingRequests.length, 0);
+  const acceptedFriendNotifications = await call<{
+    items: Array<{type: string}>;
+  }>("getNotifications", {}, auth.idToken);
+  assert.equal(
+    acceptedFriendNotifications.items.some((item) => item.type === "friend_accepted"),
+    true,
+  );
 
   const sentDuelInvitation = await call<{
     invitation: {id: string; status: string};
@@ -670,6 +697,13 @@ async function main() {
   const duelInbox = await call<SocialOverview>("getSocialOverview", {}, friendAuth.idToken);
   assert.equal(duelInbox.duelInvitations[0].opponent.username, "HaroldCT");
   assert.equal(duelInbox.duelInvitations[0].status, "pending");
+  const duelInviteNotifications = await call<{
+    items: Array<{type: string}>;
+  }>("getNotifications", {}, friendAuth.idToken);
+  assert.equal(
+    duelInviteNotifications.items.some((item) => item.type === "duel_invitation"),
+    true,
+  );
 
   const acceptedDuelInvitation = await call<{
     invitation: {duelId: string; status: string};
@@ -680,6 +714,13 @@ async function main() {
   );
   assert.equal(acceptedDuelInvitation.invitation.status, "active");
   assert.ok(acceptedDuelInvitation.invitation.duelId);
+  const acceptedDuelNotifications = await call<{
+    items: Array<{type: string}>;
+  }>("getNotifications", {}, auth.idToken);
+  assert.equal(
+    acceptedDuelNotifications.items.some((item) => item.type === "duel_accepted"),
+    true,
+  );
   const friendDuelId = acceptedDuelInvitation.invitation.duelId;
 
   const [firstFriendDuel, secondFriendDuel] = await Promise.all([
@@ -755,6 +796,24 @@ async function main() {
   assert.equal(secondFriendSubmission.duel.opponentCorrect, 10);
   assert.equal(secondFriendSubmission.progress.duelsPlayed, 1);
   assert.equal(secondFriendSubmission.progress.duelLosses, 1);
+  const [winnerNotifications, loserNotifications] = await Promise.all([
+    call<{items: Array<{type: string; body: string}>}>("getNotifications", {}, auth.idToken),
+    call<{items: Array<{type: string; body: string}>}>(
+      "getNotifications",
+      {},
+      friendAuth.idToken,
+    ),
+  ]);
+  assert.equal(
+    winnerNotifications.items.some((item) =>
+      item.type === "duel_result" && item.body.includes("ganado"),
+    ),
+    true,
+  );
+  assert.equal(
+    loserNotifications.items.some((item) => item.type === "duel_result"),
+    true,
+  );
 
   const completedFriendDuel = await call<{
     status: string;
@@ -1732,6 +1791,15 @@ async function main() {
   assert.equal(repeatedAchievementOverview.progress.xp, firstAchievementOverview.progress.xp);
   assert.equal(repeatedAchievementOverview.progress.coins, firstAchievementOverview.progress.coins);
   assert.equal(repeatedAchievementOverview.progress.gems, firstAchievementOverview.progress.gems);
+  const achievementNotifications = await call<{
+    items: Array<{type: string; route: string}>;
+  }>("getNotifications", {}, signedInAuth.idToken);
+  assert.equal(
+    achievementNotifications.items.some((item) =>
+      item.type === "achievement" && item.route === "/achievements",
+    ),
+    true,
+  );
 
   console.log(JSON.stringify({
     uid: auth.localId,
@@ -1770,6 +1838,8 @@ async function main() {
     learningInsightsValidated: true,
     achievementsValidated: true,
     duplicateAchievementRewardsBlocked: true,
+    internalNotificationsValidated: true,
+    notificationReadStateValidated: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,

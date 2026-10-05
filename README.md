@@ -53,6 +53,8 @@ queue can be filtered and started by category. Profile aggregates those trusted 
 strongest and weakest topics, accuracy bars, and a direct weak-topic review action.
 Profile also exposes a configurable achievement catalog. Milestones are evaluated against trusted
 progress, unlocked transactionally, and reward XP, coins, or gems only once.
+The Home bell opens a private internal inbox for social requests, duel updates, and achievement
+unlocks. Notices are created by Functions, deduplicated by event, and can be read individually or all at once.
 The Home `Test` entry now creates server-filtered custom practices or timed simulations by question
 count, category, difficulty, territory scope, and personal history. Simulations support blanks,
 review navigation, a deadline, and server-authoritative `+1/-0.33/0` scoring.

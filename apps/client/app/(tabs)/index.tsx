@@ -25,11 +25,14 @@ export default function HomeScreen() {
   const refreshDailyEngagement = useAppStore((state) => state.refreshDailyEngagement);
   const claimDailyReward = useAppStore((state) => state.claimDailyReward);
   const claimMission = useAppStore((state) => state.claimMission);
+  const unreadNotifications = useAppStore((state) => state.notificationOverview.unreadCount);
+  const loadNotifications = useAppStore((state) => state.loadNotifications);
 
   useFocusEffect(
     useCallback(() => {
       void refreshDailyEngagement();
-    }, [refreshDailyEngagement]),
+      void loadNotifications();
+    }, [loadNotifications, refreshDailyEngagement]),
   );
 
   if (!profile) return null;
@@ -79,17 +82,34 @@ export default function HomeScreen() {
           >
             <AvatarPreview loadout={avatarInventory.equipped} size={50} />
           </Pressable>
-          <View>
+          <View style={styles.identityCopy}>
             <Text style={styles.greeting}>Hola, {profile.username}</Text>
             <Text style={styles.territory}>{profile.territory.label}</Text>
           </View>
         </View>
-        <View style={styles.wallet}>
-          <MaterialCommunityIcons name="fire" size={18} color={colors.brand} />
-          <Text style={styles.walletValue}>{profile.currentStreak}</Text>
-          <View style={styles.walletDivider} />
-          <MaterialCommunityIcons name="circle-multiple" size={17} color={colors.gold} />
-          <Text style={styles.walletValue}>{profile.coins}</Text>
+        <View style={styles.topbarActions}>
+          <Pressable
+            accessibilityLabel={`${unreadNotifications} avisos sin leer`}
+            accessibilityRole="button"
+            onPress={() => router.push('/notifications')}
+            style={({pressed}) => [styles.notificationButton, pressed && styles.modePressed]}
+          >
+            <MaterialCommunityIcons name="bell-outline" size={22} color={colors.ink} />
+            {unreadNotifications > 0 ? (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {Math.min(unreadNotifications, 9)}{unreadNotifications > 9 ? '+' : ''}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <View style={styles.wallet}>
+            <MaterialCommunityIcons name="fire" size={18} color={colors.brand} />
+            <Text style={styles.walletValue}>{profile.currentStreak}</Text>
+            <View style={styles.walletDivider} />
+            <MaterialCommunityIcons name="circle-multiple" size={17} color={colors.gold} />
+            <Text style={styles.walletValue}>{profile.coins}</Text>
+          </View>
         </View>
       </View>
 
@@ -261,10 +281,15 @@ function ModeButton({
 
 const styles = StyleSheet.create({
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingTop: 2 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 1 },
+  identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  identityCopy: { flex: 1, minWidth: 0 },
   avatarButton: { width: 50, height: 50, borderRadius: radius.md, ...shadows.card },
   greeting: { color: colors.ink, fontWeight: '900', fontSize: 18 },
   territory: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  topbarActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  notificationButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface, ...shadows.card },
+  notificationBadge: { position: 'absolute', minWidth: 17, height: 17, alignItems: 'center', justifyContent: 'center', top: -4, right: -4, paddingHorizontal: 4, borderRadius: radius.pill, backgroundColor: colors.brand },
+  notificationBadgeText: { color: colors.surface, fontSize: 9, fontWeight: '900' },
   wallet: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingVertical: 9, paddingHorizontal: 11, borderRadius: radius.md, ...shadows.card },
   walletValue: { color: colors.ink, fontWeight: '800', fontSize: 13 },
   walletDivider: { width: 1, height: 17, backgroundColor: colors.line, marginHorizontal: 3 },

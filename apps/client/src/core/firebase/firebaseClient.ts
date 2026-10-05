@@ -28,6 +28,7 @@ export { readableFirebaseError } from './firebaseError';
 
 import {
   AchievementOverview,
+  NotificationOverview,
   AvatarInventory,
   ActiveCustomQuiz,
   CustomQuizConfig,
@@ -401,6 +402,7 @@ export async function startAnonymousSession(): Promise<string> {
   if (!app) return 'local_guest';
 
   const auth = firebaseAuth(app);
+  await auth.authStateReady();
   if (auth.currentUser) return auth.currentUser.uid;
   const credential = await signInAnonymously(auth);
   return credential.user.uid;
@@ -527,6 +529,20 @@ export async function getAchievementsRemote(): Promise<AchievementOverviewRespon
   await startAnonymousSession();
   const invoke = callable<Record<string, never>, AchievementOverviewResponse>('getAchievements');
   return (await invoke({})).data;
+}
+
+export async function getNotificationsRemote(): Promise<NotificationOverview> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, NotificationOverview>('getNotifications');
+  return (await invoke({})).data;
+}
+
+export async function markNotificationsReadRemote(notificationIds: string[]): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<{notificationIds: string[]}, {notificationIds: string[]; readAt: string}>(
+    'markNotificationsRead',
+  );
+  await invoke({notificationIds});
 }
 
 export async function purchaseAvatarItemRemote(itemId: string): Promise<AvatarInventory> {

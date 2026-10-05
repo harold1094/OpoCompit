@@ -79,6 +79,11 @@ stored in `users/{uid}/achievements/{achievementId}`. The callable evaluates onl
 question aggregates, grants each reward once in a transaction, and records deterministic economy
 transactions for auditability.
 
+Internal notifications live in `users/{uid}/notifications/{notificationId}`. They store a bounded
+type, title, body, safe in-app route, related entity, creation timestamp, and nullable read timestamp.
+Social and achievement transactions create deterministic notification IDs so retries cannot duplicate
+an alert. Clients can read their own inbox but only callable Functions can create or mark notices.
+
 ## oppositions/{oppositionId}
 
 ```json

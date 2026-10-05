@@ -77,6 +77,14 @@ Loads the active achievement catalog, evaluates profile and category milestones 
 Firestore aggregates, persists newly unlocked achievements, and grants configured XP, coin, and gem
 rewards exactly once. The response includes the complete progress catalog and updated player balances.
 
+## Notification callables
+
+- `getNotifications`: returns the newest 50 private in-app notices and a bounded unread count.
+- `markNotificationsRead`: marks up to 50 owned notification IDs as read.
+
+Friend requests, accepted friendships, duel invitations, accepted challenges, completed duels, and
+achievement unlocks create deterministic notices inside the same trusted transaction as their event.
+
 ## callable: `startClassicDuel`
 
 Input:

@@ -226,6 +226,10 @@ type SubmitFriendDuelInput = {
   answers: Answer[];
 };
 
+type MarkNotificationsReadInput = {
+  notificationIds: string[];
+};
+
 type GetRankingInput = {
   scope: "global" | "territory" | "friends";
 };
@@ -981,6 +985,17 @@ export const getAchievements = onCall(async (request) => {
           achievementRewardTransaction(uid, template.id, "gems", template.rewardGems, gemBalance, now),
         );
       }
+      transaction.set(
+        userRef.collection("notifications").doc(`achievement_${template.id}`),
+        notificationDocument(
+          "achievement",
+          "Nuevo logro desbloqueado",
+          `${template.title}: ya tienes su recompensa.`,
+          "/achievements",
+          template.id,
+          now,
+        ),
+      );
     });
 
     return {
@@ -993,6 +1008,49 @@ export const getAchievements = onCall(async (request) => {
       progress: serializeProgress(updatedUser),
     };
   });
+});
+
+export const getNotifications = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "User profile missing.");
+  }
+  const snapshot = await userSnapshot.ref.collection("notifications")
+    .orderBy("createdAt", "desc")
+    .limit(50)
+    .get();
+  const items = snapshot.docs.map((document) =>
+    serializeNotification(document.id, document.data()),
+  );
+  return {
+    items,
+    unreadCount: items.filter((item) => item.readAt === null).length,
+  };
+});
+
+export const markNotificationsRead = onCall<MarkNotificationsReadInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  if (!Array.isArray(request.data?.notificationIds) ||
+    request.data.notificationIds.length < 1 || request.data.notificationIds.length > 50) {
+    throw new HttpsError("invalid-argument", "Invalid notificationIds.");
+  }
+  const notificationIds = [...new Set(request.data.notificationIds.map((id) =>
+    requireDocumentId(id, "notificationId"),
+  ))];
+  const refs = notificationIds.map((id) =>
+    db.collection("users").doc(uid).collection("notifications").doc(id),
+  );
+  const readAt = Timestamp.now();
+  await db.runTransaction(async (transaction) => {
+    const snapshots = await Promise.all(refs.map((reference) => transaction.get(reference)));
+    snapshots.forEach((snapshot, index) => {
+      if (snapshot.exists && !(snapshot.data()?.readAt instanceof Timestamp)) {
+        transaction.update(refs[index], {readAt});
+      }
+    });
+  });
+  return {notificationIds, readAt: readAt.toDate().toISOString()};
 });
 
 export const completeAccountLink = onCall(async (request) => {
@@ -2803,6 +2861,17 @@ export const sendFriendRequest = onCall<SendFriendRequestInput>(async (request) 
       updatedAt: now,
     };
     transaction.set(requestRef, data);
+    transaction.set(
+      targetRef.collection("notifications").doc(`friend_request_${edgeId}`),
+      notificationDocument(
+        "friend_request",
+        "Nueva solicitud de amistad",
+        `${stringValue(requester.data()?.username) || "Un opositor"} quiere añadirte como amigo.`,
+        "/(tabs)/social",
+        edgeId,
+        now,
+      ),
+    );
     return serializeFriendRequest(requestRef.id, data, uid);
   });
 
@@ -2855,6 +2924,17 @@ export const respondFriendRequest = onCall<RespondFriendRequestInput>(async (req
         createdAt: now,
         updatedAt: now,
       });
+      transaction.set(
+        fromRef.collection("notifications").doc(`friend_accepted_${requestId}`),
+        notificationDocument(
+          "friend_accepted",
+          "Solicitud aceptada",
+          `${stringValue(toUser.data()?.username) || "Tu nuevo amigo"} ya forma parte de tus amigos.`,
+          "/(tabs)/social",
+          requestId,
+          now,
+        ),
+      );
       friend = fromSnapshot;
     }
 
@@ -2932,6 +3012,17 @@ export const sendFriendDuelInvitation = onCall<SendFriendDuelInvitationInput>(as
       expiresAt: Timestamp.fromMillis(now.toMillis() + friendDuelLifetimeMs),
     };
     transaction.set(invitationRef, data);
+    transaction.set(
+      toRef.collection("notifications").doc(`duel_invitation_${invitationId}`),
+      notificationDocument(
+        "duel_invitation",
+        "Te han retado a un duelo",
+        `${stringValue(fromUser.data()?.username) || "Un amigo"} quiere competir contigo.`,
+        "/(tabs)/social",
+        invitationId,
+        now,
+      ),
+    );
     return {invitation: serializeDuelInvitation(invitationId, data, uid)};
   });
 });
@@ -3070,6 +3161,18 @@ export const respondFriendDuelInvitation = onCall<RespondFriendDuelInvitationInp
         expiresAt: Timestamp.fromMillis(now.toMillis() + friendDuelLifetimeMs),
       };
       transaction.update(invitationRef, update);
+      transaction.set(
+        db.collection("users").doc(fromUid).collection("notifications")
+          .doc(`duel_accepted_${invitationId}`),
+        notificationDocument(
+          "duel_accepted",
+          "Reto aceptado",
+          `${stringValue(freshToData.username) || "Tu amigo"} ha aceptado el duelo.`,
+          "/(tabs)/social",
+          duelRef.id,
+          now,
+        ),
+      );
       return serializeDuelInvitation(
         invitationId,
         {...(invitation.data() ?? {}), ...update},
@@ -3586,6 +3689,31 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
         playerElapsedMs: elapsedMs,
         opponentElapsedMs: numberValue(previousSubmission.elapsedMs),
       };
+      transaction.set(
+        userRef.collection("notifications").doc(`duel_result_${duelId}`),
+        notificationDocument(
+          "duel_result",
+          "Duelo completado",
+          duelResultNotification(outcome, stringValue(opponent.username) || "tu rival"),
+          "/(tabs)/social",
+          duelId,
+          completedAt,
+        ),
+      );
+      transaction.set(
+        opponentRef.collection("notifications").doc(`duel_result_${duelId}`),
+        notificationDocument(
+          "duel_result",
+          "Duelo completado",
+          duelResultNotification(
+            oppositeOutcome(outcome),
+            stringValue(user.username) || "tu rival",
+          ),
+          "/(tabs)/social",
+          duelId,
+          completedAt,
+        ),
+      );
       if (opponentBonusCoins > 0) {
         transaction.set(db.collection("currencyTransactions").doc(), {
           uid: opponentUid,
@@ -4324,6 +4452,44 @@ function serializeProgress(data: Record<string, unknown>) {
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
   };
+}
+
+function notificationDocument(
+  type: string,
+  title: string,
+  body: string,
+  route: string,
+  entityId: string,
+  createdAt: Timestamp,
+) {
+  return {
+    type,
+    title,
+    body,
+    route,
+    entityId,
+    readAt: null,
+    createdAt,
+  };
+}
+
+function serializeNotification(id: string, data: Record<string, unknown>) {
+  return {
+    id,
+    type: stringValue(data.type),
+    title: stringValue(data.title),
+    body: stringValue(data.body),
+    route: stringValue(data.route),
+    entityId: nullableStringValue(data.entityId),
+    readAt: timestampIso(data.readAt),
+    createdAt: timestampIso(data.createdAt) ?? new Date(0).toISOString(),
+  };
+}
+
+function duelResultNotification(outcome: "win" | "loss" | "draw", opponentName: string) {
+  if (outcome === "win") return `Has ganado tu duelo contra ${opponentName}.`;
+  if (outcome === "loss") return `${opponentName} ha ganado el duelo. Toca preparar la revancha.`;
+  return `Has empatado el duelo contra ${opponentName}.`;
 }
 
 function achievementCategoryMetrics(

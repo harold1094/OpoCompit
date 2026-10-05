@@ -35,3 +35,4 @@ artifacts/
 .chrome-exam-qa*/
 .chrome-learning-qa/
 .chrome-achievements-qa*/
+.chrome-notifications-qa*/

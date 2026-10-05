@@ -17,6 +17,7 @@ import {
   MatchmakingState,
   Mission,
   MonetizationOverview,
+  NotificationOverview,
   OfficialExam,
   PlayerProfile,
   PendingFriendDuel,
@@ -48,6 +49,7 @@ import {
   getLearningInsightsRemote,
   getMatchmakingStatusRemote,
   getMonetizationOverviewRemote,
+  getNotificationsRemote,
   getOfficialExamsRemote,
   getRankingRemote,
   getSocialOverviewRemote,
@@ -60,6 +62,7 @@ import {
   leaveMatchmakingRemote,
   linkEmailAccountRemote,
   linkGoogleAccountRemote,
+  markNotificationsReadRemote,
   readableFirebaseError,
   restoreFirebaseSessionRemote,
   removeFriendRemote,
@@ -131,6 +134,7 @@ type AppStore = {
   errorReviewItems: ErrorReviewItem[];
   learningInsights: LearningInsights | null;
   achievementOverview: AchievementOverview | null;
+  notificationOverview: NotificationOverview;
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
@@ -156,6 +160,7 @@ type AppStore = {
   isLoadingErrorReview: boolean;
   isLoadingLearningInsights: boolean;
   isLoadingAchievements: boolean;
+  isLoadingNotifications: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
@@ -165,6 +170,7 @@ type AppStore = {
   errorReviewError: string | null;
   learningInsightsError: string | null;
   achievementsError: string | null;
+  notificationsError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -204,6 +210,8 @@ type AppStore = {
   loadErrorReview: () => Promise<void>;
   loadLearningInsights: () => Promise<void>;
   loadAchievements: () => Promise<void>;
+  loadNotifications: () => Promise<void>;
+  markNotificationsRead: (notificationIds?: string[]) => Promise<void>;
   startErrorReview: (categoryId?: string | null) => Promise<number>;
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
@@ -262,6 +270,7 @@ export const useAppStore = create<AppStore>()(
       errorReviewItems: [],
       learningInsights: null,
       achievementOverview: null,
+      notificationOverview: {items: [], unreadCount: 0},
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
@@ -287,6 +296,7 @@ export const useAppStore = create<AppStore>()(
       isLoadingErrorReview: false,
       isLoadingLearningInsights: false,
       isLoadingAchievements: false,
+      isLoadingNotifications: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
@@ -296,6 +306,7 @@ export const useAppStore = create<AppStore>()(
       errorReviewError: null,
       learningInsightsError: null,
       achievementsError: null,
+      notificationsError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -560,6 +571,7 @@ export const useAppStore = create<AppStore>()(
           errorReviewItems: [],
           learningInsights: null,
           achievementOverview: null,
+          notificationOverview: {items: [], unreadCount: 0},
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
@@ -583,6 +595,7 @@ export const useAppStore = create<AppStore>()(
           errorReviewError: null,
           learningInsightsError: null,
           achievementsError: null,
+          notificationsError: null,
           engagementError: null,
           socialError: null,
           groupsError: null,
@@ -889,6 +902,50 @@ export const useAppStore = create<AppStore>()(
           });
         } finally {
           set({ isLoadingAchievements: false });
+        }
+      },
+      loadNotifications: async () => {
+        const { backendMode, profile } = get();
+        if (!profile) return;
+        set({ isLoadingNotifications: true, notificationsError: null });
+        try {
+          const notificationOverview = backendMode === 'firebase'
+            ? await getNotificationsRemote()
+            : {items: [], unreadCount: 0};
+          set({ notificationOverview });
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            notificationsError: readableFirebaseError(error),
+          });
+        } finally {
+          set({ isLoadingNotifications: false });
+        }
+      },
+      markNotificationsRead: async (notificationIds) => {
+        const state = get();
+        const ids = notificationIds ?? state.notificationOverview.items
+          .filter((item) => item.readAt === null)
+          .map((item) => item.id);
+        if (ids.length === 0) return;
+        try {
+          if (state.backendMode === 'firebase') await markNotificationsReadRemote(ids);
+          const readIds = new Set(ids);
+          const readAt = new Date().toISOString();
+          const items = state.notificationOverview.items.map((item) =>
+            readIds.has(item.id) && item.readAt === null ? {...item, readAt} : item,
+          );
+          set({
+            notificationOverview: {
+              items,
+              unreadCount: items.filter((item) => item.readAt === null).length,
+            },
+          });
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            notificationsError: readableFirebaseError(error),
+          });
         }
       },
       startErrorReview: async (categoryId = null) => {
@@ -2055,6 +2112,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     errorReviewItems: [],
     learningInsights: null,
     achievementOverview: null,
+    notificationOverview: {items: [], unreadCount: 0},
     dailyReward: null,
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
@@ -2079,6 +2137,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     errorReviewError: null,
     learningInsightsError: null,
     achievementsError: null,
+    notificationsError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,
