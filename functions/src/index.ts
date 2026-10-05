@@ -79,6 +79,7 @@ import {
   subscriptionEntitlement,
 } from "./monetization.js";
 import {mostSpecificTerritoryKey, rankEntries} from "./ranking.js";
+import {isQuestionCurrentlyValid, previousIsoDay} from "./questionValidity.js";
 import {isValidUsername, socialEdgeId, usernameKey} from "./social.js";
 import {sharedStreak, StreakProfile} from "./socialActivity.js";
 import {
@@ -135,7 +136,18 @@ type QuestionDoc = {
   status: string;
   verified: boolean;
   officialExamId?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
 };
+
+type QuestionReportReason =
+  | "incorrect_question"
+  | "incorrect_answer"
+  | "outdated"
+  | "incorrect_explanation"
+  | "other";
+
+type QuestionReportResolution = "dismiss" | "mark_outdated" | "disable_question";
 
 type BootstrapGuestInput = {
   oppositionId: string;
@@ -230,6 +242,17 @@ type MarkNotificationsReadInput = {
   notificationIds: string[];
 };
 
+type ReportQuestionInput = {
+  questionId: string;
+  reason: QuestionReportReason;
+  detail?: string | null;
+};
+
+type ResolveQuestionReportInput = {
+  reportId: string;
+  resolution: QuestionReportResolution;
+};
+
 type GetRankingInput = {
   scope: "global" | "territory" | "friends";
 };
@@ -288,10 +311,12 @@ export const bootstrapEmulatorAdmin = onCall(async (request) => {
     transaction.set(userRef, {
       uid,
       role: "admin",
-      isAnonymous: true,
-      username: "Administrador local",
       updatedAt: now,
-      ...(snapshot.exists ? {} : {createdAt: now}),
+      ...(snapshot.exists ? {} : {
+        isAnonymous: true,
+        username: "Administrador local",
+        createdAt: now,
+      }),
     }, {merge: true});
   });
   return {role: "admin"};
@@ -323,6 +348,106 @@ export const getQuestionReviewQueue = onCall(async (request) => {
       .filter((duplicate) => duplicate.id !== snapshot.id),
   ));
   return {questions};
+});
+
+export const getQuestionReportsQueue = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  requireAdmin(userSnapshot);
+
+  const requestedLimit = request.data?.limit;
+  const limit = requestedLimit === undefined ? 50 : Math.min(
+    requireInteger(requestedLimit, "limit", 1, 50),
+    50,
+  );
+  const reportsSnapshot = await db.collection("questionReports")
+    .where("status", "==", "open")
+    .limit(limit)
+    .get();
+  const sortedReports = reportsSnapshot.docs.sort((first, second) =>
+    timestampMillis(second.data().updatedAt) - timestampMillis(first.data().updatedAt),
+  );
+  const questionSnapshots = await Promise.all(sortedReports.map((report) =>
+    db.collection("questions").doc(stringValue(report.data().questionId)).get(),
+  ));
+  return {
+    reports: sortedReports.map((report, index) =>
+      adminQuestionReport(report.id, report.data(), questionSnapshots[index]),
+    ),
+  };
+});
+
+export const resolveQuestionReport = onCall<ResolveQuestionReportInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const reportId = requireDocumentId(request.data?.reportId, "reportId");
+  const resolution = request.data?.resolution;
+  if (!([
+    "dismiss",
+    "mark_outdated",
+    "disable_question",
+  ] as QuestionReportResolution[]).includes(resolution)) {
+    throw new HttpsError("invalid-argument", "Invalid report resolution.");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const reportRef = db.collection("questionReports").doc(reportId);
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, reportSnapshot] = await transaction.getAll(userRef, reportRef);
+    requireAdmin(userSnapshot);
+    if (!reportSnapshot.exists) {
+      throw new HttpsError("not-found", "Question report not found.");
+    }
+    const report = reportSnapshot.data() ?? {};
+    if (report.status !== "open") {
+      throw new HttpsError("failed-precondition", "Question report is already resolved.");
+    }
+    const questionId = requireString(report.questionId, "stored questionId", 160);
+    const questionRef = db.collection("questions").doc(questionId);
+    const questionSnapshot = await transaction.get(questionRef);
+    if (!questionSnapshot.exists) {
+      throw new HttpsError("not-found", "Reported question not found.");
+    }
+
+    const now = Timestamp.now();
+    const previousValidUntil = nullableStringValue(questionSnapshot.data()?.validUntil);
+    const retirementDay = previousIsoDay(madridDay(now.toDate()));
+    const retiredValidUntil = previousValidUntil && previousValidUntil < retirementDay ?
+      previousValidUntil : retirementDay;
+    if (resolution === "mark_outdated") {
+      transaction.update(questionRef, {
+        validUntil: retiredValidUntil,
+        reviewedBy: uid,
+        lastReviewedAt: now,
+        updatedAt: now,
+      });
+    } else if (resolution === "disable_question") {
+      transaction.update(questionRef, {
+        status: "disabled",
+        verified: false,
+        reviewedBy: uid,
+        lastReviewedAt: now,
+        updatedAt: now,
+      });
+    }
+    const status = resolution === "dismiss" ? "dismissed" : "resolved";
+    transaction.update(reportRef, {
+      status,
+      resolution,
+      resolvedBy: uid,
+      resolvedAt: now,
+      updatedAt: now,
+    });
+    return {
+      reportId,
+      questionId,
+      status,
+      resolution,
+      questionStatus: resolution === "disable_question" ? "disabled" :
+        stringValue(questionSnapshot.data()?.status),
+      validUntil: resolution === "mark_outdated" ? retiredValidUntil :
+        nullableStringValue(questionSnapshot.data()?.validUntil),
+    };
+  });
 });
 
 export const getAdminCatalog = onCall(async (request) => {
@@ -1053,6 +1178,68 @@ export const markNotificationsRead = onCall<MarkNotificationsReadInput>(async (r
   return {notificationIds, readAt: readAt.toDate().toISOString()};
 });
 
+export const reportQuestion = onCall<ReportQuestionInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const questionId = requireDocumentId(request.data?.questionId, "questionId");
+  const reason = request.data?.reason;
+  if (!([
+    "incorrect_question",
+    "incorrect_answer",
+    "outdated",
+    "incorrect_explanation",
+    "other",
+  ] as QuestionReportReason[]).includes(reason)) {
+    throw new HttpsError("invalid-argument", "Invalid question report reason.");
+  }
+  const detail = request.data?.detail === null || request.data?.detail === undefined ? null :
+    requireString(request.data.detail, "detail", 500);
+  if (reason === "other" && !detail) {
+    throw new HttpsError("invalid-argument", "A detail is required for other reports.");
+  }
+
+  const now = Timestamp.now();
+  const day = madridDay(now.toDate());
+  const reportId = createHash("sha256")
+    .update(`${uid}|${questionId}|${reason}|${day}`)
+    .digest("hex");
+  const userRef = db.collection("users").doc(uid);
+  const questionRef = db.collection("questions").doc(questionId);
+  const reportRef = db.collection("questionReports").doc(reportId);
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, questionSnapshot, existingReport] = await transaction.getAll(
+      userRef,
+      questionRef,
+      reportRef,
+    );
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+    if (!questionSnapshot.exists) {
+      throw new HttpsError("not-found", "Question not found.");
+    }
+    const question = questionSnapshot.data() ?? {};
+    transaction.set(reportRef, {
+      questionId,
+      reporterUid: uid,
+      reason,
+      detail,
+      status: "open",
+      resolution: null,
+      questionSnapshot: {
+        statement: stringValue(question.statement),
+        categoryId: stringValue(question.categoryId),
+        source: stringValue(question.source),
+        officialExamId: nullableStringValue(question.officialExamId),
+      },
+      createdAt: existingReport.exists ? existingReport.data()?.createdAt ?? now : now,
+      updatedAt: now,
+      resolvedAt: null,
+      resolvedBy: null,
+    });
+    return {reportId, status: "open", idempotent: existingReport.exists};
+  });
+});
+
 export const completeAccountLink = onCall(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const provider = authProvider(request.auth?.token.firebase);
@@ -1630,14 +1817,20 @@ export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
     .where("verified", "==", true)
     .where("territoryKeys", "array-contains-any", territoryKeys.slice(0, 10))
     .orderBy("difficulty", "asc")
-    .limit(questionCount)
+    .limit(Math.min(questionCount * 4, 100))
     .get();
+  const selectedDocuments = snapshot.docs
+    .filter((document) => isQuestionCurrentlyValid(
+      document.data() as QuestionDoc,
+      madridDay(new Date()),
+    ))
+    .slice(0, questionCount);
 
-  if (snapshot.empty) {
+  if (selectedDocuments.length === 0) {
     throw new HttpsError("not-found", "No eligible questions found.");
   }
 
-  const questions = snapshot.docs.map((document) => {
+  const questions = selectedDocuments.map((document) => {
     const data = document.data() as QuestionDoc;
     return publicQuestion(document.id, data);
   });
@@ -1648,7 +1841,7 @@ export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
     mode: "quick",
     oppositionId,
     territoryKeys,
-    questionIds: snapshot.docs.map((document) => document.id),
+    questionIds: selectedDocuments.map((document) => document.id),
     answers: [],
     status: "started",
     createdAt: Timestamp.now(),
@@ -1681,7 +1874,8 @@ export const startCustomQuiz = onCall<StartCustomQuizInput>(async (request) => {
     const territoryMatches = config.territoryMode === "all_spain" ?
       question.territoryKeys.some((key) => key === "ES" || key.startsWith("ES-")) :
       question.territoryKeys.some((key) => territoryKeys.includes(key));
-    return territoryMatches &&
+    return isQuestionCurrentlyValid(question, madridDay(new Date())) &&
+      territoryMatches &&
       (config.categoryId === null || question.categoryId === config.categoryId) &&
       (config.difficulty === null || question.difficulty === config.difficulty);
   });
@@ -2006,10 +2200,16 @@ export const startClassicDuel = onCall<StartClassicDuelInput>(async (request) =>
     .where("verified", "==", true)
     .where("territoryKeys", "array-contains-any", territoryKeys.slice(0, 10))
     .orderBy("difficulty", "asc")
-    .limit(10)
+    .limit(50)
     .get();
+  const selectedDocuments = snapshot.docs
+    .filter((document) => isQuestionCurrentlyValid(
+      document.data() as QuestionDoc,
+      madridDay(new Date()),
+    ))
+    .slice(0, 10);
 
-  if (snapshot.empty) {
+  if (selectedDocuments.length === 0) {
     throw new HttpsError("not-found", "No eligible questions found.");
   }
 
@@ -2027,7 +2227,7 @@ export const startClassicDuel = onCall<StartClassicDuelInput>(async (request) =>
     opponent: publicOpponent,
     oppositionId,
     territoryKeys,
-    questionIds: snapshot.docs.map((document) => document.id),
+    questionIds: selectedDocuments.map((document) => document.id),
     status: "started",
     createdAt: Timestamp.now(),
     completedAt: null,
@@ -2036,7 +2236,7 @@ export const startClassicDuel = onCall<StartClassicDuelInput>(async (request) =>
   return {
     duelId: duelRef.id,
     opponent: publicOpponent,
-    questions: snapshot.docs.map((document) =>
+    questions: selectedDocuments.map((document) =>
       publicQuestion(document.id, document.data() as QuestionDoc)),
   };
 });
@@ -3090,9 +3290,15 @@ export const respondFriendDuelInvitation = onCall<RespondFriendDuelInvitationInp
       .where("verified", "==", true)
       .where("territoryKeys", "array-contains-any", sharedTerritoryKeys.slice(0, 10))
       .orderBy("difficulty", "asc")
-      .limit(10)
+      .limit(50)
       .get();
-    if (questions.empty) {
+    const selectedQuestions = questions.docs
+      .filter((document) => isQuestionCurrentlyValid(
+        document.data() as QuestionDoc,
+        madridDay(new Date()),
+      ))
+      .slice(0, 10);
+    if (selectedQuestions.length === 0) {
       throw new HttpsError("not-found", "No compatible questions found.");
     }
 
@@ -3145,7 +3351,7 @@ export const respondFriendDuelInvitation = onCall<RespondFriendDuelInvitationInp
         players,
         oppositionId,
         territoryKeys: sharedTerritoryKeys,
-        questionIds: questions.docs.map((document) => document.id),
+        questionIds: selectedQuestions.map((document) => document.id),
         starts: [],
         submissions: [],
         status: "active",
@@ -3290,9 +3496,15 @@ export const joinMatchmaking = onCall(async (request) => {
     .where("verified", "==", true)
     .where("territoryKeys", "array-contains-any", sharedTerritoryKeys.slice(0, 10))
     .orderBy("difficulty", "asc")
-    .limit(10)
+    .limit(50)
     .get();
-  if (questions.empty) {
+  const selectedQuestions = questions.docs
+    .filter((document) => isQuestionCurrentlyValid(
+      document.data() as QuestionDoc,
+      madridDay(new Date()),
+    ))
+    .slice(0, 10);
+  if (selectedQuestions.length === 0) {
     throw new HttpsError("not-found", "No compatible questions found.");
   }
 
@@ -3350,7 +3562,7 @@ export const joinMatchmaking = onCall(async (request) => {
       players,
       oppositionId,
       territoryKeys: freshSharedTerritoryKeys,
-      questionIds: questions.docs.map((document) => document.id),
+      questionIds: selectedQuestions.map((document) => document.id),
       starts: [],
       submissions: [],
       status: "active",
@@ -3968,6 +4180,7 @@ async function errorReviewCandidates(
         (categoryId === null || data.categoryId === categoryId) &&
         data.status === "published" &&
         data.verified === true &&
+        isQuestionCurrentlyValid(data, madridDay(new Date())) &&
         data.territoryKeys.some((key) => allowedTerritoryKeys.has(key));
     })
     .sort((first, second) =>
@@ -4349,6 +4562,35 @@ function adminQuestion(
     updatedAt: timestampIso(question.updatedAt),
     lastReviewedAt: timestampIso(question.lastReviewedAt),
     duplicates,
+  };
+}
+
+function adminQuestionReport(
+  id: string,
+  report: Record<string, unknown>,
+  questionSnapshot: DocumentSnapshot,
+) {
+  const storedQuestion = typeof report.questionSnapshot === "object" &&
+    report.questionSnapshot !== null ? report.questionSnapshot as Record<string, unknown> : {};
+  const question = questionSnapshot.data() ?? {};
+  return {
+    id,
+    questionId: stringValue(report.questionId),
+    reason: stringValue(report.reason),
+    detail: nullableStringValue(report.detail),
+    status: stringValue(report.status),
+    createdAt: timestampIso(report.createdAt),
+    updatedAt: timestampIso(report.updatedAt),
+    question: {
+      statement: stringValue(question.statement) || stringValue(storedQuestion.statement),
+      categoryId: stringValue(question.categoryId) || stringValue(storedQuestion.categoryId),
+      source: stringValue(question.source) || stringValue(storedQuestion.source),
+      officialExamId: nullableStringValue(question.officialExamId) ??
+        nullableStringValue(storedQuestion.officialExamId),
+      status: stringValue(question.status),
+      validFrom: nullableStringValue(question.validFrom),
+      validUntil: nullableStringValue(question.validUntil),
+    },
   };
 }
 

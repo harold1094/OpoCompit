@@ -31,8 +31,9 @@ import {
 import { CsvImportError, csvToQuestionBatch } from '@/features/admin/csvImport';
 import { AdminCatalogPanel } from '@/features/admin/AdminCatalogPanel';
 import { AdminOperationsPanel } from '@/features/admin/AdminOperationsPanel';
+import { AdminQuestionReportsPanel } from '@/features/admin/AdminQuestionReportsPanel';
 
-type AdminView = 'review' | 'import' | 'catalog' | 'operations';
+type AdminView = 'review' | 'reports' | 'import' | 'catalog' | 'operations';
 type QueueFilter = 'all' | 'pending_review' | 'draft' | 'duplicates';
 type ImportFormat = 'json' | 'csv';
 
@@ -315,12 +316,18 @@ export default function AdminScreen() {
         ) : <View style={styles.headerSpacer} />}
       </View>
 
-      <View style={styles.viewTabs}>
+      <ScrollView horizontal contentContainerStyle={styles.viewTabs} showsHorizontalScrollIndicator={false}>
         <TabButton
           active={view === 'review'}
           icon="clipboard-check-outline"
           label="Preguntas"
           onPress={() => setView('review')}
+        />
+        <TabButton
+          active={view === 'reports'}
+          icon="flag-outline"
+          label="Reportes"
+          onPress={() => setView('reports')}
         />
         <TabButton
           active={view === 'import'}
@@ -340,7 +347,7 @@ export default function AdminScreen() {
           label="Operación"
           onPress={() => setView('operations')}
         />
-      </View>
+      </ScrollView>
 
       {error || notice ? (
         <View style={[styles.message, error ? styles.errorMessage : styles.successMessage]}>
@@ -481,6 +488,13 @@ export default function AdminScreen() {
             </View>
           </View>
         </ScrollView>
+      ) : view === 'reports' ? (
+        adminReady ? <AdminQuestionReportsPanel /> : (
+          <View style={styles.centerState}>
+            <ActivityIndicator color={colors.brand} />
+            <Text style={styles.stateText}>Preparando sesión administrativa…</Text>
+          </View>
+        )
       ) : view === 'import' ? (
         <ScrollView contentContainerStyle={styles.importScroll} showsVerticalScrollIndicator={false}>
           <View style={styles.importHeader}>
@@ -929,7 +943,9 @@ function cloneQuestion(question: AdminQuestion): AdminQuestion {
 }
 
 function adminViewFromParam(tab: string | undefined): AdminView {
-  return tab === 'catalog' || tab === 'import' || tab === 'operations' ? tab : 'review';
+  return tab === 'catalog' || tab === 'reports' || tab === 'import' || tab === 'operations'
+    ? tab
+    : 'review';
 }
 
 const styles = StyleSheet.create({
@@ -944,8 +960,8 @@ const styles = StyleSheet.create({
   refreshButton: { minHeight: 40, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.surface },
   refreshLabel: { color: colors.ink, fontSize: 13, fontWeight: '800' },
   headerSpacer: { width: 40, height: 40 },
-  viewTabs: { height: 52, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
-  tabButton: { height: 51, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 2, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  viewTabs: { minWidth: '100%', height: 52, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
+  tabButton: { minWidth: 82, height: 51, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 4, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabButtonActive: { borderBottomColor: colors.brand },
   tabLabel: { color: colors.muted, fontSize: 13, fontWeight: '800' },
   tabLabelActive: { color: colors.ink },

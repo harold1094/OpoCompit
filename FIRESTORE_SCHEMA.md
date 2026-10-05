@@ -207,6 +207,37 @@ all client writes are denied.
 }
 ```
 
+## questionReports/{reportId}
+
+Server-owned content quality report. Its deterministic daily identifier prevents repeated submissions
+of the same reason from creating spam. Users submit through `reportQuestion`; only admins may read
+the collection directly, and every resolution is audited.
+
+```json
+{
+  "questionId": "question-id",
+  "reporterUid": "private user id",
+  "reason": "incorrect_question|incorrect_answer|outdated|incorrect_explanation|other",
+  "detail": "Optional context",
+  "status": "open|resolved|dismissed",
+  "resolution": "dismiss|mark_outdated|disable_question|null",
+  "questionSnapshot": {
+    "statement": "Question at report time",
+    "categoryId": "legislation",
+    "source": "Official source",
+    "officialExamId": "exam-id|null"
+  },
+  "createdAt": "serverTimestamp",
+  "updatedAt": "serverTimestamp",
+  "resolvedAt": null,
+  "resolvedBy": null
+}
+```
+
+`mark_outdated` closes the current validity window without changing `published`, preserving exact
+historical exams. Current practice, review, and duel selection enforce `validFrom` and `validUntil`.
+`disable_question` also removes the question from historical exam availability.
+
 ## quizSessions/{sessionId}
 
 ```json

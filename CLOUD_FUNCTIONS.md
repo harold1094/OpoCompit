@@ -198,12 +198,16 @@ Responsibilities:
 - Rebuild global, opposition, and territorial leaderboard snapshots.
 - Write paginated ranking entries for cheap reads.
 
-## firestore trigger: `onQuestionReportCreated`
+## Question quality callables
 
-Responsibilities:
+- `reportQuestion`: accepts one of the five supported quality reasons, stores a private server-owned
+  report, and deduplicates equal reports from the same user, question, reason, and day.
+- `getQuestionReportsQueue`: returns at most 50 open reports to admins with current question context.
+- `resolveQuestionReport`: lets an admin dismiss the report, close the question's current validity
+  window while preserving historical exams, or disable the question completely.
 
-- Notify admins/moderators.
-- Increment report counters on the question.
+Current practice, error review, and duel callables enforce `validFrom` and `validUntil`. Official exam
+sessions intentionally ignore those dates so an old exam can still be reproduced exactly.
 
 ## callable: `importQuestionBatch`
 

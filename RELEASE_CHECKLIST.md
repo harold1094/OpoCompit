@@ -20,6 +20,7 @@
 - [x] Add category learning insights, weak-topic detection, and filtered error review.
 - [x] Add server-authoritative achievements with idempotent rewards and profile progress.
 - [x] Add a private in-app notification inbox for social, duel, and achievement events.
+- [x] Add user question reports, admin resolution, and current-versus-historical validity handling.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.

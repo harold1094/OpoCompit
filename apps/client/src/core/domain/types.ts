@@ -26,6 +26,13 @@ export type Question = {
   source: string;
 };
 
+export type QuestionReportReason =
+  | 'incorrect_question'
+  | 'incorrect_answer'
+  | 'outdated'
+  | 'incorrect_explanation'
+  | 'other';
+
 export type CustomQuizMode = 'practice' | 'simulation';
 export type CustomQuizTerritoryMode = 'profile' | 'all_spain';
 export type CustomQuizQuestionStatus = 'all' | 'new' | 'incorrect' | 'completed';

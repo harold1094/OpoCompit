@@ -1,9 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Question } from '@/core/domain/types';
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
+import { QuestionReportModal } from '@/features/quiz/components/QuestionReportModal';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 import { StatTile } from '@/shared/components/StatTile';
@@ -21,6 +24,8 @@ export default function ResultsScreen() {
   const joinMatchmaking = useAppStore((state) => state.joinMatchmaking);
   const isStartingDuel = useAppStore((state) => state.isStartingDuel);
   const isMatchmakingLoading = useAppStore((state) => state.isMatchmakingLoading);
+  const [reportedQuestionIds, setReportedQuestionIds] = useState<string[]>([]);
+  const [reportQuestion, setReportQuestion] = useState<Question | null>(null);
   if (!result) return <Redirect href="/(tabs)" />;
   const isOfficialExam = activeGameMode === 'official-exam' && officialExam !== null;
   const isSimulation = activeGameMode === 'simulation' && customQuiz?.rules != null;
@@ -156,6 +161,12 @@ export default function ResultsScreen() {
 
       <View style={styles.review}>
         <Text style={styles.sectionTitle}>Revisión</Text>
+        {reportedQuestionIds.length > 0 ? (
+          <View style={styles.reportNotice}>
+            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
+            <Text style={styles.reportNoticeText}>Reporte enviado para revisión.</Text>
+          </View>
+        ) : null}
         {result.attempts.map((attempt, index) => (
           <View key={attempt.question.id} style={styles.reviewRow}>
             <View
@@ -171,9 +182,29 @@ export default function ResultsScreen() {
               />
             </View>
             <Text numberOfLines={2} style={styles.reviewText}>{index + 1}. {attempt.question.statement}</Text>
+            <Pressable
+              accessibilityLabel={`Reportar pregunta ${index + 1}`}
+              disabled={reportedQuestionIds.includes(attempt.question.id)}
+              onPress={() => setReportQuestion(attempt.question)}
+              style={({pressed}) => [styles.reportButton, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons
+                name={reportedQuestionIds.includes(attempt.question.id) ? 'check' : 'flag-outline'}
+                size={19}
+                color={reportedQuestionIds.includes(attempt.question.id) ? colors.success : colors.muted}
+              />
+            </Pressable>
           </View>
         ))}
       </View>
+
+      <QuestionReportModal
+        question={reportQuestion}
+        onClose={() => setReportQuestion(null)}
+        onSubmitted={(questionId) => setReportedQuestionIds((current) => (
+          current.includes(questionId) ? current : [...current, questionId]
+        ))}
+      />
 
       <View style={styles.actions}>
         {duel ? (
@@ -238,5 +269,9 @@ const styles = StyleSheet.create({
   reviewRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.sm, paddingHorizontal: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, ...shadows.card },
   reviewStatus: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   reviewText: { flex: 1, color: colors.ink, fontSize: 13, lineHeight: 18 },
+  reportButton: {width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md},
+  reportNotice: {minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.sm, paddingHorizontal: 12, borderWidth: 1, borderColor: '#BCE6DE', borderRadius: radius.md, backgroundColor: colors.softAqua},
+  reportNoticeText: {flex: 1, color: colors.success, fontSize: 12, fontWeight: '800'},
+  pressed: {opacity: 0.72},
   actions: { gap: spacing.sm, marginTop: spacing.xl, marginBottom: spacing.lg },
 });

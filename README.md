@@ -55,6 +55,8 @@ Profile also exposes a configurable achievement catalog. Milestones are evaluate
 progress, unlocked transactionally, and reward XP, coins, or gems only once.
 The Home bell opens a private internal inbox for social requests, duel updates, and achievement
 unlocks. Notices are created by Functions, deduplicated by event, and can be read individually or all at once.
+Completed quiz results let players report incorrect or outdated questions. Administrators receive a
+private review queue and can retire content from current training without breaking historical exams.
 The Home `Test` entry now creates server-filtered custom practices or timed simulations by question
 count, category, difficulty, territory scope, and personal history. Simulations support blanks,
 review navigation, a deadline, and server-authoritative `+1/-0.33/0` scoring.

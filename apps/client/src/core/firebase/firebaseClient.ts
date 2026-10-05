@@ -47,6 +47,7 @@ import {
   PlayerProfile,
   PlayerProgress,
   Question,
+  QuestionReportReason,
   QuizAnswerSubmission,
   QuizResult,
   RankingScope,
@@ -146,6 +147,27 @@ export type AdminQuestion = {
     statement: string;
   }>;
 };
+
+export type AdminQuestionReport = {
+  id: string;
+  questionId: string;
+  reason: QuestionReportReason;
+  detail: string | null;
+  status: 'open';
+  createdAt: string | null;
+  updatedAt: string | null;
+  question: {
+    statement: string;
+    categoryId: string;
+    source: string;
+    officialExamId: string | null;
+    status: string;
+    validFrom: string | null;
+    validUntil: string | null;
+  };
+};
+
+export type QuestionReportResolution = 'dismiss' | 'mark_outdated' | 'disable_question';
 
 type OfficialExamsResponse = {
   exams: OfficialExam[];
@@ -545,6 +567,19 @@ export async function markNotificationsReadRemote(notificationIds: string[]): Pr
   await invoke({notificationIds});
 }
 
+export async function reportQuestionRemote(
+  questionId: string,
+  reason: QuestionReportReason,
+  detail: string | null,
+): Promise<{reportId: string; status: 'open'; idempotent: boolean}> {
+  await startAnonymousSession();
+  const invoke = callable<
+    {questionId: string; reason: QuestionReportReason; detail: string | null},
+    {reportId: string; status: 'open'; idempotent: boolean}
+  >('reportQuestion');
+  return (await invoke({questionId, reason, detail})).data;
+}
+
 export async function purchaseAvatarItemRemote(itemId: string): Promise<AvatarInventory> {
   await startAnonymousSession();
   const invoke = callable<{ itemId: string }, AvatarInventoryResponse>('purchaseAvatarItem');
@@ -828,6 +863,26 @@ export async function getQuestionReviewQueueRemote(limit = 50): Promise<AdminQue
   );
   const response = await invoke({ limit });
   return response.data.questions;
+}
+
+export async function getQuestionReportsQueueRemote(limit = 50): Promise<AdminQuestionReport[]> {
+  await startAnonymousSession();
+  const invoke = callable<{limit: number}, {reports: AdminQuestionReport[]}>(
+    'getQuestionReportsQueue',
+  );
+  return (await invoke({limit})).data.reports;
+}
+
+export async function resolveQuestionReportRemote(
+  reportId: string,
+  resolution: QuestionReportResolution,
+): Promise<void> {
+  await startAnonymousSession();
+  const invoke = callable<
+    {reportId: string; resolution: QuestionReportResolution},
+    {reportId: string}
+  >('resolveQuestionReport');
+  await invoke({reportId, resolution});
 }
 
 export async function getOfficialExamsRemote(): Promise<OfficialExam[]> {

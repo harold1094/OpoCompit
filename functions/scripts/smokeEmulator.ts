@@ -175,6 +175,15 @@ async function main() {
     body: JSON.stringify({fields: {role: {stringValue: "admin"}}}),
   });
   assert.equal(directUserWrite.status, 403);
+  const directQuestionReportWrite = await firestoreRequest(
+    "questionReports/direct-client-write",
+    auth.idToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({fields: {status: {stringValue: "open"}}}),
+    },
+  );
+  assert.equal(directQuestionReportWrite.status, 403);
 
   let anonymousAccountLinkBlocked = false;
   try {
@@ -1749,7 +1758,9 @@ async function main() {
 
   const signedInAuth = await signInEmailAuth(accountEmail, accountPassword);
   assert.equal(signedInAuth.localId, auth.localId);
-  const restoredAccount = await call<{profile: Progress & {uid: string; isGuest: boolean}}>(
+  const restoredAccount = await call<{
+    profile: Progress & {uid: string; isGuest: boolean; username: string};
+  }>(
     "getCurrentProfile",
     {},
     signedInAuth.idToken,
@@ -1758,6 +1769,12 @@ async function main() {
   assert.equal(restoredAccount.profile.isGuest, false);
   assert.equal(restoredAccount.profile.xp, linkedAccount.profile.xp);
   assert.equal(restoredAccount.profile.coins, linkedAccount.profile.coins);
+  await call("bootstrapEmulatorAdmin", {}, signedInAuth.idToken);
+  const adminAccount = await call<{
+    profile: Progress & {uid: string; isGuest: boolean; username: string};
+  }>("getCurrentProfile", {}, signedInAuth.idToken);
+  assert.equal(adminAccount.profile.isGuest, false);
+  assert.equal(adminAccount.profile.username, restoredAccount.profile.username);
 
   const firstAchievementOverview = await call<{
     achievements: {
@@ -1801,6 +1818,91 @@ async function main() {
     true,
   );
 
+  const reportTargetId = "q_madrid_excluded";
+  const createdReport = await call<{
+    reportId: string;
+    status: string;
+    idempotent: boolean;
+  }>(
+    "reportQuestion",
+    {
+      questionId: reportTargetId,
+      reason: "outdated",
+      detail: "Smoke test for historical content retirement.",
+    },
+    examAuth.idToken,
+  );
+  assert.equal(createdReport.status, "open");
+  assert.equal(createdReport.idempotent, false);
+  const repeatedReport = await call<typeof createdReport>(
+    "reportQuestion",
+    {
+      questionId: reportTargetId,
+      reason: "outdated",
+      detail: "Updated context without creating another report.",
+    },
+    examAuth.idToken,
+  );
+  assert.equal(repeatedReport.reportId, createdReport.reportId);
+  assert.equal(repeatedReport.idempotent, true);
+
+  let nonAdminReportQueueBlocked = false;
+  try {
+    await call("getQuestionReportsQueue", {}, examAuth.idToken);
+  } catch (error) {
+    nonAdminReportQueueBlocked = error instanceof Error &&
+      error.message.includes("PERMISSION_DENIED");
+  }
+  assert.equal(nonAdminReportQueueBlocked, true);
+  const reportQueue = await call<{
+    reports: Array<{id: string; questionId: string; reason: string}>;
+  }>("getQuestionReportsQueue", {}, auth.idToken);
+  assert.equal(reportQueue.reports.some((report) =>
+    report.id === createdReport.reportId &&
+    report.questionId === reportTargetId &&
+    report.reason === "outdated",
+  ), true);
+  const privateReportRead = await firestoreRequest(
+    `questionReports/${createdReport.reportId}`,
+    examAuth.idToken,
+  );
+  assert.equal(privateReportRead.status, 403);
+  const adminReportRead = await firestoreRequest(
+    `questionReports/${createdReport.reportId}`,
+    auth.idToken,
+  );
+  assert.equal(adminReportRead.status, 200);
+  await call(
+    "resolveQuestionReport",
+    {reportId: createdReport.reportId, resolution: "mark_outdated"},
+    auth.idToken,
+  );
+  const currentPracticeAfterReport = await call<{
+    questions: Array<{id: string}>;
+  }>(
+    "startCustomQuiz",
+    {
+      mode: "practice",
+      questionCount: 25,
+      categoryId: "legislation",
+      difficulty: 1,
+      territoryMode: "all_spain",
+      questionStatus: "all",
+    },
+    examAuth.idToken,
+  );
+  assert.equal(
+    currentPracticeAfterReport.questions.some((question) => question.id === reportTargetId),
+    false,
+  );
+  const historicalExamAfterReport = await call<{
+    questions: Array<{id: string}>;
+  }>("startOfficialExam", {examId: demoExam.id}, examAuth.idToken);
+  assert.equal(
+    historicalExamAfterReport.questions.some((question) => question.id === reportTargetId),
+    true,
+  );
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 4,
@@ -1840,18 +1942,24 @@ async function main() {
     duplicateAchievementRewardsBlocked: true,
     internalNotificationsValidated: true,
     notificationReadStateValidated: true,
+    questionReportsValidated: true,
+    reportDeduplicationValidated: true,
+    historicalQuestionValidityValidated: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,
     firestoreRulesValidated: true,
     directUserWriteBlocked: true,
+    directQuestionReportWriteBlocked: true,
     privateProfileReadBlocked: true,
+    privateQuestionReportReadBlocked: true,
     questionBankReadBlocked: true,
     adminQuestionReadValidated: true,
     anonymousAccountLinkBlocked,
     guestAccountConversionValidated: true,
     returningEmailLoginValidated: true,
     linkedProgressPreserved: true,
+    emulatorAdminIdentityPreserved: true,
     duplicateQuestionDetectionValidated: true,
     duplicatePublishBlocked,
     nonAdminImportBlocked,
@@ -1859,6 +1967,7 @@ async function main() {
     nonAdminBulkReviewBlocked,
     nonAdminCatalogBlocked,
     nonAdminOperationsBlocked,
+    nonAdminReportQueueBlocked,
     publishedImportBlocked,
     duplicateUsernameBlocked,
   }, null, 2));
