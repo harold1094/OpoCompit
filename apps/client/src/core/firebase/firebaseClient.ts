@@ -28,6 +28,8 @@ export { readableFirebaseError } from './firebaseError';
 
 import {
   AvatarInventory,
+  ActiveCustomQuiz,
+  CustomQuizConfig,
   DailyEngagement,
   DailyReward,
   DuelOpponent,
@@ -61,6 +63,10 @@ let functionsEmulatorConnected = false;
 type StartQuickQuizResponse = {
   sessionId: string;
   questions: Question[];
+};
+
+type StartCustomQuizResponse = StartQuickQuizResponse & {
+  customQuiz: ActiveCustomQuiz;
 };
 
 type SubmitQuizResponse = {
@@ -528,6 +534,12 @@ export async function startQuickQuizRemote(questionCount = 10): Promise<StartQui
   const invoke = callable<{ questionCount: number }, StartQuickQuizResponse>('startQuickQuiz');
   const response = await invoke({ questionCount });
   return response.data;
+}
+
+export async function startCustomQuizRemote(config: CustomQuizConfig): Promise<StartCustomQuizResponse> {
+  await startAnonymousSession();
+  const invoke = callable<CustomQuizConfig, StartCustomQuizResponse>('startCustomQuiz');
+  return (await invoke(config)).data;
 }
 
 export async function getErrorReviewRemote(): Promise<ErrorReviewItem[]> {

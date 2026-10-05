@@ -128,7 +128,12 @@ export default function HomeScreen() {
           color={colors.aqua}
           onPress={() => router.push('/(tabs)/social')}
         />
-        <ModeButton icon="clipboard-text-outline" label="Test" color={colors.gold} />
+        <ModeButton
+          icon="clipboard-text-outline"
+          label="Test"
+          color={colors.gold}
+          onPress={() => router.push('/custom-test')}
+        />
         <ModeButton
           icon="file-document-outline"
           label="Examen"

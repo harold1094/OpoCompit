@@ -49,6 +49,9 @@ results. The emulator publishes only an explicit development demonstration; impo
 remain out of play until an administrator reviews and publishes their questions.
 `Mis errores` is synchronized with server-owned question statistics. Incorrect and blank answers
 enter a bounded review queue, while a later correct answer marks that question as mastered.
+The Home `Test` entry now creates server-filtered custom practices or timed simulations by question
+count, category, difficulty, territory scope, and personal history. Simulations support blanks,
+review navigation, a deadline, and server-authoritative `+1/-0.33/0` scoring.
 
 ## Verify
 

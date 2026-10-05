@@ -155,6 +155,15 @@ type StartErrorReviewInput = {
   questionCount?: number;
 };
 
+type StartCustomQuizInput = {
+  mode?: string;
+  questionCount?: number;
+  categoryId?: string | null;
+  difficulty?: number | null;
+  territoryMode?: string;
+  questionStatus?: string;
+};
+
 type AvatarItemInput = {
   itemId: string;
 };
@@ -1430,6 +1439,89 @@ export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
   return {sessionId: sessionRef.id, questions};
 });
 
+export const startCustomQuiz = onCall<StartCustomQuizInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const config = parseCustomQuizConfig(request.data);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const user = userSnapshot.data() ?? {};
+  const oppositionId = requireString(user.oppositionId, "stored oppositionId", 80);
+  const territoryKeys = buildTerritoryKeys(parseTerritory(user.territorySelection));
+  const questionsSnapshot = await db.collection("questions")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "published")
+    .where("verified", "==", true)
+    .limit(500)
+    .get();
+
+  let candidates = questionsSnapshot.docs.filter((document) => {
+    const question = document.data() as QuestionDoc;
+    const territoryMatches = config.territoryMode === "all_spain" ?
+      question.territoryKeys.some((key) => key === "ES" || key.startsWith("ES-")) :
+      question.territoryKeys.some((key) => territoryKeys.includes(key));
+    return territoryMatches &&
+      (config.categoryId === null || question.categoryId === config.categoryId) &&
+      (config.difficulty === null || question.difficulty === config.difficulty);
+  });
+
+  if (config.questionStatus !== "all" && candidates.length > 0) {
+    const statsSnapshot = await db.collection("users").doc(uid).collection("questionStats").get();
+    const statsByQuestion = new Map(statsSnapshot.docs.map((stat) => [stat.id, stat.data()]));
+    candidates = candidates.filter((document) => {
+      const stat = statsByQuestion.get(document.id);
+      if (config.questionStatus === "new") return !stat || numberValue(stat.timesSeen) === 0;
+      if (config.questionStatus === "incorrect") return stat?.needsReview === true;
+      return numberValue(stat?.timesSeen) > 0;
+    });
+  }
+
+  if (candidates.length === 0) {
+    throw new HttpsError("not-found", "No questions match the selected filters.");
+  }
+
+  for (let index = candidates.length - 1; index > 0; index--) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [candidates[index], candidates[randomIndex]] = [candidates[randomIndex], candidates[index]];
+  }
+  const selectedQuestions = candidates.slice(0, config.questionCount);
+  const rules = config.mode === "simulation" ? {
+    questionCount: selectedQuestions.length,
+    durationSeconds: Math.max(300, selectedQuestions.length * 60),
+    correctPoints: 1,
+    incorrectPenalty: 0.33,
+    blankPoints: 0,
+  } : null;
+  const sessionRef = db.collection("quizSessions").doc();
+  await sessionRef.set({
+    uid,
+    mode: config.mode === "simulation" ? "simulation" : "custom_practice",
+    oppositionId,
+    territoryKeys: config.territoryMode === "profile" ? territoryKeys : ["ES"],
+    customQuizConfig: config,
+    simulationRules: rules,
+    questionIds: selectedQuestions.map((document) => document.id),
+    answers: [],
+    status: "started",
+    createdAt: Timestamp.now(),
+    submittedAt: null,
+  });
+
+  return {
+    sessionId: sessionRef.id,
+    questions: selectedQuestions.map((document) =>
+      publicQuestion(document.id, document.data() as QuestionDoc),
+    ),
+    customQuiz: {
+      ...config,
+      actualQuestionCount: selectedQuestions.length,
+      rules,
+    },
+  };
+});
+
 export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const sessionId = requireString(request.data?.sessionId, "sessionId", 160);
@@ -1462,12 +1554,15 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     const questionIds = parseQuestionIds(session.questionIds);
     const officialExamRules = session.mode === "official_exam" ?
       storedOfficialExamRules(session.officialExamRules, questionIds.length) : null;
+    const simulationRules = session.mode === "simulation" ?
+      storedOfficialExamRules(session.simulationRules, questionIds.length) : null;
+    const scoringRules = officialExamRules ?? simulationRules;
     if (
-      officialExamRules &&
+      scoringRules &&
       Date.now() - createdAt.toMillis() >
-        officialExamRules.durationSeconds * 1000 + officialExamSubmissionGraceMs
+        scoringRules.durationSeconds * 1000 + officialExamSubmissionGraceMs
     ) {
-      throw new HttpsError("deadline-exceeded", "Official exam time expired.");
+      throw new HttpsError("deadline-exceeded", "Exam time expired.");
     }
     const allowedQuestionIds = new Set(questionIds);
     if (submittedAnswers.some((answer) => !allowedQuestionIds.has(answer.questionId))) {
@@ -1531,8 +1626,8 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     });
 
     const percentage = questions.length === 0 ? 0 : correct / questions.length;
-    const scoredExam = officialExamRules ?
-      officialExamScore(correct, incorrect, blank, officialExamRules) : null;
+    const scoredExam = scoringRules ?
+      officialExamScore(correct, incorrect, blank, scoringRules) : null;
     const points = scoredExam?.points ?? correct;
     const maximumPoints = scoredExam?.maximumPoints ?? questions.length;
     const xpEarned = correct * 10 + 20 + (percentage >= 0.8 ? 10 : 0);
@@ -3481,6 +3576,33 @@ function parseQuestionCount(value: unknown): number {
     throw new HttpsError("invalid-argument", "Invalid question count.");
   }
   return Math.min(Number(value), maxQuickQuestionCount);
+}
+
+function parseCustomQuizConfig(value: unknown) {
+  const data = typeof value === "object" && value !== null ?
+    value as Record<string, unknown> : {};
+  const mode = data.mode ?? "practice";
+  const territoryMode = data.territoryMode ?? "profile";
+  const questionStatus = data.questionStatus ?? "all";
+  if (mode !== "practice" && mode !== "simulation") {
+    throw new HttpsError("invalid-argument", "Invalid custom quiz mode.");
+  }
+  if (territoryMode !== "profile" && territoryMode !== "all_spain") {
+    throw new HttpsError("invalid-argument", "Invalid territory mode.");
+  }
+  if (!["all", "new", "incorrect", "completed"].includes(String(questionStatus))) {
+    throw new HttpsError("invalid-argument", "Invalid question status.");
+  }
+  const difficulty = data.difficulty === undefined || data.difficulty === null ? null :
+    requireInteger(data.difficulty, "difficulty", 1, 5);
+  return {
+    mode: mode as "practice" | "simulation",
+    questionCount: parseQuestionCount(data.questionCount),
+    categoryId: optionalString(data.categoryId, "categoryId", 80) ?? null,
+    difficulty,
+    territoryMode: territoryMode as "profile" | "all_spain",
+    questionStatus: questionStatus as "all" | "new" | "incorrect" | "completed",
+  };
 }
 
 function parseQuestionIds(value: unknown): string[] {

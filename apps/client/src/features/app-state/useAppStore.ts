@@ -3,7 +3,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
+  ActiveCustomQuiz,
   AvatarInventory,
+  CustomQuizConfig,
   DailyReward,
   DuelOpponent,
   DuelResult,
@@ -68,6 +70,7 @@ import {
   signInGoogleAccountRemote,
   signOutAccountRemote,
   startAnonymousSession,
+  startCustomQuizRemote,
   startErrorReviewRemote,
   startQuickQuizRemote,
   startOfficialExamRemote,
@@ -92,7 +95,7 @@ import {
   FIREFIGHTER_OPPOSITION_ID,
   FIREFIGHTER_OPPOSITION_NAME,
 } from '@/features/onboarding/data/options';
-import { eligibleForQuickMatch } from '@/features/quiz/domain/questionFilter';
+import { eligibleForCustomQuiz, eligibleForQuickMatch } from '@/features/quiz/domain/questionFilter';
 import {
   applyResult,
   BLANK_ANSWER_ID,
@@ -103,7 +106,7 @@ import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/d
 import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
-type ActiveGameMode = 'quick' | 'error-review' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
+type ActiveGameMode = 'quick' | 'custom-practice' | 'simulation' | 'error-review' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
 export type ConnectionStatus = 'idle' | 'checking' | 'connected' | 'offline' | 'session-expired';
 
 type AppStore = {
@@ -114,6 +117,7 @@ type AppStore = {
   activeSessionId: string | null;
   activeGameMode: ActiveGameMode;
   activeOfficialExam: OfficialExam | null;
+  activeCustomQuiz: ActiveCustomQuiz | null;
   activeDuelOpponent: DuelOpponent | null;
   activeStartedAt: number | null;
   selectedAnswers: Record<string, string | null>;
@@ -181,6 +185,7 @@ type AppStore = {
   clearAccountError: () => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
+  startCustomQuiz: (config: CustomQuizConfig) => Promise<number>;
   loadOfficialExams: () => Promise<void>;
   startOfficialExam: (exam: OfficialExam) => Promise<number>;
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
@@ -235,6 +240,7 @@ export const useAppStore = create<AppStore>()(
       activeSessionId: null,
       activeGameMode: 'quick',
       activeOfficialExam: null,
+      activeCustomQuiz: null,
       activeDuelOpponent: null,
       activeStartedAt: null,
       selectedAnswers: {},
@@ -526,6 +532,7 @@ export const useAppStore = create<AppStore>()(
           activeSessionId: null,
           activeGameMode: 'quick',
           activeOfficialExam: null,
+          activeCustomQuiz: null,
           activeDuelOpponent: null,
           activeStartedAt: null,
           selectedAnswers: {},
@@ -595,6 +602,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId,
             activeGameMode: 'quick',
             activeOfficialExam: null,
+            activeCustomQuiz: null,
             activeDuelOpponent: null,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -608,6 +616,71 @@ export const useAppStore = create<AppStore>()(
             game_mode: 'quick',
             question_count: activeQuestions.length,
             backend_mode: backendMode,
+          });
+          return activeQuestions.length;
+        } catch (error) {
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
+          return 0;
+        } finally {
+          set({ isStartingQuiz: false });
+        }
+      },
+      startCustomQuiz: async (config) => {
+        const { profile, backendMode, questionStats } = get();
+        if (!profile) return 0;
+        set({ isStartingQuiz: true, quizError: null });
+
+        try {
+          let activeQuestions: Question[];
+          let activeSessionId: string | null = null;
+          let activeCustomQuiz: ActiveCustomQuiz;
+          if (backendMode === 'firebase') {
+            const remote = await startCustomQuizRemote(config);
+            activeQuestions = remote.questions;
+            activeSessionId = remote.sessionId;
+            activeCustomQuiz = remote.customQuiz;
+          } else {
+            activeQuestions = eligibleForCustomQuiz(profile, seedQuestions, questionStats, config);
+            activeCustomQuiz = {
+              ...config,
+              actualQuestionCount: activeQuestions.length,
+              rules: config.mode === 'simulation'
+                ? {
+                    questionCount: activeQuestions.length,
+                    durationSeconds: Math.max(300, activeQuestions.length * 60),
+                    correctPoints: 1,
+                    incorrectPenalty: 0.33,
+                    blankPoints: 0,
+                  }
+                : null,
+            };
+          }
+          if (activeQuestions.length === 0) {
+            set({ quizError: 'No hay preguntas que coincidan con esos filtros.' });
+            return 0;
+          }
+
+          set({
+            activeQuestions,
+            activeSessionId,
+            activeGameMode: config.mode === 'simulation' ? 'simulation' : 'custom-practice',
+            activeOfficialExam: null,
+            activeCustomQuiz,
+            activeDuelOpponent: null,
+            activeStartedAt: Date.now(),
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+            lastDuelResult: null,
+            lastPendingFriendDuel: null,
+          });
+          void trackEvent('quiz_started', {
+            game_mode: config.mode === 'simulation' ? 'simulation' : 'custom_practice',
+            question_count: activeQuestions.length,
+            backend_mode: backendMode,
+            category_id: config.categoryId ?? 'all',
+            question_status: config.questionStatus,
           });
           return activeQuestions.length;
         } catch (error) {
@@ -646,6 +719,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId: remote.sessionId,
             activeGameMode: 'official-exam',
             activeOfficialExam: remote.exam,
+            activeCustomQuiz: null,
             activeDuelOpponent: null,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -691,6 +765,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId,
             activeGameMode: 'duel',
             activeOfficialExam: null,
+            activeCustomQuiz: null,
             activeDuelOpponent: activeOpponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -761,6 +836,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId,
             activeGameMode: 'error-review',
             activeOfficialExam: null,
+            activeCustomQuiz: null,
             activeDuelOpponent: null,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -867,6 +943,18 @@ export const useAppStore = create<AppStore>()(
             missions = remote.engagement.missions;
           } else {
             result = scoreQuickMatch(state.activeQuestions, state.selectedAnswers);
+            if (state.activeGameMode === 'simulation' && state.activeCustomQuiz?.rules) {
+              const rules = state.activeCustomQuiz.rules;
+              result = {
+                ...result,
+                points: Math.round((
+                  result.correct * rules.correctPoints
+                  - result.incorrect * rules.incorrectPenalty
+                  + result.blank * rules.blankPoints
+                ) * 100) / 100,
+                maximumPoints: state.activeQuestions.length * rules.correctPoints,
+              };
+            }
             if (state.activeGameMode !== 'quick' && state.activeDuelOpponent) {
               const opponent = localOpponentPerformance(state.activeDuelOpponent.id);
               const elapsedMs = Math.min(
@@ -1590,6 +1678,7 @@ export const useAppStore = create<AppStore>()(
                 activeSessionId: remote.duelId,
                 activeGameMode: 'friend-duel',
                 activeOfficialExam: null,
+                activeCustomQuiz: null,
                 activeDuelOpponent: remote.opponent,
                 activeStartedAt: Date.now(),
                 selectedAnswers: Object.fromEntries(
@@ -1632,6 +1721,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId: invitation.duelId,
             activeGameMode: 'friend-duel',
             activeOfficialExam: null,
+            activeCustomQuiz: null,
             activeDuelOpponent: opponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -1727,6 +1817,7 @@ export const useAppStore = create<AppStore>()(
                 activeSessionId: remote.duelId,
                 activeGameMode: 'matchmaking-duel',
                 activeOfficialExam: null,
+                activeCustomQuiz: null,
                 activeDuelOpponent: remote.opponent,
                 activeStartedAt: Date.now(),
                 selectedAnswers: Object.fromEntries(
@@ -1769,6 +1860,7 @@ export const useAppStore = create<AppStore>()(
             activeSessionId: match.duelId,
             activeGameMode: 'matchmaking-duel',
             activeOfficialExam: null,
+            activeCustomQuiz: null,
             activeDuelOpponent: opponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -1812,6 +1904,7 @@ export const useAppStore = create<AppStore>()(
         activeSessionId: state.activeSessionId,
         activeGameMode: state.activeGameMode,
         activeOfficialExam: state.activeOfficialExam,
+        activeCustomQuiz: state.activeCustomQuiz,
         activeDuelOpponent: state.activeDuelOpponent,
         activeStartedAt: state.activeSessionId ? state.activeStartedAt : null,
         selectedAnswers: state.activeSessionId ? state.selectedAnswers : {},
@@ -1877,6 +1970,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     activeSessionId: null,
     activeGameMode: 'quick',
     activeOfficialExam: null,
+    activeCustomQuiz: null,
     activeDuelOpponent: null,
     activeStartedAt: null,
     selectedAnswers: {},

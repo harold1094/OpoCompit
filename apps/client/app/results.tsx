@@ -14,6 +14,7 @@ export default function ResultsScreen() {
   const pendingFriendDuel = useAppStore((state) => state.lastPendingFriendDuel);
   const activeGameMode = useAppStore((state) => state.activeGameMode);
   const officialExam = useAppStore((state) => state.activeOfficialExam);
+  const customQuiz = useAppStore((state) => state.activeCustomQuiz);
   const friends = useAppStore((state) => state.friends);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
   const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
@@ -22,6 +23,9 @@ export default function ResultsScreen() {
   const isMatchmakingLoading = useAppStore((state) => state.isMatchmakingLoading);
   if (!result) return <Redirect href="/(tabs)" />;
   const isOfficialExam = activeGameMode === 'official-exam' && officialExam !== null;
+  const isSimulation = activeGameMode === 'simulation' && customQuiz?.rules != null;
+  const isScoredExam = isOfficialExam || isSimulation;
+  const scoringRules = isOfficialExam ? officialExam.rules : customQuiz?.rules ?? null;
 
   const rematch = async () => {
     if (!duel) return;
@@ -62,6 +66,8 @@ export default function ResultsScreen() {
         <Text style={styles.eyebrow}>
           {isOfficialExam
             ? 'EXAMEN FINALIZADO'
+            : isSimulation
+              ? 'SIMULACRO COMPLETADO'
             : duel
               ? 'DUELO COMPLETADO'
               : pendingFriendDuel
@@ -69,26 +75,32 @@ export default function ResultsScreen() {
                 : 'PARTIDA COMPLETADA'}
         </Text>
         <Text style={styles.score}>
-          {isOfficialExam
+          {isScoredExam
             ? formatPoints(result.points)
             : outcomeCopy?.title ?? (pendingFriendDuel
               ? 'En espera'
               : `${Math.round(result.percentage * 100)}%`)}
         </Text>
         <Text style={styles.scoreLabel}>
-          {isOfficialExam
+          {isScoredExam
             ? `${formatPoints(result.maximumPoints ?? result.attempts.length)} puntos posibles · ${Math.round(result.percentage * 100)}% de aciertos`
             : `${result.correct} de ${result.attempts.length} correctas`}
         </Text>
       </View>
 
-      {isOfficialExam ? (
+      {isScoredExam && scoringRules ? (
         <View style={styles.examSummary}>
-          <MaterialCommunityIcons name="file-certificate-outline" size={23} color={colors.brand} />
+          <MaterialCommunityIcons
+            name={isSimulation ? 'clipboard-clock-outline' : 'file-certificate-outline'}
+            size={23}
+            color={colors.brand}
+          />
           <View style={styles.examSummaryCopy}>
-            <Text style={styles.examSummaryName}>{officialExam.name}</Text>
+            <Text style={styles.examSummaryName}>
+              {isSimulation ? 'Simulacro personalizado' : officialExam?.name}
+            </Text>
             <Text style={styles.examSummaryRule}>
-              +{officialExam.rules.correctPoints} acierto · -{officialExam.rules.incorrectPenalty} fallo · {officialExam.rules.blankPoints} blanco
+              +{scoringRules.correctPoints} acierto · -{scoringRules.incorrectPenalty} fallo · {scoringRules.blankPoints} blanco
             </Text>
           </View>
         </View>

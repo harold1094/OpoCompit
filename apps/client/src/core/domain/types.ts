@@ -26,6 +26,24 @@ export type Question = {
   source: string;
 };
 
+export type CustomQuizMode = 'practice' | 'simulation';
+export type CustomQuizTerritoryMode = 'profile' | 'all_spain';
+export type CustomQuizQuestionStatus = 'all' | 'new' | 'incorrect' | 'completed';
+
+export type CustomQuizConfig = {
+  mode: CustomQuizMode;
+  questionCount: number;
+  categoryId: string | null;
+  difficulty: number | null;
+  territoryMode: CustomQuizTerritoryMode;
+  questionStatus: CustomQuizQuestionStatus;
+};
+
+export type ActiveCustomQuiz = CustomQuizConfig & {
+  actualQuestionCount: number;
+  rules: OfficialExamRules | null;
+};
+
 export type PlayerProfile = {
   uid: string;
   username: string;

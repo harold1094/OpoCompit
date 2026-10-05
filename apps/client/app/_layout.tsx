@@ -56,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="quiz" />
           <Stack.Screen name="results" />
+          <Stack.Screen name="custom-test" />
           <Stack.Screen name="exams" />
           <Stack.Screen name="errors" />
           <Stack.Screen name="groups" />

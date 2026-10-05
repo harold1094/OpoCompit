@@ -199,9 +199,17 @@ all client writes are denied.
 ```json
 {
   "uid": "user id",
-  "mode": "quick|custom|official_exam|duel",
+  "mode": "quick|custom_practice|simulation|error_review|official_exam|duel",
   "oppositionId": "firefighters_es",
   "territoryKeys": ["ES", "ES-MC", "ES-MC-Cartagena"],
+  "customQuizConfig": {
+    "questionCount": 10,
+    "categoryId": null,
+    "difficulty": null,
+    "territoryMode": "profile|all_spain",
+    "questionStatus": "all|new|incorrect|completed"
+  },
+  "simulationRules": null,
   "questionIds": [],
   "answers": [
     {"questionId": "q1", "selectedAnswerId": "a", "elapsedMs": 5000}

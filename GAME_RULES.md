@@ -22,6 +22,8 @@ The first firefighter vertical slice uses these keys:
 - `ES-MC-Cartagena`
 
 The quick game accepts national, technical, autonomic, provincial, and municipal questions that match the user's selected scope.
+Custom tests can keep that inherited scope or explicitly include compatible questions from all of
+Spain. They can also filter by category, difficulty, and personal question history.
 
 ## Scoring
 
@@ -49,8 +51,9 @@ invalidating an answer sent at the deadline.
 - Players cannot return to earlier questions during the match.
 - Selecting an answer on the last question submits and finishes the match automatically.
 
-Official exams use a reviewable interaction instead: players can move backward or forward, mark a
-question blank, and explicitly submit. Unanswered questions are scored as blank when time expires.
+Official exams and simulations use a reviewable interaction instead: players can move backward or
+forward, mark a question blank, and explicitly submit. Unanswered questions are scored as blank when
+time expires. Custom practice keeps the immediate-advance interaction.
 
 ## Error Review
 

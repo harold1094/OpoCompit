@@ -1415,6 +1415,110 @@ async function main() {
     },
     examAuth.idToken,
   );
+  const nationwidePractice = await call<{
+    questions: Array<{id: string; correctAnswerId?: string}>;
+  }>(
+    "startCustomQuiz",
+    {
+      mode: "practice",
+      questionCount: 25,
+      categoryId: "legislation",
+      difficulty: 1,
+      territoryMode: "all_spain",
+      questionStatus: "all",
+    },
+    examAuth.idToken,
+  );
+  assert.equal(nationwidePractice.questions.some((question) => question.id === "q_const_1"), true);
+  assert.equal(
+    nationwidePractice.questions.some((question) => question.id === "q_madrid_excluded"),
+    true,
+  );
+  assert.equal(
+    nationwidePractice.questions.every((question) => question.correctAnswerId === undefined),
+    true,
+  );
+
+  const simulation = await call<{
+    sessionId: string;
+    questions: Array<{id: string; correctAnswerId?: string}>;
+    customQuiz: {
+      actualQuestionCount: number;
+      rules: {
+        questionCount: number;
+        durationSeconds: number;
+        incorrectPenalty: number;
+      };
+    };
+  }>(
+    "startCustomQuiz",
+    {
+      mode: "simulation",
+      questionCount: 5,
+      categoryId: "platform",
+      difficulty: 1,
+      territoryMode: "profile",
+      questionStatus: "new",
+    },
+    examAuth.idToken,
+  );
+  assert.equal(simulation.questions.length, 2);
+  assert.equal(simulation.customQuiz.actualQuestionCount, 2);
+  assert.equal(simulation.customQuiz.rules.questionCount, 2);
+  assert.equal(simulation.customQuiz.rules.durationSeconds, 300);
+  assert.equal(simulation.customQuiz.rules.incorrectPenalty, 0.33);
+  const firstSimulationQuestion = seedQuestions.find(
+    (question) => question.id === simulation.questions[0].id,
+  );
+  const secondSimulationQuestion = seedQuestions.find(
+    (question) => question.id === simulation.questions[1].id,
+  );
+  assert.ok(firstSimulationQuestion);
+  assert.ok(secondSimulationQuestion);
+  const wrongSimulationAnswer = secondSimulationQuestion.answers.find(
+    (answer) => answer.id !== secondSimulationQuestion.correctAnswerId,
+  );
+  assert.ok(wrongSimulationAnswer);
+  const submittedSimulation = await call<{
+    result: {correct: number; incorrect: number; points: number; maximumPoints: number};
+  }>(
+    "submitQuizSession",
+    {
+      sessionId: simulation.sessionId,
+      answers: [
+        {
+          questionId: firstSimulationQuestion.id,
+          selectedAnswerId: firstSimulationQuestion.correctAnswerId,
+        },
+        {
+          questionId: secondSimulationQuestion.id,
+          selectedAnswerId: wrongSimulationAnswer.id,
+        },
+      ],
+    },
+    examAuth.idToken,
+  );
+  assert.equal(submittedSimulation.result.correct, 1);
+  assert.equal(submittedSimulation.result.incorrect, 1);
+  assert.equal(submittedSimulation.result.points, 0.67);
+  assert.equal(submittedSimulation.result.maximumPoints, 2);
+  const incorrectCustomQuiz = await call<{
+    questions: Array<{id: string}>;
+  }>(
+    "startCustomQuiz",
+    {
+      mode: "practice",
+      questionCount: 5,
+      categoryId: "platform",
+      difficulty: 1,
+      territoryMode: "profile",
+      questionStatus: "incorrect",
+    },
+    examAuth.idToken,
+  );
+  assert.deepEqual(incorrectCustomQuiz.questions.map((question) => question.id), [
+    secondSimulationQuestion.id,
+  ]);
   const officialExams = await call<{
     exams: Array<{id: string; rules: {questionCount: number}}>;
   }>("getOfficialExams", {}, examAuth.idToken);
@@ -1597,6 +1701,7 @@ async function main() {
     adminBulkReviewValidated: true,
     adminCatalogValidated: true,
     adminOperationsValidated: true,
+    customQuizFlowValidated: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,

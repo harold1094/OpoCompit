@@ -48,6 +48,14 @@ later correct answer clears it.
 For official-exam sessions it also validates the stored rules and server elapsed time, treats
 omitted answers as blank, and returns rule-based points and the maximum possible score.
 
+## callable: `startCustomQuiz`
+
+Creates either a fast custom practice or an exam-style simulation. The server validates and applies
+the requested question count, category, difficulty, profile/all-Spain territory scope, and
+new/incorrect/completed history filter. It snapshots the filters in the session and never returns
+correct answers before submission. Simulations also snapshot a duration and scoring rules so the
+server can enforce the deadline and calculate penalized points.
+
 ## Official exam callables
 
 - `getOfficialExams`: returns only published, valid exams for the user's selected opposition.

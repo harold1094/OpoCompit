@@ -1,5 +1,5 @@
-import { PlayerProfile, Question } from '@/core/domain/types';
-import { eligibleForQuickMatch, territoryKeys } from './questionFilter';
+import { PlayerProfile, Question, UserQuestionStat } from '@/core/domain/types';
+import { eligibleForCustomQuiz, eligibleForQuickMatch, territoryKeys } from './questionFilter';
 
 const profile: PlayerProfile = {
   uid: 'test',
@@ -63,5 +63,37 @@ describe('question filtering', () => {
     ]);
 
     expect(result.map((item) => item.id)).toEqual(['cartagena', 'murcia', 'national']);
+  });
+
+  it('applies custom category, difficulty, territory, and history filters', () => {
+    const questions = [
+      {...question('national', 'ES', 1), categoryId: 'fires'},
+      {...question('madrid', 'ES-Madrid', 1), categoryId: 'fires'},
+      {...question('hard', 'ES', 3), categoryId: 'fires'},
+      {...question('law', 'ES', 1), categoryId: 'legislation'},
+    ];
+    const stats: Record<string, UserQuestionStat> = {
+      madrid: {
+        questionId: 'madrid',
+        timesSeen: 1,
+        correctCount: 0,
+        incorrectCount: 1,
+        blankCount: 0,
+        needsReview: true,
+        lastAnswerId: 'b',
+        lastAnsweredAt: '2026-10-05T00:00:00.000Z',
+      },
+    };
+
+    const result = eligibleForCustomQuiz(profile, questions, stats, {
+      mode: 'practice',
+      questionCount: 10,
+      categoryId: 'fires',
+      difficulty: 1,
+      territoryMode: 'all_spain',
+      questionStatus: 'incorrect',
+    });
+
+    expect(result.map((item) => item.id)).toEqual(['madrid']);
   });
 });

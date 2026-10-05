@@ -21,6 +21,7 @@ export default function QuizScreen() {
   const isSubmittingQuiz = useAppStore((state) => state.isSubmittingQuiz);
   const activeGameMode = useAppStore((state) => state.activeGameMode);
   const activeOfficialExam = useAppStore((state) => state.activeOfficialExam);
+  const activeCustomQuiz = useAppStore((state) => state.activeCustomQuiz);
   const activeStartedAt = useAppStore((state) => state.activeStartedAt);
   const duelOpponent = useAppStore((state) => state.activeDuelOpponent);
   const [index, setIndex] = useState(0);
@@ -29,6 +30,9 @@ export default function QuizScreen() {
   const transitionLock = useRef(false);
   const timeExpired = useRef(false);
   const isOfficialExam = activeGameMode === 'official-exam' && activeOfficialExam !== null;
+  const isSimulation = activeGameMode === 'simulation' && activeCustomQuiz?.rules != null;
+  const isExamStyle = isOfficialExam || isSimulation;
+  const examRules = isOfficialExam ? activeOfficialExam.rules : activeCustomQuiz?.rules ?? null;
 
   useEffect(() => {
     transitionLock.current = false;
@@ -51,11 +55,11 @@ export default function QuizScreen() {
   }, [finishQuiz, isSubmittingQuiz]);
 
   useEffect(() => {
-    if (!isOfficialExam || !activeStartedAt || !activeOfficialExam) {
+    if (!isExamStyle || !activeStartedAt || !examRules) {
       setRemainingSeconds(null);
       return;
     }
-    const deadline = activeStartedAt + activeOfficialExam.rules.durationSeconds * 1_000;
+    const deadline = activeStartedAt + examRules.durationSeconds * 1_000;
     const update = () => {
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1_000));
       setRemainingSeconds(remaining);
@@ -67,7 +71,7 @@ export default function QuizScreen() {
     update();
     const interval = setInterval(update, 1_000);
     return () => clearInterval(interval);
-  }, [activeOfficialExam, activeStartedAt, isOfficialExam, submitQuiz]);
+  }, [activeStartedAt, examRules, isExamStyle, submitQuiz]);
 
   if (!hydrated) return <FullScreenLoader label="Recuperando tu partida" />;
   const question = questions[index];
@@ -83,7 +87,7 @@ export default function QuizScreen() {
     answerQuestion(question.id, answerId);
     void Haptics.selectionAsync?.();
 
-    if (isOfficialExam) return;
+    if (isExamStyle) return;
     transitionLock.current = true;
     setIsAdvancing(true);
     if (!isLast) {
@@ -94,26 +98,33 @@ export default function QuizScreen() {
   };
 
   const leaveQuiz = () => {
-    if (!isOfficialExam) {
+    if (!isExamStyle) {
       router.replace('/(tabs)');
       return;
     }
-    const message = 'El examen quedará abierto y no se entregará hasta que vuelvas y pulses Entregar.';
+    const label = isSimulation ? 'simulacro' : 'examen';
+    const message = `El ${label} quedará abierto y no se entregará hasta que vuelvas y pulses Entregar.`;
     if (Platform.OS === 'web') {
-      if (window.confirm(`¿Salir del examen?\n\n${message}`)) router.replace('/exams');
+      if (window.confirm(`¿Salir del ${label}?\n\n${message}`)) {
+        router.replace(isSimulation ? '/custom-test' : '/exams');
+      }
       return;
     }
     Alert.alert(
-      '¿Salir del examen?',
+      `¿Salir del ${label}?`,
       message,
       [
         { text: 'Continuar', style: 'cancel' },
-        { text: 'Salir', style: 'destructive', onPress: () => router.replace('/exams') },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: () => router.replace(isSimulation ? '/custom-test' : '/exams'),
+        },
       ],
     );
   };
 
-  const finishOfficialExam = () => {
+  const finishExamStyleQuiz = () => {
     const message = `Has respondido ${answeredCount} de ${questions.length} preguntas. Las demás contarán como en blanco.`;
     if (Platform.OS === 'web') {
       if (window.confirm(`Entregar examen\n\n${message}`)) void submitQuiz();
@@ -141,7 +152,7 @@ export default function QuizScreen() {
           </View>
           <Text style={styles.counter}>{index + 1} / {questions.length}</Text>
         </View>
-        {isOfficialExam ? (
+        {isExamStyle ? (
           <View style={[styles.timer, remainingSeconds !== null && remainingSeconds < 60 && styles.timerUrgent]}>
             <MaterialCommunityIcons name="timer-outline" size={17} color={remainingSeconds !== null && remainingSeconds < 60 ? colors.danger : colors.ink} />
             <Text style={[styles.timerText, remainingSeconds !== null && remainingSeconds < 60 && styles.timerTextUrgent]}>
@@ -152,12 +163,20 @@ export default function QuizScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {isOfficialExam ? (
+        {isExamStyle ? (
           <View style={styles.examBand}>
-            <MaterialCommunityIcons name="file-certificate-outline" size={21} color={colors.brand} />
+            <MaterialCommunityIcons
+              name={isSimulation ? 'clipboard-clock-outline' : 'file-certificate-outline'}
+              size={21}
+              color={colors.brand}
+            />
             <View style={styles.duelCopy}>
-              <Text style={styles.examLabel}>EXAMEN OFICIAL</Text>
-              <Text numberOfLines={1} style={styles.duelOpponent}>{activeOfficialExam.name}</Text>
+              <Text style={styles.examLabel}>{isSimulation ? 'SIMULACRO' : 'EXAMEN OFICIAL'}</Text>
+              <Text numberOfLines={1} style={styles.duelOpponent}>
+                {isSimulation
+                  ? `Test personalizado · ${questions.length} preguntas`
+                  : activeOfficialExam?.name ?? 'Examen oficial'}
+              </Text>
             </View>
             <Text style={styles.duelLevel}>{answeredCount}/{questions.length}</Text>
           </View>
@@ -212,7 +231,7 @@ export default function QuizScreen() {
         </View>
       </ScrollView>
 
-      {isOfficialExam ? (
+      {isExamStyle ? (
         <View style={styles.examControls}>
           <Pressable
             accessibilityLabel="Pregunta anterior"
@@ -232,7 +251,7 @@ export default function QuizScreen() {
           </Pressable>
           <Pressable
             disabled={selectedAnswer === null || selectedAnswer === undefined || answersDisabled}
-            onPress={() => isLast ? finishOfficialExam() : setIndex((value) => value + 1)}
+            onPress={() => isLast ? finishExamStyleQuiz() : setIndex((value) => value + 1)}
             style={[
               styles.nextButton,
               (selectedAnswer === null || selectedAnswer === undefined || answersDisabled) && styles.controlDisabled,
