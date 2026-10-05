@@ -51,6 +51,7 @@ import {
   linkEmailAccountRemote,
   linkGoogleAccountRemote,
   readableFirebaseError,
+  restoreFirebaseSessionRemote,
   removeFriendRemote,
   respondFriendRequestRemote,
   respondFriendDuelInvitationRemote,
@@ -71,6 +72,7 @@ import {
   submitClassicDuelRemote,
   submitQuizSessionRemote,
 } from '@/core/firebase/firebaseClient';
+import {firebaseFailureKind} from '@/core/firebase/firebaseError';
 import {
   avatarCatalog,
   defaultAvatarInventory,
@@ -96,6 +98,7 @@ import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
 type ActiveGameMode = 'quick' | 'duel' | 'friend-duel' | 'matchmaking-duel';
+export type ConnectionStatus = 'idle' | 'checking' | 'connected' | 'offline' | 'session-expired';
 
 type AppStore = {
   hydrated: boolean;
@@ -150,13 +153,18 @@ type AppStore = {
   rankingError: string | null;
   isAccountLoading: boolean;
   accountError: string | null;
+  connectionStatus: ConnectionStatus;
+  connectionMessage: string | null;
+  isRestoringSession: boolean;
+  lastSyncedAt: number | null;
   setHydrated: (hydrated: boolean) => void;
+  restoreSession: () => Promise<boolean>;
   linkEmailAccount: (email: string, password: string) => Promise<boolean>;
   linkGoogleAccount: () => Promise<boolean>;
   signInEmailAccount: (email: string, password: string) => Promise<boolean>;
   signInGoogleAccount: () => Promise<boolean>;
   sendAccountPasswordReset: (email: string) => Promise<boolean>;
-  signOutAccount: () => Promise<void>;
+  signOutAccount: () => Promise<boolean>;
   clearAccountError: () => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
@@ -256,7 +264,82 @@ export const useAppStore = create<AppStore>()(
       rankingError: null,
       isAccountLoading: false,
       accountError: null,
+      connectionStatus: 'idle',
+      connectionMessage: null,
+      isRestoringSession: false,
+      lastSyncedAt: null,
       setHydrated: (hydrated) => set({ hydrated }),
+      restoreSession: async () => {
+        const state = get();
+        if (!state.hydrated || state.isRestoringSession) return false;
+        if (!isFirebaseEnabled()) {
+          set({connectionStatus: 'connected', connectionMessage: null});
+          return true;
+        }
+
+        if (state.backendMode !== 'firebase') {
+          if (!state.profile) {
+            set({connectionStatus: 'connected', connectionMessage: null});
+            return true;
+          }
+          if (!state.profile.isGuest || state.profile.totalQuestions > 0) {
+            set({
+              connectionStatus: 'offline',
+              connectionMessage: 'Tu progreso local sigue guardado en este dispositivo.',
+            });
+            return false;
+          }
+
+          set({
+            connectionStatus: 'checking',
+            connectionMessage: null,
+            isRestoringSession: true,
+          });
+          try {
+            const uid = await startAnonymousSession();
+            const profile = await bootstrapGuestProfile({...state.profile, uid});
+            set({
+              backendMode: 'firebase',
+              profile,
+              connectionStatus: 'connected',
+              connectionMessage: null,
+              lastSyncedAt: Date.now(),
+            });
+            return true;
+          } catch (error) {
+            set(sessionRecoveryFailureState(error));
+            return false;
+          } finally {
+            set({isRestoringSession: false});
+          }
+        }
+
+        set({
+          connectionStatus: 'checking',
+          connectionMessage: null,
+          isRestoringSession: true,
+        });
+        try {
+          const profile = await restoreFirebaseSessionRemote();
+          set({
+            profile,
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: Date.now(),
+          });
+          return true;
+        } catch (error) {
+          const failure = sessionRecoveryFailureState(error);
+          if (firebaseFailureKind(error) === 'session-expired') {
+            set({...authenticatedSessionState(null), ...failure});
+          } else {
+            set(failure);
+          }
+          return false;
+        } finally {
+          set({isRestoringSession: false});
+        }
+      },
       linkEmailAccount: async (email, password) => {
         const state = get();
         if (!state.profile || state.backendMode !== 'firebase' || state.isAccountLoading) {
@@ -266,11 +349,16 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await linkEmailAccountRemote(email, password);
-          set({ profile });
+          set({
+            profile,
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: Date.now(),
+          });
           void trackEvent('signup_completed', { auth_method: 'email' });
           return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isAccountLoading: false });
@@ -285,11 +373,16 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await linkGoogleAccountRemote();
-          set({ profile });
+          set({
+            profile,
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: Date.now(),
+          });
           void trackEvent('signup_completed', { auth_method: 'google' });
           return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isAccountLoading: false });
@@ -304,11 +397,16 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await signInEmailAccountRemote(email, password);
-          set(authenticatedSessionState(profile));
+          set({
+            ...authenticatedSessionState(profile),
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: Date.now(),
+          });
           void trackEvent('login_completed', { auth_method: 'email' });
           return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isAccountLoading: false });
@@ -323,11 +421,16 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await signInGoogleAccountRemote();
-          set(authenticatedSessionState(profile));
+          set({
+            ...authenticatedSessionState(profile),
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: Date.now(),
+          });
           void trackEvent('login_completed', { auth_method: 'google' });
           return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isAccountLoading: false });
@@ -343,7 +446,7 @@ export const useAppStore = create<AppStore>()(
           await sendAccountPasswordResetRemote(email);
           return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isAccountLoading: false });
@@ -353,9 +456,15 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           await signOutAccountRemote();
-          set(authenticatedSessionState(null));
+          set({
+            ...authenticatedSessionState(null),
+            connectionStatus: 'connected',
+            connectionMessage: null,
+          });
+          return true;
         } catch (error) {
-          set({ accountError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
+          return false;
         } finally {
           set({ isAccountLoading: false });
         }
@@ -421,6 +530,13 @@ export const useAppStore = create<AppStore>()(
           groupsError: null,
           rankingError: null,
           monetizationError: null,
+          connectionStatus: backendMode === 'firebase' || !isFirebaseEnabled()
+            ? 'connected'
+            : 'offline',
+          connectionMessage: backendMode === 'firebase' || !isFirebaseEnabled()
+            ? null
+            : 'Estás usando el modo sin conexión. Tu progreso se guarda en este dispositivo.',
+          lastSyncedAt: backendMode === 'firebase' ? Date.now() : null,
         });
         void trackEvent('guest_started', {
           backend_mode: backendMode,
@@ -467,7 +583,7 @@ export const useAppStore = create<AppStore>()(
           });
           return activeQuestions.length;
         } catch (error) {
-          set({ quizError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
           return 0;
         } finally {
           set({ isStartingQuiz: false });
@@ -516,7 +632,7 @@ export const useAppStore = create<AppStore>()(
           });
           return activeQuestions.length;
         } catch (error) {
-          set({ quizError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
           return 0;
         } finally {
           set({ isStartingDuel: false });
@@ -751,7 +867,7 @@ export const useAppStore = create<AppStore>()(
           }
           return result;
         } catch (error) {
-          set({ quizError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
           return null;
         } finally {
           set({ isSubmittingQuiz: false });
@@ -769,7 +885,7 @@ export const useAppStore = create<AppStore>()(
               : localDailyEngagement(state.dailyReward, state.missions);
           set({ dailyReward: engagement.dailyReward, missions: engagement.missions });
         } catch (error) {
-          set({ engagementError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), engagementError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingEngagement: false });
         }
@@ -804,7 +920,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ engagementError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), engagementError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isClaimingDailyReward: false });
@@ -846,7 +962,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ engagementError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), engagementError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ claimingMissionId: null });
@@ -877,7 +993,7 @@ export const useAppStore = create<AppStore>()(
             });
           }
         } catch (error) {
-          set({ avatarError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), avatarError: readableFirebaseError(error)});
         } finally {
           set({ avatarActionId: null });
         }
@@ -931,7 +1047,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ avatarError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), avatarError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ avatarActionId: null });
@@ -965,7 +1081,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ avatarError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), avatarError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ avatarActionId: null });
@@ -981,7 +1097,7 @@ export const useAppStore = create<AppStore>()(
             : localMonetizationOverview(state.profile.gems);
           set({ monetization });
         } catch (error) {
-          set({ monetizationError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), monetizationError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingMonetization: false });
         }
@@ -996,7 +1112,7 @@ export const useAppStore = create<AppStore>()(
             set(overview);
           }
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingSocial: false });
         }
@@ -1012,7 +1128,7 @@ export const useAppStore = create<AppStore>()(
         try {
           set({ studyGroups: await getStudyGroupsRemote() });
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingGroups: false });
         }
@@ -1038,7 +1154,7 @@ export const useAppStore = create<AppStore>()(
           void trackEvent('group_created');
           return group;
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
           return null;
         } finally {
           set({ groupAction: null });
@@ -1065,7 +1181,7 @@ export const useAppStore = create<AppStore>()(
           void trackEvent('group_joined');
           return group;
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
           return null;
         } finally {
           set({ groupAction: null });
@@ -1079,7 +1195,7 @@ export const useAppStore = create<AppStore>()(
           set({ activeStudyGroup: await getStudyGroupRemote(groupId) });
           return true;
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isLoadingGroups: false });
@@ -1099,7 +1215,7 @@ export const useAppStore = create<AppStore>()(
           set({ activeStudyGroup: await getStudyGroupRemote(input.groupId) });
           return true;
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ groupAction: null });
@@ -1119,7 +1235,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ groupsError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), groupsError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ groupAction: null });
@@ -1152,7 +1268,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ isSavingUsername: false });
@@ -1183,7 +1299,7 @@ export const useAppStore = create<AppStore>()(
             socialError: users.length === 0 ? 'No se ha encontrado ese usuario.' : null,
           });
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingSocial: false });
         }
@@ -1218,7 +1334,7 @@ export const useAppStore = create<AppStore>()(
           void trackEvent('friend_request_sent');
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ socialActionId: null });
@@ -1244,7 +1360,7 @@ export const useAppStore = create<AppStore>()(
           if (accept) void trackEvent('friend_added');
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ socialActionId: null });
@@ -1259,7 +1375,7 @@ export const useAppStore = create<AppStore>()(
           set({ friends: state.friends.filter((friend) => friend.uid !== friendUid) });
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ socialActionId: null });
@@ -1300,7 +1416,7 @@ export const useAppStore = create<AppStore>()(
           });
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ socialActionId: null });
@@ -1329,7 +1445,7 @@ export const useAppStore = create<AppStore>()(
           if (accept) void trackEvent('duel_joined', { duel_kind: 'friend' });
           return true;
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return false;
         } finally {
           set({ socialActionId: null });
@@ -1409,7 +1525,7 @@ export const useAppStore = create<AppStore>()(
           });
           return 'quiz';
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return null;
         } finally {
           set({ isStartingDuel: false, socialActionId: null });
@@ -1443,7 +1559,7 @@ export const useAppStore = create<AppStore>()(
             },
           });
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
         } finally {
           set({ isMatchmakingLoading: false });
         }
@@ -1454,7 +1570,7 @@ export const useAppStore = create<AppStore>()(
         try {
           set({ matchmaking: await getMatchmakingStatusRemote() });
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
         }
       },
       leaveMatchmaking: async () => {
@@ -1469,7 +1585,7 @@ export const useAppStore = create<AppStore>()(
             : { status: 'idle' as const, rating: state.matchmaking.rating };
           set({ matchmaking });
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
         } finally {
           set({ isMatchmakingLoading: false });
         }
@@ -1544,7 +1660,7 @@ export const useAppStore = create<AppStore>()(
           });
           return 'quiz';
         } catch (error) {
-          set({ socialError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), socialError: readableFirebaseError(error)});
           return null;
         } finally {
           set({ isStartingDuel: false });
@@ -1560,7 +1676,7 @@ export const useAppStore = create<AppStore>()(
             : localRankingSnapshot(state.profile, scope, state.friends);
           set({ ranking });
         } catch (error) {
-          set({ rankingError: readableFirebaseError(error) });
+          set({...connectionFailureState(error), rankingError: readableFirebaseError(error)});
         } finally {
           set({ isLoadingRanking: false });
         }
@@ -1596,6 +1712,33 @@ function socialUserToDuelOpponent(user: SocialUser): DuelOpponent {
     name: user.username,
     level: user.level,
     territoryLabel: user.territoryLabel,
+  };
+}
+
+function connectionFailureState(error: unknown): Partial<AppStore> {
+  const kind = firebaseFailureKind(error);
+  if (kind === 'offline') {
+    return {
+      connectionStatus: 'offline',
+      connectionMessage: 'Sin conexión. Mostramos los últimos datos guardados.',
+    };
+  }
+  if (kind === 'session-expired') {
+    return {
+      ...authenticatedSessionState(null),
+      connectionStatus: 'session-expired',
+      connectionMessage: 'Tu sesión ha caducado. Inicia sesión para recuperar tu progreso.',
+    };
+  }
+  return {};
+}
+
+function sessionRecoveryFailureState(error: unknown): Partial<AppStore> {
+  const failure = connectionFailureState(error);
+  if (failure.connectionStatus) return failure;
+  return {
+    connectionStatus: 'offline',
+    connectionMessage: 'No pudimos conectar con el servicio. Mostramos tus últimos datos.',
   };
 }
 

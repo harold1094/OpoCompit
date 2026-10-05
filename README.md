@@ -40,6 +40,9 @@ policy come from Firestore; billing and AdMob remain disabled until production c
 Guests can now protect their progress by linking an email/password account on Android or web, then
 sign back into the same Firebase profile later. Google linking and login are available on web; the
 native Android Google flow remains a production OAuth setup task.
+Firebase sessions are restored before protected routes render. During temporary outages the client
+keeps cached progress visible, reports the offline state, and offers an explicit retry; expired
+sessions are redirected to account recovery without leaving protected screens blank.
 
 ## Verify
 

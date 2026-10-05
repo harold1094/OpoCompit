@@ -13,10 +13,10 @@
 
 - [x] Add email/password account linking and returning login without losing guest progress.
 - [x] Add Google account linking and login on web.
+- [x] Implement empty, loading, offline, expired-session, and recovery states.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Add official-exam mode after reviewed question content is available.
-- [ ] Complete accessibility and physical Android device testing.
-- [ ] Validate empty, loading, offline, expired-session, and recovery states on Android.
+- [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.
 - [ ] Prepare privacy policy, terms, data deletion, and support contact.
 
 ## Production infrastructure

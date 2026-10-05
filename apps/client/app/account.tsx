@@ -88,8 +88,7 @@ export default function AccountScreen() {
   };
 
   const exitAccount = async () => {
-    await signOut();
-    router.replace('/onboarding');
+    if (await signOut()) router.replace('/onboarding');
   };
 
   return (

@@ -24,6 +24,8 @@ import {
 } from 'firebase/functions';
 import { Platform } from 'react-native';
 
+export { readableFirebaseError } from './firebaseError';
+
 import {
   AvatarInventory,
   DailyEngagement,
@@ -395,6 +397,20 @@ export async function bootstrapGuestProfile(profile: PlayerProfile): Promise<Pla
 async function currentProfileRemote(): Promise<PlayerProfile> {
   const invoke = callable<Record<string, never>, { profile: PlayerProfile }>('getCurrentProfile');
   return (await invoke({})).data.profile;
+}
+
+export async function restoreFirebaseSessionRemote(): Promise<PlayerProfile> {
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  await auth.authStateReady();
+  if (!auth.currentUser) {
+    throw Object.assign(new Error('No persisted Firebase session.'), {
+      code: 'auth/user-token-expired',
+    });
+  }
+  await auth.currentUser.getIdToken();
+  return currentProfileRemote();
 }
 
 async function completeAccountLinkRemote(): Promise<PlayerProfile> {
@@ -818,35 +834,6 @@ export function getFirebaseAppForAnalytics(): FirebaseApp | null {
 
 export function isUsingFirebaseEmulators(): boolean {
   return usingFirebaseEmulators();
-}
-
-export function readableFirebaseError(error: unknown): string {
-  if (typeof error === 'object' && error !== null && 'code' in error) {
-    const rawCode = String((error as { code: unknown }).code);
-    const code = rawCode.replace('functions/', '').replace('auth/', '');
-    const messages: Record<string, string> = {
-      unauthenticated: 'La sesión de invitado ha caducado. Vuelve a entrar.',
-      'failed-precondition': 'La operación no está disponible en su estado actual.',
-      'deadline-exceeded': 'La partida ha caducado. Empieza una nueva.',
-      'not-found': 'No se ha encontrado el contenido solicitado.',
-      'already-exists': 'Ya existe un registro activo con esos datos.',
-      'invalid-argument': 'Revisa los datos introducidos.',
-      'permission-denied': 'No tienes permisos para completar esta operación.',
-      'resource-exhausted': 'Has alcanzado el límite permitido para esta operación.',
-      aborted: 'Los datos han cambiado. Actualiza y vuelve a intentarlo.',
-      unavailable: 'Firebase no está disponible ahora mismo. Inténtalo de nuevo.',
-      'email-already-in-use': 'Ese correo ya está asociado a otra cuenta.',
-      'credential-already-in-use': 'Esa cuenta ya está vinculada a otro usuario.',
-      'invalid-credential': 'El correo o la contraseña no son correctos.',
-      'invalid-email': 'Introduce un correo electrónico válido.',
-      'weak-password': 'La contraseña debe tener al menos 6 caracteres.',
-      'too-many-requests': 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
-      'popup-closed-by-user': 'Se cerró el acceso con Google antes de terminar.',
-      'popup-blocked': 'El navegador ha bloqueado la ventana de acceso con Google.',
-    };
-    return messages[code] ?? 'No se pudo completar la operación con Firebase.';
-  }
-  return error instanceof Error ? error.message : 'Ha ocurrido un error inesperado.';
 }
 
 function requiredEnv(value: string | undefined, name: string): string {

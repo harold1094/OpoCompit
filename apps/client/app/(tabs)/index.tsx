@@ -8,6 +8,7 @@ import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
+import {ContentState} from '@/shared/components/ContentState';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 export default function HomeScreen() {
@@ -15,6 +16,8 @@ export default function HomeScreen() {
   const avatarInventory = useAppStore((state) => state.avatarInventory);
   const dailyReward = useAppStore((state) => state.dailyReward);
   const missions = useAppStore((state) => state.missions);
+  const isLoadingEngagement = useAppStore((state) => state.isLoadingEngagement);
+  const engagementError = useAppStore((state) => state.engagementError);
   const startQuickMatch = useAppStore((state) => state.startQuickMatch);
   const isStartingQuiz = useAppStore((state) => state.isStartingQuiz);
   const isClaimingDailyReward = useAppStore((state) => state.isClaimingDailyReward);
@@ -31,6 +34,7 @@ export default function HomeScreen() {
 
   if (!profile) return null;
   const currentLevelXp = profile.xp % 100;
+  const engagementUnavailable = !dailyReward && missions.length === 0;
 
   const play = async () => {
     const count = await startQuickMatch();
@@ -134,7 +138,24 @@ export default function HomeScreen() {
         />
       </View>
 
-      {dailyReward ? (
+      {engagementUnavailable ? (
+        <ContentState
+          kind={isLoadingEngagement ? 'loading' : engagementError ? 'error' : 'empty'}
+          title={
+            isLoadingEngagement
+              ? 'Actualizando tu día'
+              : engagementError
+                ? 'No pudimos cargar tus misiones'
+                : 'No hay misiones disponibles'
+          }
+          detail={
+            isLoadingEngagement
+              ? 'Estamos recuperando tu recompensa y tus objetivos.'
+              : engagementError ?? 'Vuelve más tarde para consultar nuevos objetivos.'
+          }
+          onRetry={() => void refreshDailyEngagement()}
+        />
+      ) : dailyReward ? (
         <View style={styles.rewardBand}>
           <View style={styles.rewardIcon}>
             <MaterialCommunityIcons name="gift-outline" size={23} color={colors.gold} />
@@ -158,41 +179,45 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>Misiones de hoy</Text>
-        <Text style={styles.sectionCount}>{missions.filter((mission) => mission.claimed).length}/{missions.length}</Text>
-      </View>
-      <View style={styles.missionList}>
-        {missions.map((mission) => {
-          const ready = mission.progress >= mission.target && !mission.claimed;
-          return (
-            <Pressable
-              disabled={!ready || claimingMissionId !== null}
-              key={mission.id}
-              onPress={() => void collectMission(mission.id)}
-              style={styles.mission}
-            >
-              <View style={[styles.missionStatus, ready && styles.missionReady]}>
-                {claimingMissionId === mission.id ? (
-                  <ActivityIndicator color={colors.surface} size="small" />
-                ) : (
-                  <MaterialCommunityIcons
-                    name={mission.claimed ? 'check' : 'target'}
-                    size={20}
-                    color={mission.claimed ? colors.success : ready ? colors.surface : colors.aqua}
-                  />
-                )}
-              </View>
-              <View style={styles.missionCopy}>
-                <Text style={styles.missionTitle}>{mission.title}</Text>
-                <Text style={styles.missionProgress}>{mission.progress}/{mission.target}</Text>
-              </View>
-              <Text style={styles.missionReward}>+{mission.rewardCoins}</Text>
-              <MaterialCommunityIcons name="circle-multiple" size={16} color={colors.gold} />
-            </Pressable>
-          );
-        })}
-      </View>
+      {!engagementUnavailable ? (
+        <>
+          <View style={styles.sectionHeading}>
+            <Text style={styles.sectionTitle}>Misiones de hoy</Text>
+            <Text style={styles.sectionCount}>{missions.filter((mission) => mission.claimed).length}/{missions.length}</Text>
+          </View>
+          <View style={styles.missionList}>
+            {missions.map((mission) => {
+              const ready = mission.progress >= mission.target && !mission.claimed;
+              return (
+                <Pressable
+                  disabled={!ready || claimingMissionId !== null}
+                  key={mission.id}
+                  onPress={() => void collectMission(mission.id)}
+                  style={styles.mission}
+                >
+                  <View style={[styles.missionStatus, ready && styles.missionReady]}>
+                    {claimingMissionId === mission.id ? (
+                      <ActivityIndicator color={colors.surface} size="small" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        name={mission.claimed ? 'check' : 'target'}
+                        size={20}
+                        color={mission.claimed ? colors.success : ready ? colors.surface : colors.aqua}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.missionCopy}>
+                    <Text style={styles.missionTitle}>{mission.title}</Text>
+                    <Text style={styles.missionProgress}>{mission.progress}/{mission.target}</Text>
+                  </View>
+                  <Text style={styles.missionReward}>+{mission.rewardCoins}</Text>
+                  <MaterialCommunityIcons name="circle-multiple" size={16} color={colors.gold} />
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
     </AppScreen>
   );
 }
