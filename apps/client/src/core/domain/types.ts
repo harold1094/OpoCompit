@@ -166,10 +166,30 @@ export type QuizResult = {
   incorrect: number;
   blank: number;
   points: number;
+  maximumPoints?: number;
   percentage: number;
   xpEarned: number;
   coinsEarned: number;
   completedAt: string;
+};
+
+export type OfficialExamRules = {
+  questionCount: number;
+  durationSeconds: number;
+  correctPoints: number;
+  incorrectPenalty: number;
+  blankPoints: number;
+};
+
+export type OfficialExam = {
+  id: string;
+  oppositionId: string;
+  name: string;
+  date: string;
+  year: number;
+  territoryKeys: string[];
+  source: string;
+  rules: OfficialExamRules;
 };
 
 export type UserQuestionStat = {

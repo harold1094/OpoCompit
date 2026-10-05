@@ -12,6 +12,8 @@ export default function ResultsScreen() {
   const result = useAppStore((state) => state.lastResult);
   const duel = useAppStore((state) => state.lastDuelResult);
   const pendingFriendDuel = useAppStore((state) => state.lastPendingFriendDuel);
+  const activeGameMode = useAppStore((state) => state.activeGameMode);
+  const officialExam = useAppStore((state) => state.activeOfficialExam);
   const friends = useAppStore((state) => state.friends);
   const startClassicDuel = useAppStore((state) => state.startClassicDuel);
   const sendFriendDuelInvitation = useAppStore((state) => state.sendFriendDuelInvitation);
@@ -19,6 +21,7 @@ export default function ResultsScreen() {
   const isStartingDuel = useAppStore((state) => state.isStartingDuel);
   const isMatchmakingLoading = useAppStore((state) => state.isMatchmakingLoading);
   if (!result) return <Redirect href="/(tabs)" />;
+  const isOfficialExam = activeGameMode === 'official-exam' && officialExam !== null;
 
   const rematch = async () => {
     if (!duel) return;
@@ -57,15 +60,39 @@ export default function ResultsScreen() {
           />
         </View>
         <Text style={styles.eyebrow}>
-          {duel ? 'DUELO COMPLETADO' : pendingFriendDuel ? 'RESULTADO ENVIADO' : 'PARTIDA COMPLETADA'}
+          {isOfficialExam
+            ? 'EXAMEN FINALIZADO'
+            : duel
+              ? 'DUELO COMPLETADO'
+              : pendingFriendDuel
+                ? 'RESULTADO ENVIADO'
+                : 'PARTIDA COMPLETADA'}
         </Text>
         <Text style={styles.score}>
-          {outcomeCopy?.title ?? (pendingFriendDuel
-            ? 'En espera'
-            : `${Math.round(result.percentage * 100)}%`)}
+          {isOfficialExam
+            ? formatPoints(result.points)
+            : outcomeCopy?.title ?? (pendingFriendDuel
+              ? 'En espera'
+              : `${Math.round(result.percentage * 100)}%`)}
         </Text>
-        <Text style={styles.scoreLabel}>{result.correct} de {result.attempts.length} correctas</Text>
+        <Text style={styles.scoreLabel}>
+          {isOfficialExam
+            ? `${formatPoints(result.maximumPoints ?? result.attempts.length)} puntos posibles · ${Math.round(result.percentage * 100)}% de aciertos`
+            : `${result.correct} de ${result.attempts.length} correctas`}
+        </Text>
       </View>
+
+      {isOfficialExam ? (
+        <View style={styles.examSummary}>
+          <MaterialCommunityIcons name="file-certificate-outline" size={23} color={colors.brand} />
+          <View style={styles.examSummaryCopy}>
+            <Text style={styles.examSummaryName}>{officialExam.name}</Text>
+            <Text style={styles.examSummaryRule}>
+              +{officialExam.rules.correctPoints} acierto · -{officialExam.rules.incorrectPenalty} fallo · {officialExam.rules.blankPoints} blanco
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {duel || pendingFriendDuel ? (
         <View style={styles.versus}>
@@ -168,6 +195,10 @@ function formatTime(milliseconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function formatPoints(points: number): string {
+  return Number.isInteger(points) ? String(points) : points.toFixed(2).replace('.', ',');
+}
+
 const styles = StyleSheet.create({
   resultHeader: { alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.md, borderRadius: radius.xl, backgroundColor: colors.softAqua, ...shadows.card },
   resultIcon: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.aqua, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md, borderWidth: 5, borderColor: colors.surface, ...shadows.card },
@@ -175,6 +206,10 @@ const styles = StyleSheet.create({
   score: { color: colors.ink, fontSize: 58, lineHeight: 64, fontWeight: '900', marginTop: spacing.sm },
   scoreLabel: { color: colors.muted, fontSize: 15, marginTop: 3 },
   versus: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.navy, borderRadius: radius.lg, ...shadows.floating },
+  examSummary: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: spacing.md, paddingHorizontal: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F1C3AF', backgroundColor: colors.softBrand },
+  examSummaryCopy: { flex: 1 },
+  examSummaryName: { color: colors.ink, fontSize: 14, fontWeight: '900' },
+  examSummaryRule: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   competitor: { flex: 1, alignItems: 'center' },
   competitorName: { color: colors.surface, fontSize: 13, fontWeight: '900' },
   competitorScore: { color: colors.gold, fontSize: 35, fontWeight: '900', marginTop: 3 },

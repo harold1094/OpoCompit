@@ -70,12 +70,15 @@ describe('QuizScreen automatic progression', () => {
     finishQuiz.mockResolvedValue({ correct: 2 });
 
     const state = {
+      hydrated: true,
       activeQuestions: questions,
       selectedAnswers: { q1: null, q2: null },
       answerQuestion,
       finishQuiz,
       isSubmittingQuiz: false,
       activeGameMode: 'quick',
+      activeOfficialExam: null,
+      activeStartedAt: Date.now(),
       activeDuelOpponent: null,
       quizError: null,
     };

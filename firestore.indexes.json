@@ -46,6 +46,14 @@
       ]
     },
     {
+      "collectionGroup": "officialExams",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "oppositionId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "socialActivities",
       "queryScope": "COLLECTION",
       "fields": [

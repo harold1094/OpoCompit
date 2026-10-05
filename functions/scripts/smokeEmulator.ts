@@ -1399,6 +1399,63 @@ async function main() {
     false,
   );
 
+  const examAuth = await createAnonymousAuth();
+  await call(
+    "bootstrapGuestProfile",
+    {
+      oppositionId: "firefighters_es",
+      oppositionName: "Bomberos",
+      territory: {
+        label: "Bomberos Cartagena",
+        country: "ES",
+        autonomousCommunity: "Murcia",
+        province: "Murcia",
+        municipality: "Cartagena",
+      },
+    },
+    examAuth.idToken,
+  );
+  const officialExams = await call<{
+    exams: Array<{id: string; rules: {questionCount: number}}>;
+  }>("getOfficialExams", {}, examAuth.idToken);
+  const demoExam = officialExams.exams.find(
+    (exam) => exam.id === "cartagena_firefighters_2025",
+  );
+  assert.ok(demoExam);
+  assert.equal(demoExam.rules.questionCount, seedQuestions.length);
+  const startedExam = await call<{
+    sessionId: string;
+    questions: Array<{id: string; correctAnswerId?: string}>;
+  }>("startOfficialExam", {examId: demoExam.id}, examAuth.idToken);
+  assert.equal(startedExam.questions.length, seedQuestions.length);
+  assert.equal(startedExam.questions.every((question) => question.correctAnswerId === undefined), true);
+  const firstQuestion = seedQuestions.find((question) => question.id === startedExam.questions[0].id);
+  const secondQuestion = seedQuestions.find((question) => question.id === startedExam.questions[1].id);
+  assert.ok(firstQuestion);
+  assert.ok(secondQuestion);
+  const incorrectAnswer = secondQuestion.answers.find(
+    (answer) => answer.id !== secondQuestion.correctAnswerId,
+  );
+  assert.ok(incorrectAnswer);
+  const submittedExam = await call<{
+    result: {correct: number; incorrect: number; blank: number; points: number; maximumPoints: number};
+  }>(
+    "submitQuizSession",
+    {
+      sessionId: startedExam.sessionId,
+      answers: [
+        {questionId: firstQuestion.id, selectedAnswerId: firstQuestion.correctAnswerId},
+        {questionId: secondQuestion.id, selectedAnswerId: incorrectAnswer.id},
+      ],
+    },
+    examAuth.idToken,
+  );
+  assert.equal(submittedExam.result.correct, 1);
+  assert.equal(submittedExam.result.incorrect, 1);
+  assert.equal(submittedExam.result.blank, seedQuestions.length - 2);
+  assert.equal(submittedExam.result.points, 0.67);
+  assert.equal(submittedExam.result.maximumPoints, seedQuestions.length);
+
   const profileBeforeLink = await call<{
     profile: Progress & {
       uid: string;
@@ -1470,6 +1527,7 @@ async function main() {
     adminBulkReviewValidated: true,
     adminCatalogValidated: true,
     adminOperationsValidated: true,
+    officialExamFlowValidated: true,
     runtimeConfigurationValidated: true,
     firestoreRulesValidated: true,
     directUserWriteBlocked: true,

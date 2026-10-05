@@ -12,6 +12,7 @@ import {
   MatchmakingState,
   Mission,
   MonetizationOverview,
+  OfficialExam,
   PlayerProfile,
   PendingFriendDuel,
   Question,
@@ -39,6 +40,7 @@ import {
   getDailyEngagementRemote,
   getMatchmakingStatusRemote,
   getMonetizationOverviewRemote,
+  getOfficialExamsRemote,
   getRankingRemote,
   getSocialOverviewRemote,
   getStudyGroupRemote,
@@ -65,6 +67,7 @@ import {
   signOutAccountRemote,
   startAnonymousSession,
   startQuickQuizRemote,
+  startOfficialExamRemote,
   startClassicDuelRemote,
   openFriendDuelRemote,
   purchaseAvatarItemRemote,
@@ -97,7 +100,7 @@ import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/d
 import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
-type ActiveGameMode = 'quick' | 'duel' | 'friend-duel' | 'matchmaking-duel';
+type ActiveGameMode = 'quick' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
 export type ConnectionStatus = 'idle' | 'checking' | 'connected' | 'offline' | 'session-expired';
 
 type AppStore = {
@@ -107,6 +110,7 @@ type AppStore = {
   activeQuestions: Question[];
   activeSessionId: string | null;
   activeGameMode: ActiveGameMode;
+  activeOfficialExam: OfficialExam | null;
   activeDuelOpponent: DuelOpponent | null;
   activeStartedAt: number | null;
   selectedAnswers: Record<string, string | null>;
@@ -115,6 +119,7 @@ type AppStore = {
   missions: Mission[];
   avatarInventory: AvatarInventory;
   monetization: MonetizationOverview;
+  officialExams: OfficialExam[];
   friends: SocialUser[];
   socialActivity: SocialActivity[];
   studyGroups: StudyGroup[];
@@ -131,11 +136,13 @@ type AppStore = {
   lastPendingFriendDuel: PendingFriendDuel | null;
   isStartingQuiz: boolean;
   isStartingDuel: boolean;
+  isLoadingOfficialExams: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
   claimingMissionId: string | null;
   quizError: string | null;
+  officialExamsError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -168,6 +175,8 @@ type AppStore = {
   clearAccountError: () => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
+  loadOfficialExams: () => Promise<void>;
+  startOfficialExam: (exam: OfficialExam) => Promise<number>;
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
   startErrorReview: () => number;
   answerQuestion: (questionId: string, answerId: string | null) => void;
@@ -218,6 +227,7 @@ export const useAppStore = create<AppStore>()(
       activeQuestions: [],
       activeSessionId: null,
       activeGameMode: 'quick',
+      activeOfficialExam: null,
       activeDuelOpponent: null,
       activeStartedAt: null,
       selectedAnswers: {},
@@ -226,6 +236,7 @@ export const useAppStore = create<AppStore>()(
       missions: [],
       avatarInventory: defaultAvatarInventory(),
       monetization: localMonetizationOverview(0),
+      officialExams: [],
       friends: [],
       socialActivity: [],
       studyGroups: [],
@@ -242,11 +253,13 @@ export const useAppStore = create<AppStore>()(
       lastPendingFriendDuel: null,
       isStartingQuiz: false,
       isStartingDuel: false,
+      isLoadingOfficialExams: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
       claimingMissionId: null,
       quizError: null,
+      officialExamsError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -502,6 +515,7 @@ export const useAppStore = create<AppStore>()(
           activeQuestions: [],
           activeSessionId: null,
           activeGameMode: 'quick',
+          activeOfficialExam: null,
           activeDuelOpponent: null,
           activeStartedAt: null,
           selectedAnswers: {},
@@ -510,6 +524,7 @@ export const useAppStore = create<AppStore>()(
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
           monetization: localMonetizationOverview(profile.gems),
+          officialExams: [],
           friends: [],
           socialActivity: [],
           studyGroups: [],
@@ -567,6 +582,7 @@ export const useAppStore = create<AppStore>()(
             activeQuestions,
             activeSessionId,
             activeGameMode: 'quick',
+            activeOfficialExam: null,
             activeDuelOpponent: null,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -580,6 +596,56 @@ export const useAppStore = create<AppStore>()(
             game_mode: 'quick',
             question_count: activeQuestions.length,
             backend_mode: backendMode,
+          });
+          return activeQuestions.length;
+        } catch (error) {
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
+          return 0;
+        } finally {
+          set({ isStartingQuiz: false });
+        }
+      },
+      loadOfficialExams: async () => {
+        const { backendMode } = get();
+        set({ isLoadingOfficialExams: true, officialExamsError: null });
+        try {
+          const officialExams = backendMode === 'firebase'
+            ? await getOfficialExamsRemote()
+            : [];
+          set({ officialExams });
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            officialExamsError: readableFirebaseError(error),
+          });
+        } finally {
+          set({ isLoadingOfficialExams: false });
+        }
+      },
+      startOfficialExam: async (exam) => {
+        const { profile, backendMode } = get();
+        if (!profile || backendMode !== 'firebase') return 0;
+        set({ isStartingQuiz: true, quizError: null });
+        try {
+          const remote = await startOfficialExamRemote(exam.id);
+          const activeQuestions = remote.questions;
+          set({
+            activeQuestions,
+            activeSessionId: remote.sessionId,
+            activeGameMode: 'official-exam',
+            activeOfficialExam: remote.exam,
+            activeDuelOpponent: null,
+            activeStartedAt: Date.now(),
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+            lastDuelResult: null,
+            lastPendingFriendDuel: null,
+          });
+          void trackEvent('official_exam_started', {
+            exam_id: remote.exam.id,
+            question_count: activeQuestions.length,
           });
           return activeQuestions.length;
         } catch (error) {
@@ -612,6 +678,7 @@ export const useAppStore = create<AppStore>()(
             activeQuestions,
             activeSessionId,
             activeGameMode: 'duel',
+            activeOfficialExam: null,
             activeDuelOpponent: activeOpponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -656,6 +723,7 @@ export const useAppStore = create<AppStore>()(
           activeQuestions,
           activeSessionId: null,
           activeGameMode: 'quick',
+          activeOfficialExam: null,
           activeDuelOpponent: null,
           activeStartedAt: Date.now(),
           selectedAnswers: Object.fromEntries(
@@ -665,6 +733,7 @@ export const useAppStore = create<AppStore>()(
           lastDuelResult: null,
           lastPendingFriendDuel: null,
           quizError: null,
+          officialExamsError: null,
         });
         if (activeQuestions.length > 0) {
           void trackEvent('quiz_started', {
@@ -851,6 +920,13 @@ export const useAppStore = create<AppStore>()(
             blank_count: result.blank,
             duration_ms: Math.max(0, Date.now() - (state.activeStartedAt ?? Date.now())),
           });
+          if (state.activeGameMode === 'official-exam' && state.activeOfficialExam) {
+            void trackEvent('official_exam_completed', {
+              exam_id: state.activeOfficialExam.id,
+              question_count: state.activeQuestions.length,
+              score_points: result.points,
+            });
+          }
           if (duelResult) {
             void trackEvent('duel_completed', {
               duel_kind: duelResult.kind,
@@ -1473,6 +1549,7 @@ export const useAppStore = create<AppStore>()(
                 activeQuestions: remote.questions,
                 activeSessionId: remote.duelId,
                 activeGameMode: 'friend-duel',
+                activeOfficialExam: null,
                 activeDuelOpponent: remote.opponent,
                 activeStartedAt: Date.now(),
                 selectedAnswers: Object.fromEntries(
@@ -1514,6 +1591,7 @@ export const useAppStore = create<AppStore>()(
             activeQuestions,
             activeSessionId: invitation.duelId,
             activeGameMode: 'friend-duel',
+            activeOfficialExam: null,
             activeDuelOpponent: opponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -1608,6 +1686,7 @@ export const useAppStore = create<AppStore>()(
                 activeQuestions: remote.questions,
                 activeSessionId: remote.duelId,
                 activeGameMode: 'matchmaking-duel',
+                activeOfficialExam: null,
                 activeDuelOpponent: remote.opponent,
                 activeStartedAt: Date.now(),
                 selectedAnswers: Object.fromEntries(
@@ -1649,6 +1728,7 @@ export const useAppStore = create<AppStore>()(
             activeQuestions,
             activeSessionId: match.duelId,
             activeGameMode: 'matchmaking-duel',
+            activeOfficialExam: null,
             activeDuelOpponent: opponent,
             activeStartedAt: Date.now(),
             selectedAnswers: Object.fromEntries(
@@ -1688,6 +1768,13 @@ export const useAppStore = create<AppStore>()(
       partialize: (state) => ({
         backendMode: state.backendMode,
         profile: state.profile,
+        activeQuestions: state.activeSessionId ? state.activeQuestions : [],
+        activeSessionId: state.activeSessionId,
+        activeGameMode: state.activeGameMode,
+        activeOfficialExam: state.activeOfficialExam,
+        activeDuelOpponent: state.activeDuelOpponent,
+        activeStartedAt: state.activeSessionId ? state.activeStartedAt : null,
+        selectedAnswers: state.activeSessionId ? state.selectedAnswers : {},
         questionStats: state.questionStats,
         dailyReward: state.dailyReward,
         missions: state.missions,
@@ -1749,6 +1836,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     activeQuestions: [],
     activeSessionId: null,
     activeGameMode: 'quick',
+    activeOfficialExam: null,
     activeDuelOpponent: null,
     activeStartedAt: null,
     selectedAnswers: {},
@@ -1757,6 +1845,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
     monetization: localMonetizationOverview(profile?.gems ?? 0),
+    officialExams: [],
     friends: [],
     socialActivity: [],
     studyGroups: [],
@@ -1772,6 +1861,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     lastDuelResult: null,
     lastPendingFriendDuel: null,
     quizError: null,
+    officialExamsError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,

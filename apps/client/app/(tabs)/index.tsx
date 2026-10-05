@@ -129,7 +129,12 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/social')}
         />
         <ModeButton icon="clipboard-text-outline" label="Test" color={colors.gold} />
-        <ModeButton icon="file-document-outline" label="Examen" color={colors.ink} />
+        <ModeButton
+          icon="file-document-outline"
+          label="Examen"
+          color={colors.ink}
+          onPress={() => router.push('/exams')}
+        />
         <ModeButton
           icon="alert-circle-outline"
           label="Mis errores"

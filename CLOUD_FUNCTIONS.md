@@ -42,6 +42,18 @@ Responsibilities:
 - Mark session as validated.
 - Return trusted result payload.
 
+For official-exam sessions it also validates the stored rules and server elapsed time, treats
+omitted answers as blank, and returns rule-based points and the maximum possible score.
+
+## Official exam callables
+
+- `getOfficialExams`: returns only published, valid exams for the user's selected opposition.
+- `startOfficialExam`: verifies the exam and reviewed question set, snapshots its rules, creates the session, and returns questions without correct answers.
+
+Official exam sessions preserve the configured question order, duration, scoring, and penalty.
+Imported real exams remain unavailable until both the exam and every required question pass human
+review and are explicitly published.
+
 ## callable: `startClassicDuel`
 
 Input:

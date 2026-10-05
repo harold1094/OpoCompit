@@ -37,6 +37,7 @@ import {
   MatchmakingState,
   Mission,
   MonetizationOverview,
+  OfficialExam,
   PlayerProfile,
   PlayerProgress,
   Question,
@@ -130,6 +131,14 @@ export type AdminQuestion = {
     status: string;
     statement: string;
   }>;
+};
+
+type OfficialExamsResponse = {
+  exams: OfficialExam[];
+};
+
+type StartOfficialExamResponse = StartQuickQuizResponse & {
+  exam: OfficialExam;
 };
 
 export type AdminCatalogKind = 'oppositions' | 'territories' | 'categories' | 'officialExams';
@@ -750,6 +759,18 @@ export async function getQuestionReviewQueueRemote(limit = 50): Promise<AdminQue
   );
   const response = await invoke({ limit });
   return response.data.questions;
+}
+
+export async function getOfficialExamsRemote(): Promise<OfficialExam[]> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, OfficialExamsResponse>('getOfficialExams');
+  return (await invoke({})).data.exams;
+}
+
+export async function startOfficialExamRemote(examId: string): Promise<StartOfficialExamResponse> {
+  await startAnonymousSession();
+  const invoke = callable<{ examId: string }, StartOfficialExamResponse>('startOfficialExam');
+  return (await invoke({ examId })).data;
 }
 
 export async function getAdminCatalogRemote(): Promise<AdminCatalog> {

@@ -14,9 +14,11 @@ import {
   AdminCatalogItem,
   AdminCatalogKind,
   AdminCatalogValidationError,
+  OfficialExamCatalogItem,
   isAdminCatalogKind,
   parseAdminCatalogItem,
 } from "./adminCatalog.js";
+import {officialExamScore, OfficialExamRules} from "./officialExam.js";
 import {
   AdminDailyReward,
   AdminMission,
@@ -84,8 +86,10 @@ import {
 initializeApp();
 
 const db = getFirestore();
-const maxQuestionCount = 25;
+const maxQuickQuestionCount = 25;
+const maxSessionQuestionCount = 100;
 const sessionLifetimeMs = 24 * 60 * 60 * 1000;
+const officialExamSubmissionGraceMs = 30 * 1000;
 const friendDuelLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 const matchmakingLifetimeMs = 10 * 60 * 1000;
 const operationalConfigCacheMs = 60_000;
@@ -121,6 +125,7 @@ type QuestionDoc = {
   source: string;
   status: string;
   verified: boolean;
+  officialExamId?: string | null;
 };
 
 type BootstrapGuestInput = {
@@ -140,6 +145,10 @@ type SubmitQuizInput = {
 
 type ClaimMissionInput = {
   missionId: string;
+};
+
+type StartOfficialExamInput = {
+  examId: string;
 };
 
 type AvatarItemInput = {
@@ -1214,6 +1223,107 @@ export const claimMission = onCall<ClaimMissionInput>(async (request) => {
   });
 });
 
+export const getOfficialExams = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const oppositionId = requireString(
+    userSnapshot.data()?.oppositionId,
+    "stored oppositionId",
+    80,
+  );
+  const snapshot = await db.collection("officialExams")
+    .where("oppositionId", "==", oppositionId)
+    .where("status", "==", "published")
+    .limit(50)
+    .get();
+
+  const exams = snapshot.docs.flatMap((document) => {
+    try {
+      return [serializeOfficialExam(parseAdminCatalogItem(
+        "officialExams",
+        document.id,
+        document.data(),
+      ) as OfficialExamCatalogItem)];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) => second.date.localeCompare(first.date));
+
+  return {exams};
+});
+
+export const startOfficialExam = onCall<StartOfficialExamInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const examId = requireString(request.data?.examId, "examId", 160);
+  const [userSnapshot, examSnapshot, questionSnapshot] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db.collection("officialExams").doc(examId).get(),
+    db.collection("questions").where("officialExamId", "==", examId).limit(500).get(),
+  ]);
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+  if (!examSnapshot.exists) {
+    throw new HttpsError("not-found", "Official exam not found.");
+  }
+
+  let exam: OfficialExamCatalogItem;
+  try {
+    exam = parseAdminCatalogItem(
+      "officialExams",
+      examSnapshot.id,
+      examSnapshot.data(),
+    ) as OfficialExamCatalogItem;
+  } catch {
+    throw new HttpsError("failed-precondition", "Official exam configuration is invalid.");
+  }
+  if (exam.status !== "published") {
+    throw new HttpsError("failed-precondition", "Official exam is not published.");
+  }
+  if (exam.oppositionId !== userSnapshot.data()?.oppositionId) {
+    throw new HttpsError("permission-denied", "Official exam is not available for this opposition.");
+  }
+
+  const eligibleQuestions = questionSnapshot.docs
+    .filter((document) => {
+      const data = document.data() as QuestionDoc;
+      return data.status === "published" && data.verified === true;
+    })
+    .sort((first, second) => first.id.localeCompare(second.id, "es", {numeric: true}));
+  if (eligibleQuestions.length < exam.rules.questionCount) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Official exam does not have enough reviewed questions yet.",
+    );
+  }
+  const selectedQuestions = eligibleQuestions.slice(0, exam.rules.questionCount);
+  const sessionRef = db.collection("quizSessions").doc();
+  await sessionRef.set({
+    uid,
+    mode: "official_exam",
+    oppositionId: exam.oppositionId,
+    officialExamId: exam.id,
+    officialExamRules: exam.rules,
+    questionIds: selectedQuestions.map((document) => document.id),
+    answers: [],
+    status: "started",
+    createdAt: Timestamp.now(),
+    submittedAt: null,
+  });
+
+  return {
+    sessionId: sessionRef.id,
+    exam: serializeOfficialExam(exam),
+    questions: selectedQuestions.map((document) =>
+      publicQuestion(document.id, document.data() as QuestionDoc),
+    ),
+  };
+});
+
 export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const questionCount = parseQuestionCount(request.data?.questionCount);
@@ -1292,6 +1402,15 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     }
 
     const questionIds = parseQuestionIds(session.questionIds);
+    const officialExamRules = session.mode === "official_exam" ?
+      storedOfficialExamRules(session.officialExamRules, questionIds.length) : null;
+    if (
+      officialExamRules &&
+      Date.now() - createdAt.toMillis() >
+        officialExamRules.durationSeconds * 1000 + officialExamSubmissionGraceMs
+    ) {
+      throw new HttpsError("deadline-exceeded", "Official exam time expired.");
+    }
     const allowedQuestionIds = new Set(questionIds);
     if (submittedAnswers.some((answer) => !allowedQuestionIds.has(answer.questionId))) {
       throw new HttpsError("invalid-argument", "Answer contains an unknown question.");
@@ -1354,6 +1473,10 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     });
 
     const percentage = questions.length === 0 ? 0 : correct / questions.length;
+    const scoredExam = officialExamRules ?
+      officialExamScore(correct, incorrect, blank, officialExamRules) : null;
+    const points = scoredExam?.points ?? correct;
+    const maximumPoints = scoredExam?.maximumPoints ?? questions.length;
     const xpEarned = correct * 10 + 20 + (percentage >= 0.8 ? 10 : 0);
     const coinsEarned = correct * 2 + 5;
     const user = userSnapshot.data() ?? {};
@@ -1422,7 +1545,16 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
     transaction.update(sessionRef, {
       answers: sanitizedAnswers,
       status: "validated",
-      score: {correct, incorrect, blank, percentage, xpEarned, coinsEarned},
+      score: {
+        correct,
+        incorrect,
+        blank,
+        points,
+        maximumPoints,
+        percentage,
+        xpEarned,
+        coinsEarned,
+      },
       submittedAt: completedAt,
     });
 
@@ -1454,7 +1586,8 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
         correct,
         incorrect,
         blank,
-        points: correct,
+        points,
+        maximumPoints,
         percentage,
         xpEarned,
         coinsEarned,
@@ -3288,11 +3421,11 @@ function parseQuestionCount(value: unknown): number {
   if (!Number.isInteger(value) || Number(value) < 1) {
     throw new HttpsError("invalid-argument", "Invalid question count.");
   }
-  return Math.min(Number(value), maxQuestionCount);
+  return Math.min(Number(value), maxQuickQuestionCount);
 }
 
 function parseQuestionIds(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > maxQuestionCount) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxSessionQuestionCount) {
     throw new HttpsError("failed-precondition", "Invalid session questions.");
   }
   const ids = value.map((id) => requireString(id, "questionId", 160));
@@ -3303,7 +3436,7 @@ function parseQuestionIds(value: unknown): string[] {
 }
 
 function parseAnswers(value: unknown): Answer[] {
-  if (!Array.isArray(value) || value.length > maxQuestionCount) {
+  if (!Array.isArray(value) || value.length > maxSessionQuestionCount) {
     throw new HttpsError("invalid-argument", "Invalid answers.");
   }
   const answers = value.map((raw) => {
@@ -3327,6 +3460,41 @@ function parseAnswers(value: unknown): Answer[] {
     throw new HttpsError("invalid-argument", "Duplicate answers.");
   }
   return answers;
+}
+
+function serializeOfficialExam(exam: OfficialExamCatalogItem) {
+  return {
+    id: exam.id,
+    oppositionId: exam.oppositionId,
+    name: exam.name,
+    date: exam.date,
+    year: exam.year,
+    territoryKeys: exam.territoryKeys,
+    source: exam.source,
+    rules: exam.rules,
+  };
+}
+
+function storedOfficialExamRules(value: unknown, questionCount: number): OfficialExamRules {
+  const data = storedRecord(value);
+  const rules = {
+    questionCount: Number(data.questionCount),
+    durationSeconds: Number(data.durationSeconds),
+    correctPoints: Number(data.correctPoints),
+    incorrectPenalty: Number(data.incorrectPenalty),
+    blankPoints: Number(data.blankPoints),
+  };
+  if (
+    !Number.isInteger(rules.questionCount) ||
+    rules.questionCount !== questionCount ||
+    !Number.isInteger(rules.durationSeconds) ||
+    rules.durationSeconds < 60 ||
+    ![rules.correctPoints, rules.incorrectPenalty, rules.blankPoints]
+      .every((entry) => Number.isFinite(entry) && entry >= 0)
+  ) {
+    throw new HttpsError("failed-precondition", "Official exam rules are invalid.");
+  }
+  return rules;
 }
 
 function publicQuestion(id: string, question: QuestionDoc) {

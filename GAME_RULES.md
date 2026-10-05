@@ -37,12 +37,20 @@ Official exams and simulations use configurable rules:
 - `incorrectPenalty`
 - `blankPoints`
 
+The official-exam configuration also fixes the question count and duration. The server stores a
+snapshot of those rules when the session starts, calculates the final points, and rejects late or
+repeated submissions. A short 30-second transport margin prevents normal network latency from
+invalidating an answer sent at the deadline.
+
 ## Quiz Interaction
 
 - Every question shown in the current quick-match and duel flows requires an answer.
 - Selecting an answer records it and advances immediately to the next question.
 - Players cannot return to earlier questions during the match.
 - Selecting an answer on the last question submits and finishes the match automatically.
+
+Official exams use a reviewable interaction instead: players can move backward or forward, mark a
+question blank, and explicitly submit. Unanswered questions are scored as blank when time expires.
 
 ## XP
 

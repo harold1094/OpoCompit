@@ -43,6 +43,10 @@ native Android Google flow remains a production OAuth setup task.
 Firebase sessions are restored before protected routes render. During temporary outages the client
 keeps cached progress visible, reports the offline state, and offers an explicit retry; expired
 sessions are redirected to account recovery without leaving protected screens blank.
+Published official exams now open from Home with their exact reviewed question set, configurable
+timer and scoring rules, blank answers, recoverable in-progress sessions, and server-authoritative
+results. The emulator publishes only an explicit development demonstration; imported real exams
+remain out of play until an administrator reviews and publishes their questions.
 
 ## Verify
 
@@ -100,5 +104,6 @@ Functions emulator.
 8. Open `Perfil` and enter `Avatar y tienda` to equip starter items or buy cosmetics with earned currency.
 9. Open `Premium` to inspect the current free entitlement and backend-configured future plan.
 10. Open `Cuenta` from Profile to link an email/password account, sign out, and recover the same progress.
+11. Open `Examen`, start the local demonstration, navigate between questions, leave answers blank, and submit it to inspect the official score.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

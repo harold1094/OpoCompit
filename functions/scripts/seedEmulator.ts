@@ -61,15 +61,15 @@ async function main() {
 
   batch.set(db.collection("officialExams").doc("cartagena_firefighters_2025"), {
     oppositionId: "firefighters_es",
-    name: "Bomberos de Cartagena 2025",
-    date: "2025-06-15",
-    year: 2025,
+    name: "Demostración local de examen",
+    date: "2026-01-15",
+    year: 2026,
     territoryKeys: ["ES", "ES-Murcia", "ES-Murcia-Cartagena"],
-    source: "Convocatoria oficial del Ayuntamiento de Cartagena",
-    status: "draft",
+    source: "Contenido de desarrollo sin validez oficial",
+    status: "published",
     rules: {
-      questionCount: 100,
-      durationSeconds: 7_200,
+      questionCount: seedQuestions.length,
+      durationSeconds: 900,
       correctPoints: 1,
       incorrectPenalty: 0.33,
       blankPoints: 0,
@@ -162,6 +162,7 @@ async function main() {
       createdAt: now,
       updatedAt: now,
       createdBy: "emulator_seed",
+      officialExamId: "cartagena_firefighters_2025",
     });
   }
 

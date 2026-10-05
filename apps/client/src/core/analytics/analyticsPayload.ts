@@ -9,6 +9,8 @@ export type AnalyticsEventName =
   | 'quiz_completed'
   | 'quiz_abandoned'
   | 'question_answered'
+  | 'official_exam_started'
+  | 'official_exam_completed'
   | 'duel_created'
   | 'duel_joined'
   | 'duel_completed'
