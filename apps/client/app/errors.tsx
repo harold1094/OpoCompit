@@ -1,23 +1,35 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
-import { seedQuestions } from '@/features/quiz/data/seedQuestions';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { ContentState } from '@/shared/components/ContentState';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 export default function ErrorsScreen() {
-  const questionStats = useAppStore((state) => state.questionStats);
+  const errors = useAppStore((state) => state.errorReviewItems);
+  const isLoading = useAppStore((state) => state.isLoadingErrorReview);
+  const isStarting = useAppStore((state) => state.isStartingQuiz);
+  const error = useAppStore((state) => state.errorReviewError);
+  const loadErrorReview = useAppStore((state) => state.loadErrorReview);
   const startErrorReview = useAppStore((state) => state.startErrorReview);
-  const errors = seedQuestions.filter((question) => {
-    const stat = questionStats[question.id];
-    return stat && (stat.incorrectCount > 0 || stat.blankCount > 0);
-  });
 
-  const start = () => {
-    if (startErrorReview() > 0) router.push('/quiz');
+  useFocusEffect(
+    useCallback(() => {
+      void loadErrorReview();
+    }, [loadErrorReview]),
+  );
+
+  const start = async () => {
+    if (await startErrorReview() > 0) {
+      router.push('/quiz');
+      return;
+    }
+    const message = useAppStore.getState().quizError;
+    if (message) Alert.alert('No se pudo iniciar el repaso', message);
   };
 
   return (
@@ -30,7 +42,20 @@ export default function ErrorsScreen() {
         </View>
       </View>
 
-      {errors.length === 0 ? (
+      {isLoading && errors.length === 0 ? (
+        <ContentState
+          kind="loading"
+          title="Buscando tus errores"
+          detail="Preparamos solo las preguntas que todavía necesitas dominar."
+        />
+      ) : error && errors.length === 0 ? (
+        <ContentState
+          kind="error"
+          title="No pudimos cargar tus errores"
+          detail={error}
+          onRetry={() => void loadErrorReview()}
+        />
+      ) : errors.length === 0 ? (
         <View style={styles.empty}>
           <MaterialCommunityIcons name="check-decagram-outline" size={46} color={colors.aqua} />
           <Text style={styles.emptyTitle}>Todavía no hay errores</Text>
@@ -38,8 +63,7 @@ export default function ErrorsScreen() {
         </View>
       ) : (
         <View style={styles.list}>
-          {errors.map((question) => {
-            const stat = questionStats[question.id];
+          {errors.map(({ question, stat }) => {
             return (
               <View key={question.id} style={styles.row}>
                 <View style={styles.countBox}>
@@ -57,7 +81,13 @@ export default function ErrorsScreen() {
       )}
 
       <View style={styles.actions}>
-        <PrimaryButton label="Empezar repaso" icon="refresh" disabled={errors.length === 0} onPress={start} />
+        <PrimaryButton
+          label="Empezar repaso"
+          icon="refresh"
+          disabled={errors.length === 0}
+          loading={isStarting}
+          onPress={() => void start()}
+        />
         <PrimaryButton label="Volver" icon="arrow-left" variant="secondary" onPress={() => router.back()} />
       </View>
     </AppScreen>

@@ -15,6 +15,7 @@
 - [x] Add Google account linking and login on web.
 - [x] Implement empty, loading, offline, expired-session, and recovery states.
 - [x] Add server-validated official-exam mode with configurable rules and timer.
+- [x] Synchronize error review and mastery with server-owned question statistics.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.

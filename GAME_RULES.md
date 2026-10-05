@@ -52,6 +52,13 @@ invalidating an answer sent at the deadline.
 Official exams use a reviewable interaction instead: players can move backward or forward, mark a
 question blank, and explicitly submit. Unanswered questions are scored as blank when time expires.
 
+## Error Review
+
+- Incorrect and blank answers enter `Mis errores`.
+- The review session uses only published, verified questions compatible with the current profile.
+- Correct answers remove a question from the pending review list; another miss keeps it there.
+- Selection, correction, rewards, and mastery updates are validated by the server in Firebase mode.
+
 ## XP
 
 MVP local formula:

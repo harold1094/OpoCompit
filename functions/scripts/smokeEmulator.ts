@@ -1456,6 +1456,76 @@ async function main() {
   assert.equal(submittedExam.result.points, 0.67);
   assert.equal(submittedExam.result.maximumPoints, seedQuestions.length);
 
+  type ErrorReviewItem = {
+    question: {id: string; correctAnswerId?: string};
+    stat: {needsReview: boolean};
+  };
+  const initialErrorReview = await call<{items: ErrorReviewItem[]}>(
+    "getErrorReview",
+    {},
+    examAuth.idToken,
+  );
+  const initialErrorCount = initialErrorReview.items.length;
+  assert.ok(initialErrorCount > 0);
+  assert.equal(initialErrorReview.items.every((item) => item.stat.needsReview), true);
+  assert.equal(
+    initialErrorReview.items.every((item) => item.question.correctAnswerId === undefined),
+    true,
+  );
+
+  const firstErrorReview = await call<{
+    sessionId: string;
+    questions: Array<{id: string; correctAnswerId?: string}>;
+  }>("startErrorReview", {questionCount: 10}, examAuth.idToken);
+  assert.equal(firstErrorReview.questions.length, Math.min(10, initialErrorCount));
+  assert.equal(firstErrorReview.questions.every(
+    (question) => question.correctAnswerId === undefined,
+  ), true);
+  await call(
+    "submitQuizSession",
+    {
+      sessionId: firstErrorReview.sessionId,
+      answers: firstErrorReview.questions.map((question) => ({
+        questionId: question.id,
+        selectedAnswerId: answersByQuestion.get(question.id),
+      })),
+    },
+    examAuth.idToken,
+  );
+  const remainingErrorReview = await call<{items: ErrorReviewItem[]}>(
+    "getErrorReview",
+    {},
+    examAuth.idToken,
+  );
+  assert.equal(
+    remainingErrorReview.items.length,
+    initialErrorCount - firstErrorReview.questions.length,
+  );
+
+  if (remainingErrorReview.items.length > 0) {
+    const finalErrorReview = await call<{
+      sessionId: string;
+      questions: Array<{id: string}>;
+    }>("startErrorReview", {questionCount: 10}, examAuth.idToken);
+    await call(
+      "submitQuizSession",
+      {
+        sessionId: finalErrorReview.sessionId,
+        answers: finalErrorReview.questions.map((question) => ({
+          questionId: question.id,
+          selectedAnswerId: answersByQuestion.get(question.id),
+        })),
+      },
+      examAuth.idToken,
+    );
+  }
+  const masteredErrorReview = await call<{items: ErrorReviewItem[]}>(
+    "getErrorReview",
+    {},
+    examAuth.idToken,
+  );
+  assert.equal(masteredErrorReview.items.length, 0);
+
   const profileBeforeLink = await call<{
     profile: Progress & {
       uid: string;
@@ -1528,6 +1598,7 @@ async function main() {
     adminCatalogValidated: true,
     adminOperationsValidated: true,
     officialExamFlowValidated: true,
+    errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,
     firestoreRulesValidated: true,
     directUserWriteBlocked: true,

@@ -198,8 +198,14 @@ export type UserQuestionStat = {
   correctCount: number;
   incorrectCount: number;
   blankCount: number;
+  needsReview?: boolean;
   lastAnswerId: string | null;
   lastAnsweredAt: string;
+};
+
+export type ErrorReviewItem = {
+  question: Question;
+  stat: UserQuestionStat;
 };
 
 export type Mission = {

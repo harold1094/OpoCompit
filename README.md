@@ -47,6 +47,8 @@ Published official exams now open from Home with their exact reviewed question s
 timer and scoring rules, blank answers, recoverable in-progress sessions, and server-authoritative
 results. The emulator publishes only an explicit development demonstration; imported real exams
 remain out of play until an administrator reviews and publishes their questions.
+`Mis errores` is synchronized with server-owned question statistics. Incorrect and blank answers
+enter a bounded review queue, while a later correct answer marks that question as mastered.
 
 ## Verify
 

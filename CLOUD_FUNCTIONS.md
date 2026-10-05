@@ -42,6 +42,9 @@ Responsibilities:
 - Mark session as validated.
 - Return trusted result payload.
 
+Each submitted attempt also updates `needsReview`: incorrect and blank answers set it, while a
+later correct answer clears it.
+
 For official-exam sessions it also validates the stored rules and server elapsed time, treats
 omitted answers as blank, and returns rule-based points and the maximum possible score.
 
@@ -53,6 +56,11 @@ omitted answers as blank, and returns rule-based points and the maximum possible
 Official exam sessions preserve the configured question order, duration, scoring, and penalty.
 Imported real exams remain unavailable until both the exam and every required question pass human
 review and are explicitly published.
+
+## Error review callables
+
+- `getErrorReview`: returns a bounded list of unresolved mistakes compatible with the user's current opposition and territory.
+- `startErrorReview`: creates a normal server-owned quiz session from up to 25 unresolved mistakes and hides correct answers until submission.
 
 ## callable: `startClassicDuel`
 

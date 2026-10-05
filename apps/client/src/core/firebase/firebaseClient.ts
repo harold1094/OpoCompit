@@ -32,6 +32,7 @@ import {
   DailyReward,
   DuelOpponent,
   DuelResult,
+  ErrorReviewItem,
   FriendDuelInvitation,
   FriendRequest,
   MatchmakingState,
@@ -139,6 +140,10 @@ type OfficialExamsResponse = {
 
 type StartOfficialExamResponse = StartQuickQuizResponse & {
   exam: OfficialExam;
+};
+
+type ErrorReviewResponse = {
+  items: ErrorReviewItem[];
 };
 
 export type AdminCatalogKind = 'oppositions' | 'territories' | 'categories' | 'officialExams';
@@ -523,6 +528,18 @@ export async function startQuickQuizRemote(questionCount = 10): Promise<StartQui
   const invoke = callable<{ questionCount: number }, StartQuickQuizResponse>('startQuickQuiz');
   const response = await invoke({ questionCount });
   return response.data;
+}
+
+export async function getErrorReviewRemote(): Promise<ErrorReviewItem[]> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, ErrorReviewResponse>('getErrorReview');
+  return (await invoke({})).data.items;
+}
+
+export async function startErrorReviewRemote(questionCount = 10): Promise<StartQuickQuizResponse> {
+  await startAnonymousSession();
+  const invoke = callable<{ questionCount: number }, StartQuickQuizResponse>('startErrorReview');
+  return (await invoke({ questionCount })).data;
 }
 
 export async function submitQuizSessionRemote(

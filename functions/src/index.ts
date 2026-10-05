@@ -151,6 +151,10 @@ type StartOfficialExamInput = {
   examId: string;
 };
 
+type StartErrorReviewInput = {
+  questionCount?: number;
+};
+
 type AvatarItemInput = {
   itemId: string;
 };
@@ -1324,6 +1328,60 @@ export const startOfficialExam = onCall<StartOfficialExamInput>(async (request) 
   };
 });
 
+export const getErrorReview = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const candidates = await errorReviewCandidates(uid, userSnapshot.data() ?? {}, 50);
+  return {
+    items: candidates.map(({question, stat}) => ({
+      question: publicQuestion(question.id, question.data() as QuestionDoc),
+      stat: serializeQuestionStat(stat.id, stat.data() ?? {}),
+    })),
+  };
+});
+
+export const startErrorReview = onCall<StartErrorReviewInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const questionCount = parseQuestionCount(request.data?.questionCount);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const candidates = await errorReviewCandidates(
+    uid,
+    userSnapshot.data() ?? {},
+    questionCount,
+  );
+  if (candidates.length === 0) {
+    throw new HttpsError("not-found", "No questions need review.");
+  }
+
+  const sessionRef = db.collection("quizSessions").doc();
+  const questionIds = candidates.map(({question}) => question.id);
+  await sessionRef.set({
+    uid,
+    mode: "error_review",
+    oppositionId: userSnapshot.data()?.oppositionId,
+    questionIds,
+    answers: [],
+    status: "started",
+    createdAt: Timestamp.now(),
+    submittedAt: null,
+  });
+
+  return {
+    sessionId: sessionRef.id,
+    questions: candidates.map(({question}) =>
+      publicQuestion(question.id, question.data() as QuestionDoc),
+    ),
+  };
+});
+
 export const startQuickQuiz = onCall<StartQuickQuizInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const questionCount = parseQuestionCount(request.data?.questionCount);
@@ -1511,6 +1569,7 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
         correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
         incorrectCount: numberValue(previous.incorrectCount) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
         blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        needsReview: !attempt.isCorrect,
         lastAnswerId: attempt.selectedAnswerId,
         lastAnsweredAt: completedAt,
       }, {merge: true});
@@ -3460,6 +3519,55 @@ function parseAnswers(value: unknown): Answer[] {
     throw new HttpsError("invalid-argument", "Duplicate answers.");
   }
   return answers;
+}
+
+async function errorReviewCandidates(
+  uid: string,
+  user: Record<string, unknown>,
+  limit: number,
+): Promise<Array<{
+  question: DocumentSnapshot;
+  stat: DocumentSnapshot;
+}>> {
+  const oppositionId = requireString(user.oppositionId, "stored oppositionId", 80);
+  const allowedTerritoryKeys = new Set(buildTerritoryKeys(parseTerritory(user.territorySelection)));
+  const statsSnapshot = await db.collection("users").doc(uid)
+    .collection("questionStats")
+    .where("needsReview", "==", true)
+    .limit(50)
+    .get();
+  const questionSnapshots = await Promise.all(
+    statsSnapshot.docs.map((stat) => db.collection("questions").doc(stat.id).get()),
+  );
+
+  return statsSnapshot.docs
+    .map((stat, index) => ({stat, question: questionSnapshots[index]}))
+    .filter(({question}) => {
+      if (!question.exists) return false;
+      const data = question.data() as QuestionDoc;
+      return data.oppositionId === oppositionId &&
+        data.status === "published" &&
+        data.verified === true &&
+        data.territoryKeys.some((key) => allowedTerritoryKeys.has(key));
+    })
+    .sort((first, second) =>
+      timestampMillis(second.stat.data()?.lastAnsweredAt) -
+      timestampMillis(first.stat.data()?.lastAnsweredAt),
+    )
+    .slice(0, limit);
+}
+
+function serializeQuestionStat(id: string, data: Record<string, unknown>) {
+  return {
+    questionId: id,
+    timesSeen: numberValue(data.timesSeen),
+    correctCount: numberValue(data.correctCount),
+    incorrectCount: numberValue(data.incorrectCount),
+    blankCount: numberValue(data.blankCount),
+    needsReview: data.needsReview === true,
+    lastAnswerId: nullableStringValue(data.lastAnswerId),
+    lastAnsweredAt: timestampIso(data.lastAnsweredAt) ?? new Date(0).toISOString(),
+  };
 }
 
 function serializeOfficialExam(exam: OfficialExamCatalogItem) {

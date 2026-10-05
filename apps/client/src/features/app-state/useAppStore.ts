@@ -7,6 +7,7 @@ import {
   DailyReward,
   DuelOpponent,
   DuelResult,
+  ErrorReviewItem,
   FriendDuelInvitation,
   FriendRequest,
   MatchmakingState,
@@ -38,6 +39,7 @@ import {
   equipAvatarItemRemote,
   getAvatarShopRemote,
   getDailyEngagementRemote,
+  getErrorReviewRemote,
   getMatchmakingStatusRemote,
   getMonetizationOverviewRemote,
   getOfficialExamsRemote,
@@ -66,6 +68,7 @@ import {
   signInGoogleAccountRemote,
   signOutAccountRemote,
   startAnonymousSession,
+  startErrorReviewRemote,
   startQuickQuizRemote,
   startOfficialExamRemote,
   startClassicDuelRemote,
@@ -100,7 +103,7 @@ import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/d
 import { localSocialUsers } from '@/features/social/data/localSocialUsers';
 
 type BackendMode = 'local' | 'firebase';
-type ActiveGameMode = 'quick' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
+type ActiveGameMode = 'quick' | 'error-review' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
 export type ConnectionStatus = 'idle' | 'checking' | 'connected' | 'offline' | 'session-expired';
 
 type AppStore = {
@@ -115,6 +118,7 @@ type AppStore = {
   activeStartedAt: number | null;
   selectedAnswers: Record<string, string | null>;
   questionStats: Record<string, UserQuestionStat>;
+  errorReviewItems: ErrorReviewItem[];
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
@@ -137,12 +141,14 @@ type AppStore = {
   isStartingQuiz: boolean;
   isStartingDuel: boolean;
   isLoadingOfficialExams: boolean;
+  isLoadingErrorReview: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
   claimingMissionId: string | null;
   quizError: string | null;
   officialExamsError: string | null;
+  errorReviewError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -178,7 +184,8 @@ type AppStore = {
   loadOfficialExams: () => Promise<void>;
   startOfficialExam: (exam: OfficialExam) => Promise<number>;
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
-  startErrorReview: () => number;
+  loadErrorReview: () => Promise<void>;
+  startErrorReview: () => Promise<number>;
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
   clearQuizError: () => void;
@@ -232,6 +239,7 @@ export const useAppStore = create<AppStore>()(
       activeStartedAt: null,
       selectedAnswers: {},
       questionStats: {},
+      errorReviewItems: [],
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
@@ -254,12 +262,14 @@ export const useAppStore = create<AppStore>()(
       isStartingQuiz: false,
       isStartingDuel: false,
       isLoadingOfficialExams: false,
+      isLoadingErrorReview: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
       claimingMissionId: null,
       quizError: null,
       officialExamsError: null,
+      errorReviewError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -520,6 +530,7 @@ export const useAppStore = create<AppStore>()(
           activeStartedAt: null,
           selectedAnswers: {},
           questionStats: {},
+          errorReviewItems: [],
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
@@ -540,6 +551,7 @@ export const useAppStore = create<AppStore>()(
           lastDuelResult: null,
           lastPendingFriendDuel: null,
           quizError: null,
+          errorReviewError: null,
           engagementError: null,
           socialError: null,
           groupsError: null,
@@ -705,44 +717,72 @@ export const useAppStore = create<AppStore>()(
           set({ isStartingDuel: false });
         }
       },
-      startErrorReview: () => {
-        const { profile, questionStats } = get();
-        if (!profile) return 0;
-        const reviewIds = new Set(
-          Object.values(questionStats)
-            .filter((stat) => stat.incorrectCount > 0 || stat.blankCount > 0)
-            .map((stat) => stat.questionId),
-        );
-        const activeQuestions = seedQuestions
-          .filter(
-            (question) =>
-              question.oppositionId === profile.oppositionId && reviewIds.has(question.id),
-          )
-          .slice(0, 10);
-        set({
-          activeQuestions,
-          activeSessionId: null,
-          activeGameMode: 'quick',
-          activeOfficialExam: null,
-          activeDuelOpponent: null,
-          activeStartedAt: Date.now(),
-          selectedAnswers: Object.fromEntries(
-            activeQuestions.map((question) => [question.id, null]),
-          ),
-          lastResult: null,
-          lastDuelResult: null,
-          lastPendingFriendDuel: null,
-          quizError: null,
-          officialExamsError: null,
-        });
-        if (activeQuestions.length > 0) {
+      loadErrorReview: async () => {
+        const { backendMode, profile, questionStats } = get();
+        if (!profile) return;
+        set({ isLoadingErrorReview: true, errorReviewError: null });
+        try {
+          const errorReviewItems = backendMode === 'firebase'
+            ? await getErrorReviewRemote()
+            : seedQuestions
+              .filter((question) => {
+                const stat = questionStats[question.id];
+                const needsReview = stat?.needsReview ??
+                  Boolean(stat && (stat.incorrectCount > 0 || stat.blankCount > 0));
+                return question.oppositionId === profile.oppositionId && needsReview;
+              })
+              .map((question) => ({question, stat: questionStats[question.id]}));
+          set({ errorReviewItems });
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            errorReviewError: readableFirebaseError(error),
+          });
+        } finally {
+          set({ isLoadingErrorReview: false });
+        }
+      },
+      startErrorReview: async () => {
+        const { profile, backendMode, errorReviewItems } = get();
+        if (!profile || errorReviewItems.length === 0) return 0;
+        set({ isStartingQuiz: true, quizError: null });
+        try {
+          let activeQuestions: Question[];
+          let activeSessionId: string | null = null;
+          if (backendMode === 'firebase') {
+            const remote = await startErrorReviewRemote(10);
+            activeQuestions = remote.questions;
+            activeSessionId = remote.sessionId;
+          } else {
+            activeQuestions = errorReviewItems.slice(0, 10).map((item) => item.question);
+          }
+          set({
+            activeQuestions,
+            activeSessionId,
+            activeGameMode: 'error-review',
+            activeOfficialExam: null,
+            activeDuelOpponent: null,
+            activeStartedAt: Date.now(),
+            selectedAnswers: Object.fromEntries(
+              activeQuestions.map((question) => [question.id, null]),
+            ),
+            lastResult: null,
+            lastDuelResult: null,
+            lastPendingFriendDuel: null,
+            quizError: null,
+          });
           void trackEvent('quiz_started', {
             game_mode: 'error_review',
             question_count: activeQuestions.length,
-            backend_mode: 'local',
+            backend_mode: backendMode,
           });
+          return activeQuestions.length;
+        } catch (error) {
+          set({...connectionFailureState(error), quizError: readableFirebaseError(error)});
+          return 0;
+        } finally {
+          set({ isStartingQuiz: false });
         }
-        return activeQuestions.length;
       },
       answerQuestion: (questionId, answerId) => {
         set((state) => ({
@@ -1841,6 +1881,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     activeStartedAt: null,
     selectedAnswers: {},
     questionStats: {},
+    errorReviewItems: [],
     dailyReward: null,
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
@@ -1862,6 +1903,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     lastPendingFriendDuel: null,
     quizError: null,
     officialExamsError: null,
+    errorReviewError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,
@@ -1975,6 +2017,7 @@ function applyQuestionStats(
       incorrectCount:
         (previous?.incorrectCount ?? 0) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
       blankCount: (previous?.blankCount ?? 0) + (attempt.isBlank ? 1 : 0),
+      needsReview: !attempt.isCorrect,
       lastAnswerId: attempt.selectedAnswerId,
       lastAnsweredAt: result.completedAt,
     };
