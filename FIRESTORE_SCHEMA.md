@@ -28,6 +28,7 @@ The schema is designed around cheap reads, server-authoritative writes, territor
   "totalQuestions": 0,
   "correctAnswers": 0,
   "testsCompleted": 0,
+  "perfectTests": 0,
   "duelsPlayed": 0,
   "duelWins": 0,
   "duelLosses": 0,
@@ -71,6 +72,12 @@ they require no documents. The equipped map is validated against the owned inven
 `equipAvatarItem`; clients never write balances, inventory, or equipment directly.
 
 Daily mission document IDs include the Madrid date, for example `2026-09-28_daily_15_correct`. Each document stores the server-owned `progress`, `claimed` state, rewards, and definition snapshot for that day.
+
+Achievement definitions live in `achievements/{achievementId}` with a metric, target, optional
+category and minimum accuracy, XP/coin/gem rewards, icon, priority, and active state. Unlocks are
+stored in `users/{uid}/achievements/{achievementId}`. The callable evaluates only trusted user and
+question aggregates, grants each reward once in a transaction, and records deterministic economy
+transactions for auditability.
 
 ## oppositions/{oppositionId}
 

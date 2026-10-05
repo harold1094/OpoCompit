@@ -6,6 +6,7 @@ const categoryLabels: Record<string, string> = {
   vehicles: 'Vehículos y equipos',
   first_aid: 'Primeros auxilios',
   hazardous_materials: 'Materias peligrosas',
+  hazmat: 'Materias peligrosas',
   building: 'Construcción',
   construction: 'Construcción',
   hydraulics: 'Hidráulica',

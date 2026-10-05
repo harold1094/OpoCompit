@@ -27,6 +27,7 @@ import { Platform } from 'react-native';
 export { readableFirebaseError } from './firebaseError';
 
 import {
+  AchievementOverview,
   AvatarInventory,
   ActiveCustomQuiz,
   CustomQuizConfig,
@@ -102,6 +103,10 @@ type FriendRequestResponse = { request: FriendRequest };
 type FriendDuelInvitationResponse = { invitation: FriendDuelInvitation };
 type MatchmakingResponse = { matchmaking: MatchmakingState };
 type AvatarInventoryResponse = { inventory: AvatarInventory };
+type AchievementOverviewResponse = {
+  achievements: AchievementOverview;
+  progress: PlayerProgress;
+};
 
 export type AdminQuestion = {
   id: string;
@@ -515,6 +520,12 @@ export async function getAvatarShopRemote(): Promise<AvatarInventory> {
 export async function getMonetizationOverviewRemote(): Promise<MonetizationOverview> {
   await startAnonymousSession();
   const invoke = callable<Record<string, never>, MonetizationOverview>('getMonetizationOverview');
+  return (await invoke({})).data;
+}
+
+export async function getAchievementsRemote(): Promise<AchievementOverviewResponse> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, AchievementOverviewResponse>('getAchievements');
   return (await invoke({})).data;
 }
 

@@ -60,6 +60,7 @@ describe('quick match scoring', () => {
 
     expect(updated.currentStreak).toBe(1);
     expect(updated.testsCompleted).toBe(1);
+    expect(updated.perfectTests).toBe(1);
     expect(updated.totalQuestions).toBe(3);
     expect(updated.correctAnswers).toBe(3);
     expect(updated.xp).toBe(result.xpEarned);

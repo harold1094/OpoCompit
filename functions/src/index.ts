@@ -11,6 +11,14 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {onDocumentWritten} from "firebase-functions/v2/firestore";
 
 import {
+  AchievementMetrics,
+  AchievementTemplate,
+  defaultAchievementTemplates,
+  evaluateAchievement,
+  parseAchievementTemplate,
+} from "./achievements.js";
+
+import {
   AdminCatalogItem,
   AdminCatalogKind,
   AdminCatalogValidationError,
@@ -96,6 +104,7 @@ const operationalConfigCacheMs = 60_000;
 let missionConfigCache: {expiresAt: number; value: MissionTemplate[]} | null = null;
 let rewardConfigCache: {expiresAt: number; value: DailyRewardTemplate[]} | null = null;
 let shopConfigCache: {expiresAt: number; value: ActiveAvatarShopItem[]} | null = null;
+let achievementConfigCache: {expiresAt: number; value: AchievementTemplate[]} | null = null;
 
 type TerritorySelection = {
   label: string;
@@ -843,6 +852,7 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       totalQuestions: 0,
       correctAnswers: 0,
       testsCompleted: 0,
+      perfectTests: 0,
       duelsPlayed: 0,
       duelWins: 0,
       duelLosses: 0,
@@ -868,6 +878,121 @@ export const getCurrentProfile = onCall(async (request) => {
     throw new HttpsError("not-found", "User profile missing.");
   }
   return {profile: serializeProfile(uid, snapshot.data() ?? {})};
+});
+
+export const getAchievements = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const templates = await activeAchievementTemplates();
+  const userRef = db.collection("users").doc(uid);
+  const statsSnapshot = await userRef.collection("questionStats").limit(1000).get();
+  const categoryMetrics = achievementCategoryMetrics(statsSnapshot.docs);
+  const achievementRefs = templates.map((template) =>
+    userRef.collection("achievements").doc(template.id),
+  );
+
+  return db.runTransaction(async (transaction) => {
+    const [userSnapshot, achievementSnapshots] = await Promise.all([
+      transaction.get(userRef),
+      Promise.all(achievementRefs.map((reference) => transaction.get(reference))),
+    ]);
+    if (!userSnapshot.exists) {
+      throw new HttpsError("failed-precondition", "User profile missing.");
+    }
+
+    const user = userSnapshot.data() ?? {};
+    const metrics: AchievementMetrics = {
+      testsCompleted: numberValue(user.testsCompleted),
+      totalQuestions: numberValue(user.totalQuestions),
+      duelWins: numberValue(user.duelWins),
+      bestStreak: numberValue(user.bestStreak),
+      perfectTests: numberValue(user.perfectTests),
+      categories: categoryMetrics,
+    };
+    const now = Timestamp.now();
+    const evaluations = templates.map((template, index) => {
+      const stored = achievementSnapshots[index].data() ?? {};
+      const alreadyUnlocked = achievementSnapshots[index].exists && stored.unlocked === true;
+      const evaluated = evaluateAchievement(template, metrics);
+      return {
+        template,
+        progress: alreadyUnlocked ? template.target : evaluated.progress,
+        unlocked: alreadyUnlocked || evaluated.completed,
+        newlyUnlocked: !alreadyUnlocked && evaluated.completed,
+        unlockedAt: alreadyUnlocked && stored.unlockedAt instanceof Timestamp ?
+          stored.unlockedAt : evaluated.completed ? now : null,
+      };
+    });
+    const newlyUnlocked = evaluations.filter((item) => item.newlyUnlocked);
+    const rewardXp = newlyUnlocked.reduce((total, item) => total + item.template.rewardXp, 0);
+    const rewardCoins = newlyUnlocked.reduce((total, item) => total + item.template.rewardCoins, 0);
+    const rewardGems = newlyUnlocked.reduce((total, item) => total + item.template.rewardGems, 0);
+    const updatedXp = numberValue(user.xp) + rewardXp;
+    const updatedUser = {
+      ...user,
+      xp: updatedXp,
+      level: Math.floor(Math.sqrt(updatedXp / 100)) + 1,
+      coins: numberValue(user.coins) + rewardCoins,
+      gems: numberValue(user.gems) + rewardGems,
+      updatedAt: now,
+    };
+
+    if (newlyUnlocked.length > 0) {
+      transaction.update(userRef, {
+        xp: updatedUser.xp,
+        level: updatedUser.level,
+        coins: updatedUser.coins,
+        gems: updatedUser.gems,
+        updatedAt: now,
+      });
+    }
+
+    let xpBalance = numberValue(user.xp);
+    let coinBalance = numberValue(user.coins);
+    let gemBalance = numberValue(user.gems);
+    newlyUnlocked.forEach(({template}) => {
+      transaction.set(userRef.collection("achievements").doc(template.id), {
+        achievementId: template.id,
+        title: template.title,
+        description: template.description,
+        rewardXp: template.rewardXp,
+        rewardCoins: template.rewardCoins,
+        rewardGems: template.rewardGems,
+        unlocked: true,
+        unlockedAt: now,
+      });
+      xpBalance += template.rewardXp;
+      coinBalance += template.rewardCoins;
+      gemBalance += template.rewardGems;
+      if (template.rewardXp > 0) {
+        transaction.set(
+          db.collection("currencyTransactions").doc(`${uid}_achievement_${template.id}_xp`),
+          achievementRewardTransaction(uid, template.id, "xp", template.rewardXp, xpBalance, now),
+        );
+      }
+      if (template.rewardCoins > 0) {
+        transaction.set(
+          db.collection("currencyTransactions").doc(`${uid}_achievement_${template.id}_coins`),
+          achievementRewardTransaction(uid, template.id, "coins", template.rewardCoins, coinBalance, now),
+        );
+      }
+      if (template.rewardGems > 0) {
+        transaction.set(
+          db.collection("currencyTransactions").doc(`${uid}_achievement_${template.id}_gems`),
+          achievementRewardTransaction(uid, template.id, "gems", template.rewardGems, gemBalance, now),
+        );
+      }
+    });
+
+    return {
+      achievements: {
+        items: evaluations.map((item) => serializeAchievement(item)),
+        unlockedCount: evaluations.filter((item) => item.unlocked).length,
+        totalCount: evaluations.length,
+        newlyUnlockedIds: newlyUnlocked.map((item) => item.template.id),
+      },
+      progress: serializeProgress(updatedUser),
+    };
+  });
 });
 
 export const completeAccountLink = onCall(async (request) => {
@@ -1685,6 +1810,8 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       totalQuestions: numberValue(user.totalQuestions) + questions.length,
       correctAnswers: numberValue(user.correctAnswers) + correct,
       testsCompleted: numberValue(user.testsCompleted) + 1,
+      perfectTests: numberValue(user.perfectTests) +
+        (questions.length > 0 && correct === questions.length ? 1 : 0),
       lastValidActivityDate: completedAt,
       updatedAt: completedAt,
     };
@@ -3940,6 +4067,27 @@ async function activeMissionTemplates(): Promise<MissionTemplate[]> {
   return value;
 }
 
+async function activeAchievementTemplates(): Promise<AchievementTemplate[]> {
+  if (achievementConfigCache && achievementConfigCache.expiresAt > Date.now()) {
+    return achievementConfigCache.value;
+  }
+  const snapshot = await db.collection("achievements").limit(100).get();
+  const configured = snapshot.docs.flatMap((document) => {
+    try {
+      return document.data().active === false ? [] : [
+        parseAchievementTemplate(document.id, document.data()),
+      ];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) =>
+    second.priority - first.priority || first.id.localeCompare(second.id),
+  );
+  const value = configured.length > 0 ? configured : defaultAchievementTemplates;
+  achievementConfigCache = {expiresAt: Date.now() + operationalConfigCacheMs, value};
+  return value;
+}
+
 async function activeDailyRewards(): Promise<DailyRewardTemplate[]> {
   if (rewardConfigCache && rewardConfigCache.expiresAt > Date.now()) {
     return rewardConfigCache.value;
@@ -4168,12 +4316,74 @@ function serializeProgress(data: Record<string, unknown>) {
     totalQuestions: numberValue(data.totalQuestions),
     correctAnswers: numberValue(data.correctAnswers),
     testsCompleted: numberValue(data.testsCompleted),
+    perfectTests: numberValue(data.perfectTests),
     duelsPlayed: numberValue(data.duelsPlayed),
     duelWins: numberValue(data.duelWins),
     duelLosses: numberValue(data.duelLosses),
     duelDraws: numberValue(data.duelDraws),
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
+  };
+}
+
+function achievementCategoryMetrics(
+  stats: Array<{data(): Record<string, unknown>}>,
+): AchievementMetrics["categories"] {
+  const categories: AchievementMetrics["categories"] = {};
+  stats.forEach((snapshot) => {
+    const data = snapshot.data();
+    const categoryId = nullableStringValue(data.categoryId);
+    if (!categoryId) return;
+    const category = categories[categoryId] ?? {correctCount: 0, timesSeen: 0};
+    category.correctCount += numberValue(data.correctCount);
+    category.timesSeen += numberValue(data.timesSeen);
+    categories[categoryId] = category;
+  });
+  return categories;
+}
+
+function serializeAchievement(item: {
+  template: AchievementTemplate;
+  progress: number;
+  unlocked: boolean;
+  newlyUnlocked: boolean;
+  unlockedAt: Timestamp | null;
+}) {
+  return {
+    id: item.template.id,
+    title: item.template.title,
+    description: item.template.description,
+    icon: item.template.icon,
+    metric: item.template.metric,
+    target: item.template.target,
+    categoryId: item.template.categoryId,
+    minimumAccuracy: item.template.minimumAccuracy,
+    rewardXp: item.template.rewardXp,
+    rewardCoins: item.template.rewardCoins,
+    rewardGems: item.template.rewardGems,
+    progress: item.progress,
+    unlocked: item.unlocked,
+    newlyUnlocked: item.newlyUnlocked,
+    unlockedAt: item.unlockedAt?.toDate().toISOString() ?? null,
+  };
+}
+
+function achievementRewardTransaction(
+  uid: string,
+  achievementId: string,
+  currency: "xp" | "coins" | "gems",
+  amount: number,
+  balanceAfter: number,
+  createdAt: Timestamp,
+) {
+  return {
+    uid,
+    type: "achievement_reward",
+    currency,
+    amount,
+    balanceAfter,
+    sourceId: achievementId,
+    createdAt,
   };
 }
 

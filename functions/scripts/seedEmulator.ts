@@ -4,6 +4,7 @@ import {Timestamp, getFirestore} from "firebase-admin/firestore";
 import {seedQuestions} from "../../apps/client/src/features/quiz/data/seedQuestions.ts";
 import {questionContentFingerprint} from "../src/adminImport.ts";
 import {avatarShopCatalog} from "../src/avatarShop.ts";
+import {defaultAchievementTemplates} from "../src/achievements.ts";
 import {dailyMissionTemplates, defaultDailyRewards} from "../src/engagement.ts";
 
 const projectId = "opocompit-dev";
@@ -112,6 +113,14 @@ async function main() {
   defaultDailyRewards.forEach((reward) => {
     batch.set(db.collection("dailyRewards").doc(`day_${reward.day}`), {
       ...reward,
+      active: true,
+      updatedAt: now,
+    });
+  });
+
+  defaultAchievementTemplates.forEach((achievement) => {
+    batch.set(db.collection("achievements").doc(achievement.id), {
+      ...achievement,
       active: true,
       updatedAt: now,
     });

@@ -54,6 +54,8 @@ export function applyResult(profile: PlayerProfile, result: QuizResult): PlayerP
     totalQuestions: profile.totalQuestions + result.attempts.length,
     correctAnswers: profile.correctAnswers + result.correct,
     testsCompleted: profile.testsCompleted + 1,
+    perfectTests: (profile.perfectTests ?? 0) +
+      (result.attempts.length > 0 && result.correct === result.attempts.length ? 1 : 0),
     lastValidActivityDate: result.completedAt,
   };
 }

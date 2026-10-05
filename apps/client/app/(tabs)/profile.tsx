@@ -7,6 +7,7 @@ import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { isUsingFirebaseEmulators } from '@/core/firebase/firebaseClient';
 import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import { useAppStore } from '@/features/app-state/useAppStore';
+import { AchievementRow } from '@/features/achievements/components/AchievementRow';
 import { questionCategoryLabel } from '@/features/quiz/data/categoryCatalog';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { StatTile } from '@/shared/components/StatTile';
@@ -19,11 +20,16 @@ export default function ProfileScreen() {
   const insightsLoading = useAppStore((state) => state.isLoadingLearningInsights);
   const insightsError = useAppStore((state) => state.learningInsightsError);
   const loadLearningInsights = useAppStore((state) => state.loadLearningInsights);
+  const achievements = useAppStore((state) => state.achievementOverview);
+  const achievementsLoading = useAppStore((state) => state.isLoadingAchievements);
+  const achievementsError = useAppStore((state) => state.achievementsError);
+  const loadAchievements = useAppStore((state) => state.loadAchievements);
 
   useFocusEffect(
     useCallback(() => {
       void loadLearningInsights();
-    }, [loadLearningInsights]),
+      void loadAchievements();
+    }, [loadAchievements, loadLearningInsights]),
   );
 
   if (!profile) return null;
@@ -163,6 +169,40 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      <View style={styles.topicHeader}>
+        <Text style={styles.sectionTitle}>Logros</Text>
+        {achievements ? (
+          <Text style={styles.topicStatus}>
+            {achievements.unlockedCount} de {achievements.totalCount}
+          </Text>
+        ) : achievementsLoading ? <Text style={styles.topicStatus}>Actualizando...</Text> : null}
+      </View>
+      {achievementsError && !achievements ? (
+        <Pressable onPress={() => void loadAchievements()} style={styles.insightsMessage}>
+          <MaterialCommunityIcons name="cloud-alert-outline" size={21} color={colors.danger} />
+          <Text style={styles.insightsMessageText}>No se pudieron cargar. Pulsa para reintentar.</Text>
+        </Pressable>
+      ) : achievements ? (
+        <View style={styles.achievementPreview}>
+          {achievements.items.slice(0, 2).map((achievement) => (
+            <AchievementRow key={achievement.id} achievement={achievement} />
+          ))}
+          <Pressable
+            onPress={() => router.push('/achievements')}
+            style={({ pressed }) => [styles.achievementsLink, pressed && styles.adminLinkPressed]}
+          >
+            <MaterialCommunityIcons name="trophy-outline" size={21} color={colors.gold} />
+            <Text style={styles.achievementsLinkText}>Ver todos los logros</Text>
+            <MaterialCommunityIcons name="chevron-right" size={21} color={colors.muted} />
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.insightsMessage}>
+          <MaterialCommunityIcons name="trophy-outline" size={21} color={colors.gold} />
+          <Text style={styles.insightsMessageText}>Calculando tu progreso de logros.</Text>
+        </View>
+      )}
+
       <Pressable
         onPress={() => router.push('/avatar-shop')}
         style={({ pressed }) => [styles.shopLink, pressed && styles.adminLinkPressed]}
@@ -281,6 +321,9 @@ const styles = StyleSheet.create({
   topicMeta: { color: colors.muted, fontSize: 11 },
   reviewWeakLink: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: spacing.lg, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.softBrand, borderRadius: radius.lg, backgroundColor: colors.softBrand },
   reviewWeakText: { flex: 1, color: colors.brandDark, fontSize: 13, fontWeight: '900' },
+  achievementPreview: { gap: spacing.sm },
+  achievementsLink: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface },
+  achievementsLinkText: { flex: 1, color: colors.ink, fontSize: 13, fontWeight: '900' },
   shopLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   shopIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
   premiumLink: { minHeight: 68, marginTop: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },

@@ -60,6 +60,7 @@ export type PlayerProfile = {
   totalQuestions: number;
   correctAnswers: number;
   testsCompleted: number;
+  perfectTests?: number;
   duelsPlayed: number;
   duelWins: number;
   duelLosses: number;
@@ -78,12 +79,46 @@ export type PlayerProgress = Pick<
   | 'totalQuestions'
   | 'correctAnswers'
   | 'testsCompleted'
+  | 'perfectTests'
   | 'duelsPlayed'
   | 'duelWins'
   | 'duelLosses'
   | 'duelDraws'
   | 'lastValidActivityDate'
 >;
+
+export type AchievementMetric =
+  | 'testsCompleted'
+  | 'totalQuestions'
+  | 'duelWins'
+  | 'bestStreak'
+  | 'perfectTests'
+  | 'categoryCorrectAnswers';
+
+export type Achievement = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  metric: AchievementMetric;
+  target: number;
+  categoryId: string | null;
+  minimumAccuracy: number | null;
+  rewardXp: number;
+  rewardCoins: number;
+  rewardGems: number;
+  progress: number;
+  unlocked: boolean;
+  newlyUnlocked: boolean;
+  unlockedAt: string | null;
+};
+
+export type AchievementOverview = {
+  items: Achievement[];
+  unlockedCount: number;
+  totalCount: number;
+  newlyUnlockedIds: string[];
+};
 
 export type AvatarItemCategory =
   | 'avatars'

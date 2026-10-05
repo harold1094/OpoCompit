@@ -71,6 +71,12 @@ review and are explicitly published.
 - `startErrorReview`: creates a normal server-owned quiz session from up to 25 unresolved mistakes, optionally filtered by category, and hides correct answers until submission.
 - `getLearningInsights`: aggregates bounded, server-owned question statistics by category and returns accuracy, pending review counts, and strongest and weakest topics.
 
+## callable: `getAchievements`
+
+Loads the active achievement catalog, evaluates profile and category milestones from trusted
+Firestore aggregates, persists newly unlocked achievements, and grants configured XP, coin, and gem
+rewards exactly once. The response includes the complete progress catalog and updated player balances.
+
 ## callable: `startClassicDuel`
 
 Input:

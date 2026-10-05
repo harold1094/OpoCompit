@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import {
   ActiveCustomQuiz,
+  AchievementOverview,
   AvatarInventory,
   CustomQuizConfig,
   DailyReward,
@@ -41,6 +42,7 @@ import {
   createStudyGroupCompetitionRemote,
   equipAvatarItemRemote,
   getAvatarShopRemote,
+  getAchievementsRemote,
   getDailyEngagementRemote,
   getErrorReviewRemote,
   getLearningInsightsRemote,
@@ -88,6 +90,7 @@ import {
   avatarCatalog,
   defaultAvatarInventory,
 } from '@/features/avatar/data/avatarCatalog';
+import { buildLocalAchievementOverview } from '@/features/achievements/domain/achievements';
 import {
   localDailyEngagement,
   progressLocalMissions,
@@ -127,6 +130,7 @@ type AppStore = {
   questionStats: Record<string, UserQuestionStat>;
   errorReviewItems: ErrorReviewItem[];
   learningInsights: LearningInsights | null;
+  achievementOverview: AchievementOverview | null;
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
@@ -151,6 +155,7 @@ type AppStore = {
   isLoadingOfficialExams: boolean;
   isLoadingErrorReview: boolean;
   isLoadingLearningInsights: boolean;
+  isLoadingAchievements: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
@@ -159,6 +164,7 @@ type AppStore = {
   officialExamsError: string | null;
   errorReviewError: string | null;
   learningInsightsError: string | null;
+  achievementsError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -197,6 +203,7 @@ type AppStore = {
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
   loadErrorReview: () => Promise<void>;
   loadLearningInsights: () => Promise<void>;
+  loadAchievements: () => Promise<void>;
   startErrorReview: (categoryId?: string | null) => Promise<number>;
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
@@ -254,6 +261,7 @@ export const useAppStore = create<AppStore>()(
       questionStats: {},
       errorReviewItems: [],
       learningInsights: null,
+      achievementOverview: null,
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
@@ -278,6 +286,7 @@ export const useAppStore = create<AppStore>()(
       isLoadingOfficialExams: false,
       isLoadingErrorReview: false,
       isLoadingLearningInsights: false,
+      isLoadingAchievements: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
@@ -286,6 +295,7 @@ export const useAppStore = create<AppStore>()(
       officialExamsError: null,
       errorReviewError: null,
       learningInsightsError: null,
+      achievementsError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -549,6 +559,7 @@ export const useAppStore = create<AppStore>()(
           questionStats: {},
           errorReviewItems: [],
           learningInsights: null,
+          achievementOverview: null,
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
@@ -571,6 +582,7 @@ export const useAppStore = create<AppStore>()(
           quizError: null,
           errorReviewError: null,
           learningInsightsError: null,
+          achievementsError: null,
           engagementError: null,
           socialError: null,
           groupsError: null,
@@ -845,6 +857,38 @@ export const useAppStore = create<AppStore>()(
           });
         } finally {
           set({ isLoadingLearningInsights: false });
+        }
+      },
+      loadAchievements: async () => {
+        const { backendMode, profile, questionStats } = get();
+        if (!profile) return;
+        set({ isLoadingAchievements: true, achievementsError: null });
+        try {
+          if (backendMode === 'firebase') {
+            const remote = await getAchievementsRemote();
+            set({
+              achievementOverview: remote.achievements,
+              profile: {...profile, ...remote.progress},
+            });
+            remote.achievements.newlyUnlockedIds.forEach((achievementId) => {
+              void trackEvent('achievement_unlocked', {achievement_id: achievementId});
+            });
+          } else {
+            set({
+              achievementOverview: buildLocalAchievementOverview(
+                profile,
+                questionStats,
+                seedQuestions,
+              ),
+            });
+          }
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            achievementsError: readableFirebaseError(error),
+          });
+        } finally {
+          set({ isLoadingAchievements: false });
         }
       },
       startErrorReview: async (categoryId = null) => {
@@ -2010,6 +2054,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     questionStats: {},
     errorReviewItems: [],
     learningInsights: null,
+    achievementOverview: null,
     dailyReward: null,
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
@@ -2033,6 +2078,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     officialExamsError: null,
     errorReviewError: null,
     learningInsightsError: null,
+    achievementsError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,

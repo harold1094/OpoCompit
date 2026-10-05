@@ -59,6 +59,7 @@ export default function RootLayout() {
           <Stack.Screen name="custom-test" />
           <Stack.Screen name="exams" />
           <Stack.Screen name="errors" />
+          <Stack.Screen name="achievements" />
           <Stack.Screen name="groups" />
           <Stack.Screen name="avatar-shop" />
           <Stack.Screen name="premium" />

@@ -75,6 +75,13 @@ MVP local formula:
 
 Server phase: Cloud Functions calculate and persist XP.
 
+## Achievements
+
+- Achievement definitions and rewards come from the backend catalog.
+- Progress uses trusted totals for tests, questions, duel wins, streaks, perfect tests, and categories.
+- Category achievements may also require a minimum accuracy.
+- Unlocking and all XP, coin, and gem rewards happen together and can only happen once.
+
 ## Coins
 
 MVP local formula:

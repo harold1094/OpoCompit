@@ -1700,6 +1700,39 @@ async function main() {
   assert.equal(restoredAccount.profile.xp, linkedAccount.profile.xp);
   assert.equal(restoredAccount.profile.coins, linkedAccount.profile.coins);
 
+  const firstAchievementOverview = await call<{
+    achievements: {
+      items: Array<{id: string; unlocked: boolean; progress: number; target: number}>;
+      unlockedCount: number;
+      totalCount: number;
+      newlyUnlockedIds: string[];
+    };
+    progress: Progress;
+  }>("getAchievements", {}, signedInAuth.idToken);
+  assert.ok(firstAchievementOverview.achievements.totalCount >= 8);
+  assert.ok(firstAchievementOverview.achievements.unlockedCount >= 2);
+  assert.equal(
+    firstAchievementOverview.achievements.items.find((item) => item.id === "first_quiz")?.unlocked,
+    true,
+  );
+  assert.equal(
+    firstAchievementOverview.achievements.items.find((item) => item.id === "perfect_quiz")?.unlocked,
+    true,
+  );
+  assert.ok(firstAchievementOverview.achievements.newlyUnlockedIds.includes("first_quiz"));
+  assert.ok(firstAchievementOverview.progress.xp > restoredAccount.profile.xp);
+  assert.ok(firstAchievementOverview.progress.coins > restoredAccount.profile.coins);
+  assert.ok(firstAchievementOverview.progress.gems > restoredAccount.profile.gems);
+
+  const repeatedAchievementOverview = await call<{
+    achievements: {newlyUnlockedIds: string[]};
+    progress: Progress;
+  }>("getAchievements", {}, signedInAuth.idToken);
+  assert.deepEqual(repeatedAchievementOverview.achievements.newlyUnlockedIds, []);
+  assert.equal(repeatedAchievementOverview.progress.xp, firstAchievementOverview.progress.xp);
+  assert.equal(repeatedAchievementOverview.progress.coins, firstAchievementOverview.progress.coins);
+  assert.equal(repeatedAchievementOverview.progress.gems, firstAchievementOverview.progress.gems);
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 4,
@@ -1735,6 +1768,8 @@ async function main() {
     adminOperationsValidated: true,
     customQuizFlowValidated: true,
     learningInsightsValidated: true,
+    achievementsValidated: true,
+    duplicateAchievementRewardsBlocked: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,

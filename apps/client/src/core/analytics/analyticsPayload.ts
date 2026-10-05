@@ -21,6 +21,7 @@ export type AnalyticsEventName =
   | 'group_joined'
   | 'daily_reward_claimed'
   | 'mission_completed'
+  | 'achievement_unlocked'
   | 'streak_extended'
   | 'streak_lost'
   | 'level_up'
