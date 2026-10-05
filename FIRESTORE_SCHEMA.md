@@ -60,8 +60,9 @@ Subcollections:
 - `users/{uid}/achievements/{achievementId}`
 - `users/{uid}/notifications/{notificationId}`
 
-Question statistics store cumulative `timesSeen`, `correctCount`, `incorrectCount`, and
-`blankCount`, plus the latest answer and timestamp. `needsReview` is set by trusted submissions:
+Question statistics store the immutable question `categoryId`, cumulative `timesSeen`,
+`correctCount`, `incorrectCount`, and `blankCount`, plus the latest answer and timestamp.
+`needsReview` is set by trusted submissions:
 wrong or blank answers set it to `true`, and a later correct answer clears it.
 
 `users/{uid}/inventory/{itemId}` is written only by `purchaseAvatarItem`. It stores the catalog

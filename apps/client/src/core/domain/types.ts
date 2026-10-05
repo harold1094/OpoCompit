@@ -212,6 +212,7 @@ export type OfficialExam = {
 
 export type UserQuestionStat = {
   questionId: string;
+  categoryId?: string | null;
   timesSeen: number;
   correctCount: number;
   incorrectCount: number;
@@ -219,6 +220,25 @@ export type UserQuestionStat = {
   needsReview?: boolean;
   lastAnswerId: string | null;
   lastAnsweredAt: string;
+};
+
+export type CategoryLearningInsight = {
+  categoryId: string;
+  timesSeen: number;
+  correctCount: number;
+  incorrectCount: number;
+  blankCount: number;
+  pendingReviewCount: number;
+  accuracy: number;
+};
+
+export type LearningInsights = {
+  categories: CategoryLearningInsight[];
+  strongestCategory: CategoryLearningInsight | null;
+  weakestCategory: CategoryLearningInsight | null;
+  totalSeen: number;
+  correctCount: number;
+  accuracy: number;
 };
 
 export type ErrorReviewItem = {

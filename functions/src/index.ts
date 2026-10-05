@@ -153,6 +153,7 @@ type StartOfficialExamInput = {
 
 type StartErrorReviewInput = {
   questionCount?: number;
+  categoryId?: string | null;
 };
 
 type StartCustomQuizInput = {
@@ -1353,9 +1354,43 @@ export const getErrorReview = onCall(async (request) => {
   };
 });
 
+export const getLearningInsights = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const userSnapshot = await db.collection("users").doc(uid).get();
+  if (!userSnapshot.exists) {
+    throw new HttpsError("failed-precondition", "Guest profile must be created first.");
+  }
+
+  const statsSnapshot = await db.collection("users").doc(uid)
+    .collection("questionStats")
+    .limit(1000)
+    .get();
+  const missingCategoryStats = statsSnapshot.docs.filter((stat) =>
+    !optionalString(stat.data().categoryId, "stored categoryId", 80),
+  );
+  const missingQuestions = await Promise.all(
+    missingCategoryStats.map((stat) => db.collection("questions").doc(stat.id).get()),
+  );
+  const fallbackCategories = new Map(
+    missingQuestions
+      .filter((question) => question.exists)
+      .map((question) => [question.id, (question.data() as QuestionDoc).categoryId]),
+  );
+
+  return learningInsights(
+    statsSnapshot.docs.map((stat) => ({
+      id: stat.id,
+      data: stat.data(),
+      categoryId: optionalString(stat.data().categoryId, "stored categoryId", 80) ??
+        fallbackCategories.get(stat.id) ?? null,
+    })),
+  );
+});
+
 export const startErrorReview = onCall<StartErrorReviewInput>(async (request) => {
   const uid = requireUid(request.auth?.uid);
   const questionCount = parseQuestionCount(request.data?.questionCount);
+  const categoryId = optionalString(request.data?.categoryId, "categoryId", 80) ?? null;
   const userSnapshot = await db.collection("users").doc(uid).get();
   if (!userSnapshot.exists) {
     throw new HttpsError("failed-precondition", "Guest profile must be created first.");
@@ -1365,6 +1400,7 @@ export const startErrorReview = onCall<StartErrorReviewInput>(async (request) =>
     uid,
     userSnapshot.data() ?? {},
     questionCount,
+    categoryId,
   );
   if (candidates.length === 0) {
     throw new HttpsError("not-found", "No questions need review.");
@@ -1660,6 +1696,7 @@ export const submitQuizSession = onCall<SubmitQuizInput>(async (request) => {
       const previous = snapshot.data() ?? {};
       transaction.set(statRefs[index], {
         questionId: attempt.question.id,
+        categoryId: attempt.question.categoryId,
         timesSeen: numberValue(previous.timesSeen) + 1,
         correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
         incorrectCount: numberValue(previous.incorrectCount) + (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
@@ -1957,11 +1994,13 @@ export const submitClassicDuel = onCall<SubmitClassicDuelInput>(async (request) 
       const previous = snapshot.data() ?? {};
       transaction.set(statRefs[index], {
         questionId: attempt.question.id,
+        categoryId: attempt.question.categoryId,
         timesSeen: numberValue(previous.timesSeen) + 1,
         correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
         incorrectCount: numberValue(previous.incorrectCount) +
           (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
         blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        needsReview: !attempt.isCorrect,
         lastAnswerId: attempt.selectedAnswerId,
         lastAnsweredAt: completedAt,
       }, {merge: true});
@@ -3320,11 +3359,13 @@ export const submitFriendDuel = onCall<SubmitFriendDuelInput>(async (request) =>
       const previous = snapshot.data() ?? {};
       transaction.set(statRefs[index], {
         questionId: attempt.question.id,
+        categoryId: attempt.question.categoryId,
         timesSeen: numberValue(previous.timesSeen) + 1,
         correctCount: numberValue(previous.correctCount) + (attempt.isCorrect ? 1 : 0),
         incorrectCount: numberValue(previous.incorrectCount) +
           (!attempt.isCorrect && !attempt.isBlank ? 1 : 0),
         blankCount: numberValue(previous.blankCount) + (attempt.isBlank ? 1 : 0),
+        needsReview: !attempt.isCorrect,
         lastAnswerId: attempt.selectedAnswerId,
         lastAnsweredAt: completedAt,
       }, {merge: true});
@@ -3647,6 +3688,7 @@ async function errorReviewCandidates(
   uid: string,
   user: Record<string, unknown>,
   limit: number,
+  categoryId: string | null = null,
 ): Promise<Array<{
   question: DocumentSnapshot;
   stat: DocumentSnapshot;
@@ -3668,6 +3710,7 @@ async function errorReviewCandidates(
       if (!question.exists) return false;
       const data = question.data() as QuestionDoc;
       return data.oppositionId === oppositionId &&
+        (categoryId === null || data.categoryId === categoryId) &&
         data.status === "published" &&
         data.verified === true &&
         data.territoryKeys.some((key) => allowedTerritoryKeys.has(key));
@@ -3682,6 +3725,7 @@ async function errorReviewCandidates(
 function serializeQuestionStat(id: string, data: Record<string, unknown>) {
   return {
     questionId: id,
+    categoryId: nullableStringValue(data.categoryId),
     timesSeen: numberValue(data.timesSeen),
     correctCount: numberValue(data.correctCount),
     incorrectCount: numberValue(data.incorrectCount),
@@ -3689,6 +3733,71 @@ function serializeQuestionStat(id: string, data: Record<string, unknown>) {
     needsReview: data.needsReview === true,
     lastAnswerId: nullableStringValue(data.lastAnswerId),
     lastAnsweredAt: timestampIso(data.lastAnsweredAt) ?? new Date(0).toISOString(),
+  };
+}
+
+function learningInsights(stats: Array<{
+  id: string;
+  data: Record<string, unknown>;
+  categoryId: string | null;
+}>) {
+  const categoryMap = new Map<string, {
+    categoryId: string;
+    timesSeen: number;
+    correctCount: number;
+    incorrectCount: number;
+    blankCount: number;
+    pendingReviewCount: number;
+    accuracy: number;
+  }>();
+
+  stats.forEach(({data, categoryId}) => {
+    const timesSeen = numberValue(data.timesSeen);
+    if (!categoryId || timesSeen <= 0) return;
+    const category = categoryMap.get(categoryId) ?? {
+      categoryId,
+      timesSeen: 0,
+      correctCount: 0,
+      incorrectCount: 0,
+      blankCount: 0,
+      pendingReviewCount: 0,
+      accuracy: 0,
+    };
+    category.timesSeen += timesSeen;
+    category.correctCount += numberValue(data.correctCount);
+    category.incorrectCount += numberValue(data.incorrectCount);
+    category.blankCount += numberValue(data.blankCount);
+    category.pendingReviewCount += data.needsReview === true ? 1 : 0;
+    categoryMap.set(categoryId, category);
+  });
+
+  const categories = [...categoryMap.values()].map((category) => ({
+    ...category,
+    accuracy: category.correctCount / category.timesSeen,
+  }));
+  const strongestCategory = [...categories].sort((first, second) =>
+    second.accuracy - first.accuracy || second.timesSeen - first.timesSeen ||
+    first.categoryId.localeCompare(second.categoryId),
+  )[0] ?? null;
+  const weakestCategory = [...categories].sort((first, second) =>
+    first.accuracy - second.accuracy ||
+    second.pendingReviewCount - first.pendingReviewCount ||
+    second.timesSeen - first.timesSeen || first.categoryId.localeCompare(second.categoryId),
+  )[0] ?? null;
+  const totalSeen = categories.reduce((total, category) => total + category.timesSeen, 0);
+  const correctCount = categories.reduce((total, category) => total + category.correctCount, 0);
+
+  return {
+    categories: categories.sort((first, second) =>
+      first.accuracy - second.accuracy ||
+      second.pendingReviewCount - first.pendingReviewCount ||
+      second.timesSeen - first.timesSeen || first.categoryId.localeCompare(second.categoryId),
+    ),
+    strongestCategory,
+    weakestCategory,
+    totalSeen,
+    correctCount,
+    accuracy: totalSeen === 0 ? 0 : correctCount / totalSeen,
   };
 }
 

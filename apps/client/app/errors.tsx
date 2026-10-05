@@ -1,15 +1,18 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
 import { useAppStore } from '@/features/app-state/useAppStore';
+import { questionCategoryLabel } from '@/features/quiz/data/categoryCatalog';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { ContentState } from '@/shared/components/ContentState';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 export default function ErrorsScreen() {
+  const params = useLocalSearchParams<{ category?: string }>();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(params.category ?? null);
   const errors = useAppStore((state) => state.errorReviewItems);
   const isLoading = useAppStore((state) => state.isLoadingErrorReview);
   const isStarting = useAppStore((state) => state.isStartingQuiz);
@@ -23,8 +26,20 @@ export default function ErrorsScreen() {
     }, [loadErrorReview]),
   );
 
+  const categories = useMemo(
+    () => [...new Set(errors.map(({ question }) => question.categoryId))]
+      .sort((first, second) => questionCategoryLabel(first).localeCompare(questionCategoryLabel(second))),
+    [errors],
+  );
+  const filteredErrors = useMemo(
+    () => selectedCategory
+      ? errors.filter(({ question }) => question.categoryId === selectedCategory)
+      : errors,
+    [errors, selectedCategory],
+  );
+
   const start = async () => {
-    if (await startErrorReview() > 0) {
+    if (await startErrorReview(selectedCategory) > 0) {
       router.push('/quiz');
       return;
     }
@@ -62,8 +77,44 @@ export default function ErrorsScreen() {
           <Text style={styles.emptyCopy}>Completa una partida y aquí aparecerán las preguntas que conviene repasar.</Text>
         </View>
       ) : (
-        <View style={styles.list}>
-          {errors.map(({ question, stat }) => {
+        <>
+          <View style={styles.filters}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedCategory === null }}
+              onPress={() => setSelectedCategory(null)}
+              style={[styles.filter, selectedCategory === null && styles.filterSelected]}
+            >
+              <Text style={[styles.filterText, selectedCategory === null && styles.filterTextSelected]}>
+                Todos ({errors.length})
+              </Text>
+            </Pressable>
+            {categories.map((categoryId) => {
+              const selected = selectedCategory === categoryId;
+              const count = errors.filter(({ question }) => question.categoryId === categoryId).length;
+              return (
+                <Pressable
+                  key={categoryId}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setSelectedCategory(categoryId)}
+                  style={[styles.filter, selected && styles.filterSelected]}
+                >
+                  <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                    {questionCategoryLabel(categoryId)} ({count})
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {filteredErrors.length === 0 ? (
+            <View style={styles.filteredEmpty}>
+              <MaterialCommunityIcons name="check-circle-outline" size={30} color={colors.success} />
+              <Text style={styles.filteredEmptyText}>No tienes errores pendientes en este tema.</Text>
+            </View>
+          ) : <View style={styles.list}>
+          {filteredErrors.map(({ question, stat }) => {
             return (
               <View key={question.id} style={styles.row}>
                 <View style={styles.countBox}>
@@ -72,19 +123,20 @@ export default function ErrorsScreen() {
                 </View>
                 <View style={styles.rowCopy}>
                   <Text numberOfLines={2} style={styles.question}>{question.statement}</Text>
-                  <Text style={styles.category}>{question.categoryId}</Text>
+                  <Text style={styles.category}>{questionCategoryLabel(question.categoryId)}</Text>
                 </View>
               </View>
             );
           })}
-        </View>
+          </View>}
+        </>
       )}
 
       <View style={styles.actions}>
         <PrimaryButton
           label="Empezar repaso"
           icon="refresh"
-          disabled={errors.length === 0}
+          disabled={filteredErrors.length === 0}
           loading={isStarting}
           onPress={() => void start()}
         />
@@ -103,6 +155,13 @@ const styles = StyleSheet.create({
   emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', marginTop: spacing.md },
   emptyCopy: { color: colors.muted, textAlign: 'center', fontSize: 14, lineHeight: 21, marginTop: spacing.sm },
   list: { gap: spacing.sm },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  filter: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 13, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, backgroundColor: colors.surface },
+  filterSelected: { borderColor: colors.brand, backgroundColor: colors.softBrand },
+  filterText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+  filterTextSelected: { color: colors.brand },
+  filteredEmpty: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  filteredEmptyText: { color: colors.muted, fontSize: 13, textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, ...shadows.card },
   countBox: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDECEC' },
   count: { color: colors.danger, fontSize: 17, fontWeight: '900' },

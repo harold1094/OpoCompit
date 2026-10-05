@@ -48,7 +48,9 @@ timer and scoring rules, blank answers, recoverable in-progress sessions, and se
 results. The emulator publishes only an explicit development demonstration; imported real exams
 remain out of play until an administrator reviews and publishes their questions.
 `Mis errores` is synchronized with server-owned question statistics. Incorrect and blank answers
-enter a bounded review queue, while a later correct answer marks that question as mastered.
+enter a bounded review queue, while a later correct answer marks that question as mastered. The
+queue can be filtered and started by category. Profile aggregates those trusted statistics into
+strongest and weakest topics, accuracy bars, and a direct weak-topic review action.
 The Home `Test` entry now creates server-filtered custom practices or timed simulations by question
 count, category, difficulty, territory scope, and personal history. Simulations support blanks,
 review navigation, a deadline, and server-authoritative `+1/-0.33/0` scoring.

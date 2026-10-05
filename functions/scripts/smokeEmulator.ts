@@ -1561,7 +1561,7 @@ async function main() {
   assert.equal(submittedExam.result.maximumPoints, seedQuestions.length);
 
   type ErrorReviewItem = {
-    question: {id: string; correctAnswerId?: string};
+    question: {id: string; categoryId: string; correctAnswerId?: string};
     stat: {needsReview: boolean};
   };
   const initialErrorReview = await call<{items: ErrorReviewItem[]}>(
@@ -1576,12 +1576,44 @@ async function main() {
     initialErrorReview.items.every((item) => item.question.correctAnswerId === undefined),
     true,
   );
+  const learningInsights = await call<{
+    categories: Array<{
+      categoryId: string;
+      timesSeen: number;
+      pendingReviewCount: number;
+      accuracy: number;
+    }>;
+    strongestCategory: {categoryId: string} | null;
+    weakestCategory: {categoryId: string} | null;
+    totalSeen: number;
+    correctCount: number;
+    accuracy: number;
+  }>("getLearningInsights", {}, examAuth.idToken);
+  assert.ok(learningInsights.categories.length > 1);
+  assert.ok(learningInsights.totalSeen >= seedQuestions.length);
+  assert.ok(learningInsights.correctCount > 0);
+  assert.ok(learningInsights.strongestCategory);
+  assert.ok(learningInsights.weakestCategory);
+  assert.equal(
+    learningInsights.categories.every((category) =>
+      category.timesSeen > 0 && category.accuracy >= 0 && category.accuracy <= 1,
+    ),
+    true,
+  );
 
+  const selectedReviewCategory = initialErrorReview.items[0].question.categoryId;
   const firstErrorReview = await call<{
     sessionId: string;
-    questions: Array<{id: string; correctAnswerId?: string}>;
-  }>("startErrorReview", {questionCount: 10}, examAuth.idToken);
-  assert.equal(firstErrorReview.questions.length, Math.min(10, initialErrorCount));
+    questions: Array<{id: string; categoryId: string; correctAnswerId?: string}>;
+  }>("startErrorReview", {
+    questionCount: 10,
+    categoryId: selectedReviewCategory,
+  }, examAuth.idToken);
+  assert.ok(firstErrorReview.questions.length > 0);
+  assert.equal(
+    firstErrorReview.questions.every((question) => question.categoryId === selectedReviewCategory),
+    true,
+  );
   assert.equal(firstErrorReview.questions.every(
     (question) => question.correctAnswerId === undefined,
   ), true);
@@ -1702,6 +1734,7 @@ async function main() {
     adminCatalogValidated: true,
     adminOperationsValidated: true,
     customQuizFlowValidated: true,
+    learningInsightsValidated: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,

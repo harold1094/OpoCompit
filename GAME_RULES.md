@@ -59,8 +59,11 @@ time expires. Custom practice keeps the immediate-advance interaction.
 
 - Incorrect and blank answers enter `Mis errores`.
 - The review session uses only published, verified questions compatible with the current profile.
+- Players can filter pending mistakes by category and start a review for only that topic.
 - Correct answers remove a question from the pending review list; another miss keeps it there.
 - Selection, correction, rewards, and mastery updates are validated by the server in Firebase mode.
+- Profile topic accuracy is `correctCount / timesSeen`; strongest and weakest topics are derived
+  from trusted per-question statistics, with pending reviews used to break ties between weak topics.
 
 ## XP
 

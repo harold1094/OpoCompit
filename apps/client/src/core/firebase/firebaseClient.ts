@@ -37,6 +37,7 @@ import {
   ErrorReviewItem,
   FriendDuelInvitation,
   FriendRequest,
+  LearningInsights,
   MatchmakingState,
   Mission,
   MonetizationOverview,
@@ -548,10 +549,22 @@ export async function getErrorReviewRemote(): Promise<ErrorReviewItem[]> {
   return (await invoke({})).data.items;
 }
 
-export async function startErrorReviewRemote(questionCount = 10): Promise<StartQuickQuizResponse> {
+export async function getLearningInsightsRemote(): Promise<LearningInsights> {
   await startAnonymousSession();
-  const invoke = callable<{ questionCount: number }, StartQuickQuizResponse>('startErrorReview');
-  return (await invoke({ questionCount })).data;
+  const invoke = callable<Record<string, never>, LearningInsights>('getLearningInsights');
+  return (await invoke({})).data;
+}
+
+export async function startErrorReviewRemote(
+  questionCount = 10,
+  categoryId: string | null = null,
+): Promise<StartQuickQuizResponse> {
+  await startAnonymousSession();
+  const invoke = callable<
+    { questionCount: number; categoryId: string | null },
+    StartQuickQuizResponse
+  >('startErrorReview');
+  return (await invoke({ questionCount, categoryId })).data;
 }
 
 export async function submitQuizSessionRemote(

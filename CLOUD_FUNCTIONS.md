@@ -68,7 +68,8 @@ review and are explicitly published.
 ## Error review callables
 
 - `getErrorReview`: returns a bounded list of unresolved mistakes compatible with the user's current opposition and territory.
-- `startErrorReview`: creates a normal server-owned quiz session from up to 25 unresolved mistakes and hides correct answers until submission.
+- `startErrorReview`: creates a normal server-owned quiz session from up to 25 unresolved mistakes, optionally filtered by category, and hides correct answers until submission.
+- `getLearningInsights`: aggregates bounded, server-owned question statistics by category and returns accuracy, pending review counts, and strongest and weakest topics.
 
 ## callable: `startClassicDuel`
 

@@ -10,6 +10,7 @@ const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   router: {},
   useFocusEffect: (callback: () => void) => callback(),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock('@expo/vector-icons', () => ({
@@ -54,6 +55,28 @@ describe('ErrorsScreen', () => {
           lastAnswerId: 'b',
           lastAnsweredAt: new Date().toISOString(),
         },
+      }, {
+        question: {
+          id: 'q2',
+          oppositionId: 'firefighters_es',
+          statement: 'Pregunta de legislacion pendiente',
+          answers: [{id: 'a', text: 'Respuesta'}],
+          categoryId: 'legislation',
+          difficulty: 1,
+          scopeType: 'national',
+          territoryKeys: ['ES'],
+          source: 'test',
+        },
+        stat: {
+          questionId: 'q2',
+          timesSeen: 1,
+          correctCount: 0,
+          incorrectCount: 1,
+          blankCount: 0,
+          needsReview: true,
+          lastAnswerId: 'b',
+          lastAnsweredAt: new Date().toISOString(),
+        },
       }],
       isLoadingErrorReview: false,
       isStartingQuiz: false,
@@ -73,9 +96,14 @@ describe('ErrorsScreen', () => {
     expect(loadErrorReview).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Pregunta pendiente de dominar')).toBeTruthy();
 
+    fireEvent.press(screen.getByText('Incendios (1)'));
+    await waitFor(() => {
+      expect(screen.queryByText('Pregunta de legislacion pendiente')).toBeNull();
+    });
+
     fireEvent.press(screen.getByText('Empezar repaso'));
     await waitFor(() => {
-      expect(startErrorReview).toHaveBeenCalledTimes(1);
+      expect(startErrorReview).toHaveBeenCalledWith('fires');
       expect(mockPush).toHaveBeenCalledWith('/quiz');
     });
   });

@@ -12,6 +12,7 @@ import {
   ErrorReviewItem,
   FriendDuelInvitation,
   FriendRequest,
+  LearningInsights,
   MatchmakingState,
   Mission,
   MonetizationOverview,
@@ -42,6 +43,7 @@ import {
   getAvatarShopRemote,
   getDailyEngagementRemote,
   getErrorReviewRemote,
+  getLearningInsightsRemote,
   getMatchmakingStatusRemote,
   getMonetizationOverviewRemote,
   getOfficialExamsRemote,
@@ -96,6 +98,7 @@ import {
   FIREFIGHTER_OPPOSITION_NAME,
 } from '@/features/onboarding/data/options';
 import { eligibleForCustomQuiz, eligibleForQuickMatch } from '@/features/quiz/domain/questionFilter';
+import { buildLearningInsights } from '@/features/quiz/domain/learningInsights';
 import {
   applyResult,
   BLANK_ANSWER_ID,
@@ -123,6 +126,7 @@ type AppStore = {
   selectedAnswers: Record<string, string | null>;
   questionStats: Record<string, UserQuestionStat>;
   errorReviewItems: ErrorReviewItem[];
+  learningInsights: LearningInsights | null;
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
@@ -146,6 +150,7 @@ type AppStore = {
   isStartingDuel: boolean;
   isLoadingOfficialExams: boolean;
   isLoadingErrorReview: boolean;
+  isLoadingLearningInsights: boolean;
   isSubmittingQuiz: boolean;
   isLoadingEngagement: boolean;
   isClaimingDailyReward: boolean;
@@ -153,6 +158,7 @@ type AppStore = {
   quizError: string | null;
   officialExamsError: string | null;
   errorReviewError: string | null;
+  learningInsightsError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -190,7 +196,8 @@ type AppStore = {
   startOfficialExam: (exam: OfficialExam) => Promise<number>;
   startClassicDuel: (opponent: DuelOpponent) => Promise<number>;
   loadErrorReview: () => Promise<void>;
-  startErrorReview: () => Promise<number>;
+  loadLearningInsights: () => Promise<void>;
+  startErrorReview: (categoryId?: string | null) => Promise<number>;
   answerQuestion: (questionId: string, answerId: string | null) => void;
   finishQuiz: () => Promise<QuizResult | null>;
   clearQuizError: () => void;
@@ -246,6 +253,7 @@ export const useAppStore = create<AppStore>()(
       selectedAnswers: {},
       questionStats: {},
       errorReviewItems: [],
+      learningInsights: null,
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
@@ -269,6 +277,7 @@ export const useAppStore = create<AppStore>()(
       isStartingDuel: false,
       isLoadingOfficialExams: false,
       isLoadingErrorReview: false,
+      isLoadingLearningInsights: false,
       isSubmittingQuiz: false,
       isLoadingEngagement: false,
       isClaimingDailyReward: false,
@@ -276,6 +285,7 @@ export const useAppStore = create<AppStore>()(
       quizError: null,
       officialExamsError: null,
       errorReviewError: null,
+      learningInsightsError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -538,6 +548,7 @@ export const useAppStore = create<AppStore>()(
           selectedAnswers: {},
           questionStats: {},
           errorReviewItems: [],
+          learningInsights: null,
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
@@ -559,6 +570,7 @@ export const useAppStore = create<AppStore>()(
           lastPendingFriendDuel: null,
           quizError: null,
           errorReviewError: null,
+          learningInsightsError: null,
           engagementError: null,
           socialError: null,
           groupsError: null,
@@ -817,19 +829,40 @@ export const useAppStore = create<AppStore>()(
           set({ isLoadingErrorReview: false });
         }
       },
-      startErrorReview: async () => {
+      loadLearningInsights: async () => {
+        const { backendMode, profile, questionStats } = get();
+        if (!profile) return;
+        set({ isLoadingLearningInsights: true, learningInsightsError: null });
+        try {
+          const learningInsights = backendMode === 'firebase'
+            ? await getLearningInsightsRemote()
+            : buildLearningInsights(seedQuestions, questionStats);
+          set({ learningInsights });
+        } catch (error) {
+          set({
+            ...connectionFailureState(error),
+            learningInsightsError: readableFirebaseError(error),
+          });
+        } finally {
+          set({ isLoadingLearningInsights: false });
+        }
+      },
+      startErrorReview: async (categoryId = null) => {
         const { profile, backendMode, errorReviewItems } = get();
-        if (!profile || errorReviewItems.length === 0) return 0;
+        const filteredItems = categoryId
+          ? errorReviewItems.filter((item) => item.question.categoryId === categoryId)
+          : errorReviewItems;
+        if (!profile || filteredItems.length === 0) return 0;
         set({ isStartingQuiz: true, quizError: null });
         try {
           let activeQuestions: Question[];
           let activeSessionId: string | null = null;
           if (backendMode === 'firebase') {
-            const remote = await startErrorReviewRemote(10);
+            const remote = await startErrorReviewRemote(10, categoryId);
             activeQuestions = remote.questions;
             activeSessionId = remote.sessionId;
           } else {
-            activeQuestions = errorReviewItems.slice(0, 10).map((item) => item.question);
+            activeQuestions = filteredItems.slice(0, 10).map((item) => item.question);
           }
           set({
             activeQuestions,
@@ -1976,6 +2009,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     selectedAnswers: {},
     questionStats: {},
     errorReviewItems: [],
+    learningInsights: null,
     dailyReward: null,
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
@@ -1998,6 +2032,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     quizError: null,
     officialExamsError: null,
     errorReviewError: null,
+    learningInsightsError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,
@@ -2106,6 +2141,7 @@ function applyQuestionStats(
     const previous = updated[attempt.question.id];
     updated[attempt.question.id] = {
       questionId: attempt.question.id,
+      categoryId: attempt.question.categoryId,
       timesSeen: (previous?.timesSeen ?? 0) + 1,
       correctCount: (previous?.correctCount ?? 0) + (attempt.isCorrect ? 1 : 0),
       incorrectCount:
