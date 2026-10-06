@@ -1,9 +1,11 @@
 import {initializeApp} from "firebase-admin/app";
+import {getAuth} from "firebase-admin/auth";
 import {createHash, randomBytes} from "node:crypto";
 import {env} from "node:process";
 import {
   DocumentReference,
   DocumentSnapshot,
+  Query,
   Timestamp,
   getFirestore,
 } from "firebase-admin/firestore";
@@ -91,6 +93,13 @@ import {
   StudyActivityTotals,
   StudyGroupCompetitionMetric,
 } from "./studyGroups.js";
+import {
+  defaultUserPreferences,
+  notificationAllowed,
+  parseUserPreferences,
+  parseUserPreferencesPatch,
+  UserPreferences,
+} from "./userPreferences.js";
 
 initializeApp();
 
@@ -251,6 +260,14 @@ type ReportQuestionInput = {
 type ResolveQuestionReportInput = {
   reportId: string;
   resolution: QuestionReportResolution;
+};
+
+type UpdateUserPreferencesInput = {
+  preferences: Partial<UserPreferences>;
+};
+
+type DeleteAccountInput = {
+  confirmation: string;
 };
 
 type GetRankingInput = {
@@ -990,6 +1007,7 @@ export const bootstrapGuestProfile = onCall<BootstrapGuestInput>(async (request)
       dailyRewardDay: 0,
       lastDailyRewardDate: null,
       avatarEquipped: defaultAvatarLoadout,
+      preferences: defaultUserPreferences,
       createdAt: now,
       updatedAt: now,
     };
@@ -1007,6 +1025,97 @@ export const getCurrentProfile = onCall(async (request) => {
     throw new HttpsError("not-found", "User profile missing.");
   }
   return {profile: serializeProfile(uid, snapshot.data() ?? {})};
+});
+
+export const getUserPreferences = onCall(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const snapshot = await db.collection("users").doc(uid).get();
+  if (!snapshot.exists) {
+    throw new HttpsError("not-found", "User profile missing.");
+  }
+  return {preferences: parseUserPreferences(snapshot.data()?.preferences)};
+});
+
+export const updateUserPreferences = onCall<UpdateUserPreferencesInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  const patch = parseUserPreferencesPatch(request.data?.preferences);
+  if (!patch) throw new HttpsError("invalid-argument", "Invalid preferences.");
+  const userRef = db.collection("users").doc(uid);
+  const preferences = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    if (!snapshot.exists) throw new HttpsError("not-found", "User profile missing.");
+    const updated = {...parseUserPreferences(snapshot.data()?.preferences), ...patch};
+    transaction.update(userRef, {preferences: updated, updatedAt: Timestamp.now()});
+    return updated;
+  });
+  return {preferences};
+});
+
+export const deleteCurrentAccount = onCall<DeleteAccountInput>(async (request) => {
+  const uid = requireUid(request.auth?.uid);
+  if (request.data?.confirmation !== "ELIMINAR") {
+    throw new HttpsError("invalid-argument", "Account deletion confirmation is invalid.");
+  }
+  const userRef = db.collection("users").doc(uid);
+  const userSnapshot = await userRef.get();
+  if (!userSnapshot.exists) throw new HttpsError("not-found", "User profile missing.");
+  const user = userSnapshot.data() ?? {};
+
+  const memberships = await db.collectionGroup("members")
+    .where("uid", "==", uid)
+    .limit(20)
+    .get();
+  for (const membership of memberships.docs) {
+    const groupId = stringValue(membership.data().groupId);
+    if (groupId) await removeDeletingAccountFromGroup(groupId, uid);
+  }
+
+  const [friendRequestsFrom, friendRequestsTo, invitationsFrom, invitationsTo, friendships] =
+    await Promise.all([
+      db.collection("friendRequests").where("fromUid", "==", uid).get(),
+      db.collection("friendRequests").where("toUid", "==", uid).get(),
+      db.collection("duelInvitations").where("fromUid", "==", uid).get(),
+      db.collection("duelInvitations").where("toUid", "==", uid).get(),
+      db.collection("friends").where("uids", "array-contains", uid).get(),
+    ]);
+  await deleteDocumentReferences([
+    ...friendRequestsFrom.docs,
+    ...friendRequestsTo.docs,
+    ...invitationsFrom.docs,
+    ...invitationsTo.docs,
+    ...friendships.docs,
+  ].map((document) => document.ref));
+
+  await Promise.all([
+    deleteQueryDocuments(db.collection("quizSessions").where("uid", "==", uid)),
+    deleteQueryDocuments(db.collection("currencyTransactions").where("uid", "==", uid)),
+    deleteQueryDocuments(db.collection("matchmakingEntries").where("uid", "==", uid)),
+    deleteQueryDocuments(db.collection("matchmakingEntries").where("opponent.uid", "==", uid)),
+    deleteQueryDocuments(db.collectionGroup("entries").where("uid", "==", uid)),
+    deleteSocialActivities(uid),
+    anonymizeDuels(uid),
+    anonymizeQuestionReports(uid),
+    anonymizeAuditField("questions", "createdBy", uid),
+    anonymizeAuditField("questions", "reviewedBy", uid),
+    anonymizeAuditField("questionImportBatches", "createdBy", uid),
+    anonymizeAuditField("questionReports", "resolvedBy", uid),
+  ]);
+
+  const storedUsernameKey = stringValue(user.usernameKey);
+  if (storedUsernameKey) {
+    const usernameRef = db.collection("usernames").doc(storedUsernameKey);
+    await db.runTransaction(async (transaction) => {
+      const reservation = await transaction.get(usernameRef);
+      if (reservation.data()?.uid === uid) transaction.delete(usernameRef);
+    });
+  }
+  await Promise.all([
+    db.collection("subscriptions").doc(uid).delete(),
+    db.collection("matchmakingEntries").doc(uid).delete(),
+  ]);
+  await db.recursiveDelete(userRef);
+  await getAuth().deleteUser(uid);
+  return {deleted: true};
 });
 
 export const getAchievements = onCall(async (request) => {
@@ -1145,9 +1254,10 @@ export const getNotifications = onCall(async (request) => {
     .orderBy("createdAt", "desc")
     .limit(50)
     .get();
-  const items = snapshot.docs.map((document) =>
-    serializeNotification(document.id, document.data()),
-  );
+  const preferences = parseUserPreferences(userSnapshot.data()?.preferences);
+  const items = snapshot.docs
+    .map((document) => serializeNotification(document.id, document.data()))
+    .filter((notification) => notificationAllowed(notification.type, preferences));
   return {
     items,
     unreadCount: items.filter((item) => item.readAt === null).length,
@@ -4694,6 +4804,153 @@ function serializeProgress(data: Record<string, unknown>) {
     lastValidActivityDate: data.lastValidActivityDate instanceof Timestamp ?
       data.lastValidActivityDate.toDate().toISOString() : null,
   };
+}
+
+async function removeDeletingAccountFromGroup(groupId: string, uid: string): Promise<void> {
+  const groupRef = db.collection("groups").doc(groupId);
+  const memberRef = groupRef.collection("members").doc(uid);
+  const candidateSnapshot = await groupRef.collection("members").limit(50).get();
+  const candidates = candidateSnapshot.docs.filter((document) => document.id !== uid);
+  const replacement = candidates.find((document) => document.data().role === "admin") ?? candidates[0];
+  const shouldDeleteGroup = await db.runTransaction(async (transaction) => {
+    const [groupSnapshot, membershipSnapshot] = await transaction.getAll(groupRef, memberRef);
+    if (!groupSnapshot.exists || !membershipSnapshot.exists) return false;
+    const group = groupSnapshot.data() ?? {};
+    const role = stringValue(membershipSnapshot.data()?.role);
+    const joinCode = stringValue(group.joinCode);
+    if (role === "owner" && !replacement) {
+      transaction.delete(memberRef);
+      if (joinCode) transaction.delete(db.collection("groupCodes").doc(joinCode));
+      transaction.delete(groupRef);
+      return true;
+    }
+
+    const now = Timestamp.now();
+    const competition = removeCompetitionMember(group.competition, uid);
+    if (role === "owner" && replacement) {
+      const replacementUid = replacement.id;
+      const adminUids = parseStringArray(group.adminUids).filter((id) => id !== uid);
+      transaction.update(replacement.ref, {role: "owner"});
+      transaction.update(groupRef, {
+        ownerUid: replacementUid,
+        adminUids: [...new Set([replacementUid, ...adminUids])],
+        memberCount: Math.max(0, numberValue(group.memberCount) - 1),
+        updatedAt: now,
+        ...(competition ? {
+          competition: competition.createdBy === uid ?
+            {...competition, createdBy: replacementUid} : competition,
+        } : {}),
+      });
+    } else {
+      transaction.update(groupRef, {
+        adminUids: parseStringArray(group.adminUids).filter((id) => id !== uid),
+        memberCount: Math.max(0, numberValue(group.memberCount) - 1),
+        updatedAt: now,
+        ...(competition ? {competition} : {}),
+      });
+    }
+    transaction.delete(memberRef);
+    return false;
+  });
+  if (shouldDeleteGroup) await db.recursiveDelete(groupRef);
+}
+
+async function deleteDocumentReferences(references: DocumentReference[]): Promise<void> {
+  const unique = [...new Map(references.map((reference) => [reference.path, reference])).values()];
+  for (let offset = 0; offset < unique.length; offset += 400) {
+    const batch = db.batch();
+    unique.slice(offset, offset + 400).forEach((reference) => batch.delete(reference));
+    await batch.commit();
+  }
+}
+
+async function deleteQueryDocuments(query: Query): Promise<void> {
+  while (true) {
+    const snapshot = await query.limit(250).get();
+    if (snapshot.empty) return;
+    await deleteDocumentReferences(snapshot.docs.map((document) => document.ref));
+  }
+}
+
+async function deleteSocialActivities(uid: string): Promise<void> {
+  while (true) {
+    const snapshot = await db.collection("socialActivities")
+      .where("actorUid", "==", uid)
+      .limit(100)
+      .get();
+    if (snapshot.empty) return;
+    for (const document of snapshot.docs) await db.recursiveDelete(document.ref);
+  }
+}
+
+async function anonymizeDuels(uid: string): Promise<void> {
+  while (true) {
+    const snapshot = await db.collection("duels")
+      .where("participantUids", "array-contains", uid)
+      .limit(200)
+      .get();
+    if (snapshot.empty) return;
+    const batch = db.batch();
+    snapshot.docs.forEach((document) => {
+      const data = document.data();
+      const replacementUid = `deleted:${document.id}`;
+      const replaceUid = (value: unknown) => value === uid ? replacementUid : value;
+      const anonymizeEntries = (value: unknown) => Array.isArray(value) ? value.map((entry) => {
+        if (typeof entry !== "object" || entry === null) return entry;
+        const item = entry as Record<string, unknown>;
+        return item.uid === uid ? {...item, uid: replacementUid} : item;
+      }) : value;
+      const players = Array.isArray(data.players) ? data.players.map((entry) => {
+        if (typeof entry !== "object" || entry === null) return entry;
+        const player = entry as Record<string, unknown>;
+        return player.uid === uid ? {
+          ...player,
+          uid: replacementUid,
+          username: "Usuario eliminado",
+          territoryLabel: "",
+        } : player;
+      }) : data.players;
+      batch.update(document.ref, {
+        participantUids: Array.isArray(data.participantUids) ?
+          data.participantUids.map(replaceUid) : [],
+        players,
+        starts: anonymizeEntries(data.starts),
+        submissions: anonymizeEntries(data.submissions),
+      });
+    });
+    await batch.commit();
+  }
+}
+
+async function anonymizeQuestionReports(uid: string): Promise<void> {
+  while (true) {
+    const snapshot = await db.collection("questionReports")
+      .where("reporterUid", "==", uid)
+      .limit(250)
+      .get();
+    if (snapshot.empty) return;
+    const batch = db.batch();
+    snapshot.docs.forEach((document) => batch.update(document.ref, {
+      reporterUid: "deleted",
+      detail: null,
+      updatedAt: Timestamp.now(),
+    }));
+    await batch.commit();
+  }
+}
+
+async function anonymizeAuditField(
+  collectionName: string,
+  field: string,
+  uid: string,
+): Promise<void> {
+  while (true) {
+    const snapshot = await db.collection(collectionName).where(field, "==", uid).limit(250).get();
+    if (snapshot.empty) return;
+    const batch = db.batch();
+    snapshot.docs.forEach((document) => batch.update(document.ref, {[field]: "deleted"}));
+    await batch.commit();
+  }
 }
 
 function notificationDocument(

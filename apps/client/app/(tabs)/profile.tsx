@@ -257,6 +257,21 @@ export default function ProfileScreen() {
 
       <Pressable
         accessibilityRole="button"
+        onPress={() => router.push('/settings')}
+        style={({ pressed }) => [styles.adminLink, pressed && styles.adminLinkPressed]}
+      >
+        <View style={styles.settingsIcon}>
+          <MaterialCommunityIcons name="cog-outline" size={22} color={colors.ink} />
+        </View>
+        <View style={styles.adminCopy}>
+          <Text style={styles.adminTitle}>Ajustes y privacidad</Text>
+          <Text style={styles.adminText}>Avisos, vibración, analítica y tus datos</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
         onPress={() => router.push('/account')}
         style={({ pressed }) => [styles.accountNote, pressed && styles.adminLinkPressed]}
       >
@@ -333,6 +348,7 @@ const styles = StyleSheet.create({
   adminLink: { minHeight: 68, marginTop: spacing.lg, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadows.card },
   adminLinkPressed: { opacity: 0.78 },
   adminIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softBrand },
+  settingsIcon: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.field },
   adminCopy: { flex: 1 },
   adminTitle: { color: colors.ink, fontSize: 13, fontWeight: '900' },
   adminText: { color: colors.muted, fontSize: 11, marginTop: 3 },

@@ -21,10 +21,12 @@
 - [x] Add server-authoritative achievements with idempotent rewards and profile progress.
 - [x] Add a private in-app notification inbox for social, duel, and achievement events.
 - [x] Add user question reports, admin resolution, and current-versus-historical validity handling.
+- [x] Add persistent privacy, haptic, analytics-consent, and in-app notification preferences.
+- [x] Add confirmed account and private-data deletion with shared-group ownership transfer.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.
-- [ ] Prepare privacy policy, terms, data deletion, and support contact.
+- [ ] Prepare and review the privacy policy, terms, and support contact.
 
 ## Production infrastructure
 

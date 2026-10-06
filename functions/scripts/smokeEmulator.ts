@@ -1903,6 +1903,110 @@ async function main() {
     true,
   );
 
+  const deletionOwner = await createAnonymousAuth();
+  const deletionSurvivor = await createAnonymousAuth();
+  for (const account of [deletionOwner, deletionSurvivor]) {
+    await call(
+      "bootstrapGuestProfile",
+      {
+        oppositionId: "firefighters_es",
+        oppositionName: "Bomberos",
+        territory: {
+          label: "Bomberos Cartagena",
+          country: "ES",
+          autonomousCommunity: "Murcia",
+          province: "Murcia",
+          municipality: "Cartagena",
+        },
+      },
+      account.idToken,
+    );
+  }
+  const defaultPreferences = await call<{
+    preferences: {analyticsEnabled: boolean; hapticsEnabled: boolean};
+  }>("getUserPreferences", {}, deletionOwner.idToken);
+  assert.equal(defaultPreferences.preferences.analyticsEnabled, false);
+  assert.equal(defaultPreferences.preferences.hapticsEnabled, true);
+  const updatedPreferences = await call<{
+    preferences: {analyticsEnabled: boolean; hapticsEnabled: boolean};
+  }>(
+    "updateUserPreferences",
+    {preferences: {analyticsEnabled: true, hapticsEnabled: false}},
+    deletionOwner.idToken,
+  );
+  assert.equal(updatedPreferences.preferences.analyticsEnabled, true);
+  assert.equal(updatedPreferences.preferences.hapticsEnabled, false);
+  await call("setPublicUsername", {username: "DeleteOwner"}, deletionOwner.idToken);
+  await call("setPublicUsername", {username: "KeepMember"}, deletionSurvivor.idToken);
+  await call(
+    "updateUserPreferences",
+    {preferences: {socialNotificationsEnabled: false}},
+    deletionSurvivor.idToken,
+  );
+  const deletionGroup = await call<{
+    group: {id: string; joinCode: string; viewerRole: string};
+  }>("createStudyGroup", {name: "Grupo que continúa"}, deletionOwner.idToken);
+  await call(
+    "joinStudyGroup",
+    {code: deletionGroup.group.joinCode},
+    deletionSurvivor.idToken,
+  );
+  await call(
+    "sendFriendRequest",
+    {targetUid: deletionSurvivor.localId},
+    deletionOwner.idToken,
+  );
+  const filteredNotifications = await call<{
+    items: Array<{type: string}>;
+  }>("getNotifications", {}, deletionSurvivor.idToken);
+  assert.equal(
+    filteredNotifications.items.some((notification) => notification.type === "friend_request"),
+    false,
+  );
+  const linkedDeletionOwner = await linkEmailAuth(
+    deletionOwner.idToken,
+    "delete-owner@opocompit.test",
+    "Delete123!",
+  );
+  await call("completeAccountLink", {}, linkedDeletionOwner.idToken);
+  let invalidDeletionConfirmationBlocked = false;
+  try {
+    await call("deleteCurrentAccount", {confirmation: "BORRAR"}, linkedDeletionOwner.idToken);
+  } catch (error) {
+    invalidDeletionConfirmationBlocked = error instanceof Error &&
+      error.message.includes("INVALID_ARGUMENT");
+  }
+  assert.equal(invalidDeletionConfirmationBlocked, true);
+  await call("deleteCurrentAccount", {confirmation: "ELIMINAR"}, linkedDeletionOwner.idToken);
+
+  const deletedProfileRead = await firestoreRequest(
+    `users/${deletionOwner.localId}`,
+    auth.idToken,
+  );
+  assert.equal(deletedProfileRead.status, 404);
+  let deletedLoginBlocked = false;
+  try {
+    await signInEmailAuth("delete-owner@opocompit.test", "Delete123!");
+  } catch {
+    deletedLoginBlocked = true;
+  }
+  assert.equal(deletedLoginBlocked, true);
+  const survivingGroup = await call<{
+    group: {viewerRole: string; memberCount: number; members: Array<{uid: string}>};
+  }>("getStudyGroup", {groupId: deletionGroup.group.id}, deletionSurvivor.idToken);
+  assert.equal(survivingGroup.group.viewerRole, "owner");
+  assert.equal(survivingGroup.group.memberCount, 1);
+  assert.deepEqual(
+    survivingGroup.group.members.map((member) => member.uid),
+    [deletionSurvivor.localId],
+  );
+  const survivingSocial = await call<SocialOverview>(
+    "getSocialOverview",
+    {},
+    deletionSurvivor.idToken,
+  );
+  assert.equal(survivingSocial.incomingRequests.length, 0);
+
   console.log(JSON.stringify({
     uid: auth.localId,
     quizzesCompleted: 4,
@@ -1945,6 +2049,14 @@ async function main() {
     questionReportsValidated: true,
     reportDeduplicationValidated: true,
     historicalQuestionValidityValidated: true,
+    userPreferencesValidated: true,
+    analyticsConsentDefaultValidated: true,
+    disabledNotificationCategoryFiltered: true,
+    invalidDeletionConfirmationBlocked,
+    accountDeletionValidated: true,
+    deletedAuthenticationBlocked: true,
+    deletedOwnerGroupTransferred: true,
+    deletedSocialRelationshipsRemoved: true,
     officialExamFlowValidated: true,
     errorReviewFlowValidated: true,
     runtimeConfigurationValidated: true,

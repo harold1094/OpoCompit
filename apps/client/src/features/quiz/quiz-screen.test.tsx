@@ -80,6 +80,7 @@ describe('QuizScreen automatic progression', () => {
       activeOfficialExam: null,
       activeStartedAt: Date.now(),
       activeDuelOpponent: null,
+      preferences: {hapticsEnabled: true},
       quizError: null,
     };
     const store = useAppStore as unknown as jest.Mock & { getState: jest.Mock };
@@ -110,5 +111,18 @@ describe('QuizScreen automatic progression', () => {
       expect(finishQuiz).toHaveBeenCalledTimes(1);
       expect(mockReplace).toHaveBeenCalledWith('/results');
     });
+  });
+
+  it('does not vibrate when haptics are disabled', async () => {
+    const store = useAppStore as unknown as jest.Mock & { getState: jest.Mock };
+    const state = store.getState();
+    store.mockImplementation((selector: (value: typeof state) => unknown) => selector({
+      ...state,
+      preferences: {hapticsEnabled: false},
+    }));
+
+    const screen = await render(<QuizScreen />);
+    await fireEvent.press(screen.getByText('Primera respuesta'));
+    expect(mockSelectionAsync).not.toHaveBeenCalled();
   });
 });

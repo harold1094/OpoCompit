@@ -57,6 +57,7 @@ import {
   StudyGroup,
   StudyGroupCompetitionMetric,
   StudyGroupDetail,
+  UserPreferences,
 } from '@/core/domain/types';
 
 const firebaseEnabled = process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'true';
@@ -533,6 +534,33 @@ export async function signOutAccountRemote(): Promise<void> {
   const app = firebaseApp();
   if (!app) return;
   await signOut(firebaseAuth(app));
+}
+
+export async function getUserPreferencesRemote(): Promise<UserPreferences> {
+  await startAnonymousSession();
+  const invoke = callable<Record<string, never>, {preferences: UserPreferences}>('getUserPreferences');
+  return (await invoke({})).data.preferences;
+}
+
+export async function updateUserPreferencesRemote(
+  preferences: Partial<UserPreferences>,
+): Promise<UserPreferences> {
+  await startAnonymousSession();
+  const invoke = callable<
+    {preferences: Partial<UserPreferences>},
+    {preferences: UserPreferences}
+  >('updateUserPreferences');
+  return (await invoke({preferences})).data.preferences;
+}
+
+export async function deleteCurrentAccountRemote(): Promise<void> {
+  const app = firebaseApp();
+  if (!app) throw new Error('Firebase is disabled.');
+  const auth = firebaseAuth(app);
+  if (!auth.currentUser) throw new Error('No hay una sesión activa.');
+  const invoke = callable<{confirmation: string}, {deleted: boolean}>('deleteCurrentAccount');
+  await invoke({confirmation: 'ELIMINAR'});
+  await signOut(auth).catch(() => undefined);
 }
 
 export async function getAvatarShopRemote(): Promise<AvatarInventory> {

@@ -47,6 +47,13 @@ The schema is designed around cheap reads, server-authoritative writes, territor
     "badge": "badge_none",
     "effect": "effect_none"
   },
+  "preferences": {
+    "hapticsEnabled": true,
+    "analyticsEnabled": false,
+    "achievementNotificationsEnabled": true,
+    "socialNotificationsEnabled": true,
+    "duelNotificationsEnabled": true
+  },
   "createdAt": "serverTimestamp",
   "updatedAt": "serverTimestamp"
 }
@@ -83,6 +90,13 @@ Internal notifications live in `users/{uid}/notifications/{notificationId}`. The
 type, title, body, safe in-app route, related entity, creation timestamp, and nullable read timestamp.
 Social and achievement transactions create deterministic notification IDs so retries cannot duplicate
 an alert. Clients can read their own inbox but only callable Functions can create or mark notices.
+`getNotifications` applies the user's category preferences before returning the inbox. Analytics
+consent defaults to disabled and is stored with the remaining server-owned preferences.
+
+`deleteCurrentAccount` removes the private user tree, sessions, economy records, subscriptions,
+username reservation, matchmaking state, friendships, requests, invitations, and Auth identity.
+It anonymizes retained duel and moderation history. Study groups survive by transferring ownership
+to another member; owner-only groups and their private code are removed recursively.
 
 ## oppositions/{oppositionId}
 

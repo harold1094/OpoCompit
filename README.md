@@ -23,7 +23,7 @@ For Android, install Expo Go or use an Android emulator, then run `npm run andro
 The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, missions, training and asynchronous friend duels, compatible real-player matchmaking, Elo, global/territorial/friends rankings, usernames, friendships, and private study groups.
 
 Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
-Firebase Analytics is also opt-in and disabled in emulator sessions. The web adapter records only
+Firebase Analytics is also opt-in, requires explicit consent in Ajustes, and is disabled in emulator sessions. The web adapter records only
 bounded product metrics, without names, emails, user IDs, tokens, or selected answers. Native
 analytics remains disabled until the Android production build is configured.
 
@@ -57,6 +57,9 @@ The Home bell opens a private internal inbox for social requests, duel updates, 
 unlocks. Notices are created by Functions, deduplicated by event, and can be read individually or all at once.
 Completed quiz results let players report incorrect or outdated questions. Administrators receive a
 private review queue and can retire content from current training without breaking historical exams.
+Profile now opens Ajustes for persistent vibration, notification-category, and analytics controls.
+Users can also permanently delete their account and private data after typing an explicit
+confirmation; shared groups transfer to another member instead of disappearing.
 The Home `Test` entry now creates server-filtered custom practices or timed simulations by question
 count, category, difficulty, territory scope, and personal history. Simulations support blanks,
 review navigation, a deadline, and server-authoritative `+1/-0.33/0` scoring.
@@ -118,5 +121,6 @@ Functions emulator.
 9. Open `Premium` to inspect the current free entitlement and backend-configured future plan.
 10. Open `Cuenta` from Profile to link an email/password account, sign out, and recover the same progress.
 11. Open `Examen`, start the local demonstration, navigate between questions, leave answers blank, and submit it to inspect the official score.
+12. Open `Ajustes y privacidad` from Profile to change preferences or test the protected account-deletion flow.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

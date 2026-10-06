@@ -11,6 +11,7 @@ import {
   AnalyticsParameters,
   sanitizeAnalyticsParameters,
 } from './analyticsPayload';
+import { hasAnalyticsConsent } from './analyticsConsent';
 
 const analyticsEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED === 'true';
 let analyticsPromise: Promise<import('firebase/analytics').Analytics | null> | null = null;
@@ -18,6 +19,7 @@ let analyticsPromise: Promise<import('firebase/analytics').Analytics | null> | n
 function canUseAnalytics(): boolean {
   const measurementId = process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID;
   return analyticsEnabled &&
+    hasAnalyticsConsent() &&
     Platform.OS === 'web' &&
     isFirebaseEnabled() &&
     !isUsingFirebaseEmulators() &&

@@ -79,11 +79,21 @@ rewards exactly once. The response includes the complete progress catalog and up
 
 ## Notification callables
 
-- `getNotifications`: returns the newest 50 private in-app notices and a bounded unread count.
+- `getNotifications`: returns the newest 50 enabled private in-app notices and a bounded unread count.
 - `markNotificationsRead`: marks up to 50 owned notification IDs as read.
 
 Friend requests, accepted friendships, duel invitations, accepted challenges, completed duels, and
 achievement unlocks create deterministic notices inside the same trusted transaction as their event.
+
+## Preferences and account privacy callables
+
+- `getUserPreferences`: returns privacy-safe defaults merged with the user's stored controls.
+- `updateUserPreferences`: accepts only known boolean settings and persists a partial update.
+- `deleteCurrentAccount`: requires the exact `ELIMINAR` confirmation, removes private account data
+  and Firebase Auth, anonymizes retained shared history, and transfers non-empty owned groups.
+
+The client keeps vibration local behavior in sync with these settings. Analytics is disabled until
+the user explicitly opts in, and notification categories are filtered on the server.
 
 ## callable: `startClassicDuel`
 
@@ -151,7 +161,8 @@ sets. Direct reads of `socialActivities` are denied so the server always enforce
 Users must have a public username and may belong to at most 10 groups. A group supports at most 50
 members. Group documents, memberships, and code reservations reject every direct client read and
 write so that callable Functions always enforce membership privacy. Owners cannot leave a non-empty
-group until ownership transfer is implemented.
+group through the normal leave action. Account deletion transfers ownership automatically so the
+remaining members do not lose their group.
 
 `scoreStudyGroupActivity` reacts only to server-validated quiz and duel activity. It applies the
 trusted delta to each active group competition and writes a deterministic application marker, so a

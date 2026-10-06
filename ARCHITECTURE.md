@@ -44,6 +44,7 @@ functions/             # trusted Firebase backend
 - `avatar`: local visual catalog, modular preview, owned inventory, and server-authoritative purchases/equipment.
 - `premium`: server-configured plans, trusted entitlements, gem benefits, and interruption-safe ad policy.
 - `groups`: private memberships, join codes, live member XP ranking, and bounded temporary competitions through callable Functions and an idempotent activity trigger.
+- `settings`: persisted experience/privacy controls and confirmed account-data deletion.
 - `admin`: import format and question management surface, initially documented and scaffold-ready.
 
 ## Client Vs Server Responsibility
@@ -63,6 +64,7 @@ Server must:
 - Validate purchases, subscriptions, premium status, and inventory.
 - Keep billing products and ad-provider availability disabled until verified production integrations exist.
 - Maintain anti-cheat transaction logs.
+- Enforce preference validation, account-data cleanup, shared-history anonymization, and group ownership transfer.
 
 ## Vertical Slice Flow
 

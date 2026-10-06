@@ -39,6 +39,7 @@ export default function GroupsScreen() {
   const openGroup = useAppStore((state) => state.openStudyGroup);
   const createCompetition = useAppStore((state) => state.createStudyGroupCompetition);
   const leaveGroup = useAppStore((state) => state.leaveStudyGroup);
+  const hapticsEnabled = useAppStore((state) => state.preferences?.hapticsEnabled ?? true);
   const [form, setForm] = useState<GroupForm>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -62,7 +63,7 @@ export default function GroupsScreen() {
     setName('');
     setForm(null);
     await openGroup(group.id);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const submitJoin = async () => {
@@ -71,7 +72,7 @@ export default function GroupsScreen() {
     setCode('');
     setForm(null);
     await openGroup(group.id);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const confirmLeave = () => {
@@ -89,7 +90,9 @@ export default function GroupsScreen() {
           style: 'destructive',
           onPress: async () => {
             if (await leaveGroup(activeGroup.id)) {
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              if (hapticsEnabled) {
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
             }
           },
         },
@@ -108,7 +111,7 @@ export default function GroupsScreen() {
     if (!created) return;
     setCompetitionFormOpen(false);
     setCompetitionName('Reto del grupo');
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   if (activeGroup) {

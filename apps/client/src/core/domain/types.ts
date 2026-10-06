@@ -151,6 +151,14 @@ export type NotificationOverview = {
   unreadCount: number;
 };
 
+export type UserPreferences = {
+  hapticsEnabled: boolean;
+  analyticsEnabled: boolean;
+  achievementNotificationsEnabled: boolean;
+  socialNotificationsEnabled: boolean;
+  duelNotificationsEnabled: boolean;
+};
+
 export type AvatarItemCategory =
   | 'avatars'
   | 'clothing'

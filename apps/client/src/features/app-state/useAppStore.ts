@@ -32,9 +32,11 @@ import {
   StudyGroupCompetitionMetric,
   StudyGroupDetail,
   TerritorySelection,
+  UserPreferences,
   UserQuestionStat,
 } from '@/core/domain/types';
 import { trackEvent } from '@/core/analytics/analytics';
+import { setAnalyticsConsent } from '@/core/analytics/analyticsConsent';
 import {
   bootstrapGuestProfile,
   claimDailyRewardRemote,
@@ -42,6 +44,7 @@ import {
   createStudyGroupRemote,
   createStudyGroupCompetitionRemote,
   equipAvatarItemRemote,
+  deleteCurrentAccountRemote,
   getAvatarShopRemote,
   getAchievementsRemote,
   getDailyEngagementRemote,
@@ -55,6 +58,7 @@ import {
   getSocialOverviewRemote,
   getStudyGroupRemote,
   getStudyGroupsRemote,
+  getUserPreferencesRemote,
   isFirebaseEnabled,
   joinMatchmakingRemote,
   joinStudyGroupRemote,
@@ -87,6 +91,7 @@ import {
   submitFriendDuelRemote,
   submitClassicDuelRemote,
   submitQuizSessionRemote,
+  updateUserPreferencesRemote,
 } from '@/core/firebase/firebaseClient';
 import {firebaseFailureKind} from '@/core/firebase/firebaseError';
 import {
@@ -113,6 +118,10 @@ import {
 import { seedQuestions } from '@/features/quiz/data/seedQuestions';
 import { duelOutcome, localOpponentPerformance } from '@/features/duels/domain/duel';
 import { localSocialUsers } from '@/features/social/data/localSocialUsers';
+import {
+  defaultUserPreferences,
+  mergeUserPreferences,
+} from '@/features/settings/domain/preferences';
 
 type BackendMode = 'local' | 'firebase';
 type ActiveGameMode = 'quick' | 'custom-practice' | 'simulation' | 'error-review' | 'official-exam' | 'duel' | 'friend-duel' | 'matchmaking-duel';
@@ -135,6 +144,7 @@ type AppStore = {
   learningInsights: LearningInsights | null;
   achievementOverview: AchievementOverview | null;
   notificationOverview: NotificationOverview;
+  preferences: UserPreferences;
   dailyReward: DailyReward | null;
   missions: Mission[];
   avatarInventory: AvatarInventory;
@@ -171,6 +181,7 @@ type AppStore = {
   learningInsightsError: string | null;
   achievementsError: string | null;
   notificationsError: string | null;
+  preferencesError: string | null;
   engagementError: string | null;
   avatarActionId: string | null;
   avatarError: string | null;
@@ -187,6 +198,8 @@ type AppStore = {
   groupsError: string | null;
   rankingError: string | null;
   isAccountLoading: boolean;
+  isLoadingPreferences: boolean;
+  isSavingPreferences: boolean;
   accountError: string | null;
   connectionStatus: ConnectionStatus;
   connectionMessage: string | null;
@@ -200,6 +213,9 @@ type AppStore = {
   signInGoogleAccount: () => Promise<boolean>;
   sendAccountPasswordReset: (email: string) => Promise<boolean>;
   signOutAccount: () => Promise<boolean>;
+  loadPreferences: () => Promise<void>;
+  updatePreferences: (patch: Partial<UserPreferences>) => Promise<boolean>;
+  deleteAccount: () => Promise<boolean>;
   clearAccountError: () => void;
   startGuest: (territory: TerritorySelection) => Promise<void>;
   startQuickMatch: () => Promise<number>;
@@ -271,6 +287,7 @@ export const useAppStore = create<AppStore>()(
       learningInsights: null,
       achievementOverview: null,
       notificationOverview: {items: [], unreadCount: 0},
+      preferences: defaultUserPreferences,
       dailyReward: null,
       missions: [],
       avatarInventory: defaultAvatarInventory(),
@@ -307,6 +324,7 @@ export const useAppStore = create<AppStore>()(
       learningInsightsError: null,
       achievementsError: null,
       notificationsError: null,
+      preferencesError: null,
       engagementError: null,
       avatarActionId: null,
       avatarError: null,
@@ -323,6 +341,8 @@ export const useAppStore = create<AppStore>()(
       groupsError: null,
       rankingError: null,
       isAccountLoading: false,
+      isLoadingPreferences: false,
+      isSavingPreferences: false,
       accountError: null,
       connectionStatus: 'idle',
       connectionMessage: null,
@@ -381,8 +401,11 @@ export const useAppStore = create<AppStore>()(
         });
         try {
           const profile = await restoreFirebaseSessionRemote();
+          const preferences = await getUserPreferencesRemote().catch(() => state.preferences);
+          setAnalyticsConsent(preferences.analyticsEnabled);
           set({
             profile,
+            preferences,
             connectionStatus: 'connected',
             connectionMessage: null,
             lastSyncedAt: Date.now(),
@@ -457,8 +480,11 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await signInEmailAccountRemote(email, password);
+          const preferences = await getUserPreferencesRemote().catch(() => defaultUserPreferences);
+          setAnalyticsConsent(preferences.analyticsEnabled);
           set({
             ...authenticatedSessionState(profile),
+            preferences,
             connectionStatus: 'connected',
             connectionMessage: null,
             lastSyncedAt: Date.now(),
@@ -481,8 +507,11 @@ export const useAppStore = create<AppStore>()(
         set({ isAccountLoading: true, accountError: null });
         try {
           const profile = await signInGoogleAccountRemote();
+          const preferences = await getUserPreferencesRemote().catch(() => defaultUserPreferences);
+          setAnalyticsConsent(preferences.analyticsEnabled);
           set({
             ...authenticatedSessionState(profile),
+            preferences,
             connectionStatus: 'connected',
             connectionMessage: null,
             lastSyncedAt: Date.now(),
@@ -521,6 +550,7 @@ export const useAppStore = create<AppStore>()(
             connectionStatus: 'connected',
             connectionMessage: null,
           });
+          setAnalyticsConsent(false);
           return true;
         } catch (error) {
           set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
@@ -529,8 +559,74 @@ export const useAppStore = create<AppStore>()(
           set({ isAccountLoading: false });
         }
       },
+      loadPreferences: async () => {
+        const state = get();
+        if (state.backendMode !== 'firebase' || !state.profile || state.isLoadingPreferences) return;
+        set({isLoadingPreferences: true, preferencesError: null});
+        try {
+          const preferences = await getUserPreferencesRemote();
+          setAnalyticsConsent(preferences.analyticsEnabled);
+          set({preferences});
+        } catch (error) {
+          set({...connectionFailureState(error), preferencesError: readableFirebaseError(error)});
+        } finally {
+          set({isLoadingPreferences: false});
+        }
+      },
+      updatePreferences: async (patch) => {
+        const state = get();
+        if (state.isSavingPreferences) return false;
+        const previous = state.preferences;
+        const optimistic = mergeUserPreferences(previous, patch);
+        setAnalyticsConsent(optimistic.analyticsEnabled);
+        set({preferences: optimistic, isSavingPreferences: true, preferencesError: null});
+        try {
+          if (state.backendMode === 'firebase' && state.profile) {
+            const preferences = await updateUserPreferencesRemote(patch);
+            setAnalyticsConsent(preferences.analyticsEnabled);
+            set({preferences, lastSyncedAt: Date.now()});
+          }
+          return true;
+        } catch (error) {
+          setAnalyticsConsent(previous.analyticsEnabled);
+          set({
+            ...connectionFailureState(error),
+            preferences: previous,
+            preferencesError: readableFirebaseError(error),
+          });
+          return false;
+        } finally {
+          set({isSavingPreferences: false});
+        }
+      },
+      deleteAccount: async () => {
+        const state = get();
+        if (!state.profile || state.isAccountLoading) {
+          set({accountError: 'No hay una cuenta activa que eliminar.'});
+          return false;
+        }
+        set({isAccountLoading: true, accountError: null});
+        try {
+          if (state.backendMode === 'firebase') await deleteCurrentAccountRemote();
+          setAnalyticsConsent(false);
+          set({
+            ...authenticatedSessionState(null),
+            preferences: defaultUserPreferences,
+            connectionStatus: 'connected',
+            connectionMessage: null,
+            lastSyncedAt: null,
+          });
+          return true;
+        } catch (error) {
+          set({...connectionFailureState(error), accountError: readableFirebaseError(error)});
+          return false;
+        } finally {
+          set({isAccountLoading: false});
+        }
+      },
       clearAccountError: () => set({ accountError: null }),
       startGuest: async (territory) => {
+        setAnalyticsConsent(false);
         let backendMode: BackendMode = 'local';
         let uid = 'local_guest';
 
@@ -572,6 +668,7 @@ export const useAppStore = create<AppStore>()(
           learningInsights: null,
           achievementOverview: null,
           notificationOverview: {items: [], unreadCount: 0},
+          preferences: defaultUserPreferences,
           dailyReward: engagement.dailyReward,
           missions: engagement.missions,
           avatarInventory: defaultAvatarInventory(profile.coins, profile.gems),
@@ -596,6 +693,7 @@ export const useAppStore = create<AppStore>()(
           learningInsightsError: null,
           achievementsError: null,
           notificationsError: null,
+          preferencesError: null,
           engagementError: null,
           socialError: null,
           groupsError: null,
@@ -2054,8 +2152,12 @@ export const useAppStore = create<AppStore>()(
         duelInvitations: state.duelInvitations,
         matchmaking: state.matchmaking,
         rankingScope: state.rankingScope,
+        preferences: state.preferences,
       }),
-      onRehydrateStorage: () => (state) => state?.setHydrated(true),
+      onRehydrateStorage: () => (state) => {
+        setAnalyticsConsent(state?.preferences.analyticsEnabled ?? false);
+        state?.setHydrated(true);
+      },
     },
   ),
 );
@@ -2113,6 +2215,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     learningInsights: null,
     achievementOverview: null,
     notificationOverview: {items: [], unreadCount: 0},
+    preferences: defaultUserPreferences,
     dailyReward: null,
     missions: [],
     avatarInventory: defaultAvatarInventory(profile?.coins ?? 0, profile?.gems ?? 0),
@@ -2138,6 +2241,7 @@ function authenticatedSessionState(profile: PlayerProfile | null): Partial<AppSt
     learningInsightsError: null,
     achievementsError: null,
     notificationsError: null,
+    preferencesError: null,
     engagementError: null,
     avatarError: null,
     monetizationError: null,

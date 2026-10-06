@@ -65,6 +65,7 @@ export default function RootLayout() {
           <Stack.Screen name="avatar-shop" />
           <Stack.Screen name="premium" />
           <Stack.Screen name="account" />
+          <Stack.Screen name="settings" />
           <Stack.Screen name="admin" />
         </Stack>
       </SafeAreaProvider>

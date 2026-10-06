@@ -24,6 +24,7 @@ export default function QuizScreen() {
   const activeCustomQuiz = useAppStore((state) => state.activeCustomQuiz);
   const activeStartedAt = useAppStore((state) => state.activeStartedAt);
   const duelOpponent = useAppStore((state) => state.activeDuelOpponent);
+  const hapticsEnabled = useAppStore((state) => state.preferences?.hapticsEnabled ?? true);
   const [index, setIndex] = useState(0);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
@@ -44,7 +45,9 @@ export default function QuizScreen() {
     transitionLock.current = true;
     setIsAdvancing(true);
     if (await finishQuiz()) {
-      void Haptics.notificationAsync?.(Haptics.NotificationFeedbackType.Success);
+      if (hapticsEnabled) {
+        void Haptics.notificationAsync?.(Haptics.NotificationFeedbackType.Success);
+      }
       router.replace('/results');
       return;
     }
@@ -52,7 +55,7 @@ export default function QuizScreen() {
     if (message) Alert.alert('No se pudo validar la partida', message);
     transitionLock.current = false;
     setIsAdvancing(false);
-  }, [finishQuiz, isSubmittingQuiz]);
+  }, [finishQuiz, hapticsEnabled, isSubmittingQuiz]);
 
   useEffect(() => {
     if (!isExamStyle || !activeStartedAt || !examRules) {
@@ -85,7 +88,7 @@ export default function QuizScreen() {
   const selectAnswer = async (answerId: string) => {
     if (transitionLock.current || isSubmittingQuiz) return;
     answerQuestion(question.id, answerId);
-    void Haptics.selectionAsync?.();
+    if (hapticsEnabled) void Haptics.selectionAsync?.();
 
     if (isExamStyle) return;
     transitionLock.current = true;
