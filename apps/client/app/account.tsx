@@ -37,6 +37,10 @@ export default function AccountScreen() {
   const isLinked = Boolean(profile && !profile.isGuest);
   const isLinking = Boolean(profile?.isGuest);
   const firebaseAvailable = backendMode === 'firebase' || !profile;
+  const googleAvailable = Platform.OS === 'web' || (
+    Platform.OS === 'android'
+    && Boolean(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim())
+  );
   const error = localError ?? remoteError;
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -198,16 +202,14 @@ export default function AccountScreen() {
                 loading={loading}
                 onPress={() => void submitEmail()}
               />
-              {Platform.OS === 'web' ? (
-                <PrimaryButton
-                  icon="google"
-                  label="Continuar con Google"
-                  disabled={!firebaseAvailable}
-                  loading={loading}
-                  onPress={() => void submitGoogle()}
-                  variant="secondary"
-                />
-              ) : null}
+              <PrimaryButton
+                icon="google"
+                label="Continuar con Google"
+                disabled={!firebaseAvailable || !googleAvailable}
+                loading={loading}
+                onPress={() => void submitGoogle()}
+                variant="secondary"
+              />
               {!isLinking ? (
                 <Pressable
                   accessibilityRole="button"

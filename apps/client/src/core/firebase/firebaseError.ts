@@ -52,6 +52,9 @@ export function readableFirebaseError(error: unknown): string {
       'too-many-requests': 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
       'popup-closed-by-user': 'Se cerró el acceso con Google antes de terminar.',
       'popup-blocked': 'El navegador ha bloqueado la ventana de acceso con Google.',
+      'google-oauth-not-configured': 'Google todavía no está configurado para esta versión Android.',
+      'play-services-not-available': 'Actualiza Google Play Services para continuar.',
+      'operation-not-supported-in-this-environment': 'Google no está disponible en esta plataforma.',
     };
     return messages[code] ?? 'No se pudo completar la operación con Firebase.';
   }

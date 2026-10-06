@@ -55,10 +55,10 @@ firebase deploy --only functions
 - `claimMission`: validates server-owned mission progress before granting XP and coins.
 
 The React client falls back to local mode when Firebase is disabled or guest bootstrap cannot complete.
-Guests can link an email/password account on Android or web without changing their Firebase UID, so
-their XP, coins, streaks, friends, and groups remain attached to the same profile. Google linking is
-implemented for web; native Android Google sign-in still requires the production OAuth client IDs and
-a signed-build verification pass.
+Guests can link an email/password or Google account on Android or web without changing their Firebase
+UID, so their XP, coins, streaks, friends, and groups remain attached to the same profile. Native
+Android Google sign-in uses Credential Manager and still requires the production OAuth client IDs,
+the APK signing SHA-1, and a signed-build verification pass.
 
 ## Local Emulators
 

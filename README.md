@@ -18,7 +18,9 @@ npm install
 npm run web
 ```
 
-For Android, install Expo Go or use an Android emulator, then run `npm run android`.
+For Android, connect a physical device or start an Android emulator, then run `npm run android`.
+The Google sign-in integration uses native code, so this app needs its own development build and
+cannot run that flow inside Expo Go.
 Android icon, adaptive icon, splash, internal APK, and production AAB profiles are configured. See
 `ANDROID_RELEASE.md` before creating a signed build.
 
@@ -39,9 +41,9 @@ The Profile now opens a modular 2D avatar wardrobe and local-assets shop. Purcha
 or gems, while callable Functions validate ownership, balances, idempotency, and equipped items.
 The Profile also exposes the server-configured Premium preview. Plans, benefits, gem grants, and ad
 policy come from Firestore; billing and AdMob remain disabled until production credentials are approved.
-Guests can now protect their progress by linking an email/password account on Android or web, then
-sign back into the same Firebase profile later. Google linking and login are available on web; the
-native Android Google flow remains a production OAuth setup task.
+Guests can now protect their progress by linking an email/password or Google account on Android or
+web, then sign back into the same Firebase profile later. Android uses Credential Manager and keeps
+the Google button disabled until the build receives its public OAuth web client ID.
 Firebase sessions are restored before protected routes render. During temporary outages the client
 keeps cached progress visible, reports the offline state, and offers an explicit retry; expired
 sessions are redirected to account recovery without leaving protected screens blank.

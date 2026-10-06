@@ -24,6 +24,7 @@
 - [x] Add persistent privacy, haptic, analytics-consent, and in-app notification preferences.
 - [x] Add confirmed account and private-data deletion with shared-group ownership transfer.
 - [x] Configure Android app identity, adaptive icon, splash, internal APK, and production AAB profiles.
+- [x] Implement native Android Google credential exchange and preserve anonymous guest progress.
 - [ ] Recheck upstream Expo, React Native, and Firebase advisories before the production build.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.

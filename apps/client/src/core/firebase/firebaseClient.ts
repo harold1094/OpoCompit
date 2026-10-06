@@ -13,6 +13,7 @@ import {
   Persistence,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithCredential,
   signInAnonymously,
   signInWithPopup,
   signOut,
@@ -23,6 +24,8 @@ import {
   httpsCallable,
 } from 'firebase/functions';
 import { Platform } from 'react-native';
+
+import { getNativeGoogleIdToken, signOutNativeGoogle } from './nativeGoogleAuth';
 
 export { readableFirebaseError } from './firebaseError';
 
@@ -499,28 +502,32 @@ export async function signInEmailAccountRemote(
 }
 
 export async function linkGoogleAccountRemote(): Promise<PlayerProfile> {
-  if (Platform.OS !== 'web') {
-    throw new Error('Google para Android necesita los identificadores OAuth de producción.');
-  }
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
   const auth = firebaseAuth(app);
   if (!auth.currentUser?.isAnonymous) {
     throw new Error('La sesión actual ya está vinculada a una cuenta.');
   }
-  await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+  if (Platform.OS === 'web') {
+    await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+  } else {
+    const idToken = await getNativeGoogleIdToken();
+    await linkWithCredential(auth.currentUser, GoogleAuthProvider.credential(idToken));
+  }
   await auth.currentUser.getIdToken(true);
   return completeAccountLinkRemote();
 }
 
 export async function signInGoogleAccountRemote(): Promise<PlayerProfile> {
-  if (Platform.OS !== 'web') {
-    throw new Error('Google para Android necesita los identificadores OAuth de producción.');
-  }
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
   const auth = firebaseAuth(app);
-  await signInWithPopup(auth, new GoogleAuthProvider());
+  if (Platform.OS === 'web') {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } else {
+    const idToken = await getNativeGoogleIdToken();
+    await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+  }
   return currentProfileRemote();
 }
 
@@ -533,6 +540,7 @@ export async function sendAccountPasswordResetRemote(email: string): Promise<voi
 export async function signOutAccountRemote(): Promise<void> {
   const app = firebaseApp();
   if (!app) return;
+  if (Platform.OS !== 'web') await signOutNativeGoogle();
   await signOut(firebaseAuth(app));
 }
 

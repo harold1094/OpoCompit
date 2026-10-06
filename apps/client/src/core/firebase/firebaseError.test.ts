@@ -23,4 +23,13 @@ describe('Firebase recovery errors', () => {
   test('detects browser fetch failures without a Firebase code', () => {
     expect(firebaseFailureKind(new Error('Failed to fetch'))).toBe('offline');
   });
+
+  test('explains native Google configuration failures', () => {
+    expect(readableFirebaseError({code: 'auth/google-oauth-not-configured'})).toContain(
+      'no está configurado',
+    );
+    expect(readableFirebaseError({code: 'auth/play-services-not-available'})).toContain(
+      'Google Play Services',
+    );
+  });
 });
