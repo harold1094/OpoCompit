@@ -36,3 +36,4 @@ artifacts/
 .chrome-learning-qa/
 .chrome-achievements-qa*/
 .chrome-notifications-qa*/
+.chrome-auth-only*/

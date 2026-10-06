@@ -26,7 +26,9 @@ Android icon, adaptive icon, splash, internal APK, and production AAB profiles a
 
 The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, missions, training and asynchronous friend duels, compatible real-player matchmaking, Elo, global/territorial/friends rankings, usernames, friendships, and private study groups.
 
-Firebase remains opt-in. Development can use the local Auth, Firestore, and Functions emulators without enabling Blaze; see `FIREBASE_SETUP.md`.
+Firebase remains opt-in. The signed preview can enable Auth alone to link Google while keeping all
+gameplay data local. Development can use the local Auth, Firestore, and Functions emulators without
+enabling Blaze; see `FIREBASE_SETUP.md`.
 Firebase Analytics is also opt-in, requires explicit consent in Ajustes, and is disabled in emulator sessions. The web adapter records only
 bounded product metrics, without names, emails, user IDs, tokens, or selected answers. Native
 analytics remains disabled until the Android production build is configured.
@@ -44,6 +46,9 @@ policy come from Firestore; billing and AdMob remain disabled until production c
 Guests can now protect their progress by linking an email/password or Google account on Android or
 web, then sign back into the same Firebase profile later. Android uses Credential Manager and keeps
 the Google button disabled until the build receives its public OAuth web client ID.
+When only `EXPO_PUBLIC_FIREBASE_AUTH_ENABLED` is active, Google protects the identity on the current
+installation but does not claim cloud backup or cross-device recovery; those require the complete
+server-authoritative backend.
 Firebase sessions are restored before protected routes render. During temporary outages the client
 keeps cached progress visible, reports the offline state, and offers an explicit retry; expired
 sessions are redirected to account recovery without leaving protected screens blank.
@@ -123,7 +128,7 @@ Functions emulator.
 7. Open `Duelo`, choose a training rival, finish the shared ten-question challenge, and compare score and time.
 8. Open `Perfil` and enter `Avatar y tienda` to equip starter items or buy cosmetics with earned currency.
 9. Open `Premium` to inspect the current free entitlement and backend-configured future plan.
-10. Open `Cuenta` from Profile to link an email/password account, sign out, and recover the same progress.
+10. Open `Cuenta` from Profile to link Google without losing local progress. With the complete emulator backend, also verify email linking, sign-out, and recovery.
 11. Open `Examen`, start the local demonstration, navigate between questions, leave answers blank, and submit it to inspect the official score.
 12. Open `Ajustes y privacidad` from Profile to change preferences or test the protected account-deletion flow.
 

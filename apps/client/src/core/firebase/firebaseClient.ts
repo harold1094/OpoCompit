@@ -4,6 +4,7 @@ import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
   connectAuthEmulator,
+  deleteUser,
   EmailAuthProvider,
   getAuth,
   GoogleAuthProvider,
@@ -26,6 +27,7 @@ import {
 import { Platform } from 'react-native';
 
 import { getNativeGoogleIdToken, signOutNativeGoogle } from './nativeGoogleAuth';
+import {linkLocalProfile} from '@/features/account/domain/localAccount';
 
 export { readableFirebaseError } from './firebaseError';
 
@@ -64,6 +66,8 @@ import {
 } from '@/core/domain/types';
 
 const firebaseEnabled = process.env.EXPO_PUBLIC_FIREBASE_ENABLED === 'true';
+const firebaseAuthEnabled = firebaseEnabled
+  || process.env.EXPO_PUBLIC_FIREBASE_AUTH_ENABLED === 'true';
 let authInstance: Auth | null = null;
 let authEmulatorConnected = false;
 let functionsEmulatorConnected = false;
@@ -350,7 +354,7 @@ export type SubmitFriendDuelResponse = SubmitQuizResponse & {
 };
 
 function firebaseApp(): FirebaseApp | null {
-  if (!firebaseEnabled) return null;
+  if (!firebaseAuthEnabled) return null;
   if (getApps().length > 0) return getApp();
 
   return initializeApp({
@@ -406,6 +410,7 @@ function firebaseAuth(app: FirebaseApp): Auth {
 }
 
 function callable<Request, Response>(name: string) {
+  if (!firebaseEnabled) throw new Error('Firebase Functions are disabled.');
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
   const functions = getFunctions(
@@ -467,7 +472,14 @@ export async function restoreFirebaseSessionRemote(): Promise<PlayerProfile> {
   return currentProfileRemote();
 }
 
-async function completeAccountLinkRemote(): Promise<PlayerProfile> {
+async function completeAccountLinkRemote(localProfile?: PlayerProfile): Promise<PlayerProfile> {
+  if (!firebaseEnabled) {
+    const app = firebaseApp();
+    if (!app || !localProfile) throw new Error('Firebase cloud sync is disabled.');
+    const user = firebaseAuth(app).currentUser;
+    if (!user) throw new Error('No hay una identidad de Firebase activa.');
+    return linkLocalProfile(localProfile, user.uid, user.displayName);
+  }
   const invoke = callable<Record<string, never>, { profile: PlayerProfile }>('completeAccountLink');
   return (await invoke({})).data.profile;
 }
@@ -475,6 +487,7 @@ async function completeAccountLinkRemote(): Promise<PlayerProfile> {
 export async function linkEmailAccountRemote(
   email: string,
   password: string,
+  localProfile?: PlayerProfile,
 ): Promise<PlayerProfile> {
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
@@ -487,7 +500,7 @@ export async function linkEmailAccountRemote(
     EmailAuthProvider.credential(email, password),
   );
   await auth.currentUser.getIdToken(true);
-  return completeAccountLinkRemote();
+  return completeAccountLinkRemote(localProfile);
 }
 
 export async function signInEmailAccountRemote(
@@ -501,10 +514,12 @@ export async function signInEmailAccountRemote(
   return currentProfileRemote();
 }
 
-export async function linkGoogleAccountRemote(): Promise<PlayerProfile> {
+export async function linkGoogleAccountRemote(localProfile?: PlayerProfile): Promise<PlayerProfile> {
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
   const auth = firebaseAuth(app);
+  await auth.authStateReady();
+  if (!auth.currentUser) await signInAnonymously(auth);
   if (!auth.currentUser?.isAnonymous) {
     throw new Error('La sesión actual ya está vinculada a una cuenta.');
   }
@@ -515,10 +530,15 @@ export async function linkGoogleAccountRemote(): Promise<PlayerProfile> {
     await linkWithCredential(auth.currentUser, GoogleAuthProvider.credential(idToken));
   }
   await auth.currentUser.getIdToken(true);
-  return completeAccountLinkRemote();
+  return completeAccountLinkRemote(localProfile);
 }
 
 export async function signInGoogleAccountRemote(): Promise<PlayerProfile> {
+  if (!firebaseEnabled) {
+    throw Object.assign(new Error('Cloud progress recovery is disabled.'), {
+      code: 'auth/cloud-sync-unavailable',
+    });
+  }
   const app = firebaseApp();
   if (!app) throw new Error('Firebase is disabled.');
   const auth = firebaseAuth(app);
@@ -542,6 +562,15 @@ export async function signOutAccountRemote(): Promise<void> {
   if (!app) return;
   if (Platform.OS !== 'web') await signOutNativeGoogle();
   await signOut(firebaseAuth(app));
+}
+
+export async function deleteLocalAccountIdentityRemote(): Promise<void> {
+  const app = firebaseApp();
+  if (!app) return;
+  const auth = firebaseAuth(app);
+  await auth.authStateReady();
+  if (auth.currentUser) await deleteUser(auth.currentUser);
+  if (Platform.OS !== 'web') await signOutNativeGoogle();
 }
 
 export async function getUserPreferencesRemote(): Promise<UserPreferences> {
@@ -1007,6 +1036,10 @@ export async function importQuestionBatchRemote(batch: unknown): Promise<Questio
 
 export function isFirebaseEnabled(): boolean {
   return firebaseEnabled;
+}
+
+export function isFirebaseAuthEnabled(): boolean {
+  return firebaseAuthEnabled;
 }
 
 export function getFirebaseAppForAnalytics(): FirebaseApp | null {

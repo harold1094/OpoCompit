@@ -134,7 +134,11 @@ export default function SettingsScreen() {
           <View style={styles.rowCopy}>
             <Text style={styles.rowLabel}>Cuenta y acceso</Text>
             <Text style={styles.rowDescription}>
-              {profile.isGuest ? 'Protege tu progreso con una cuenta.' : 'Sesión y recuperación de acceso.'}
+              {profile.isGuest
+                ? 'Protege tu identidad con una cuenta.'
+                : backendMode === 'firebase'
+                  ? 'Sesión y recuperación de acceso.'
+                  : 'Identidad vinculada; datos guardados en este dispositivo.'}
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />

@@ -1,14 +1,17 @@
 # Firebase Setup
 
-The React client is wired to Firebase Auth and callable Functions. Production Firebase is intentionally disabled while development continues with the free local Emulator Suite.
+The React client separates Firebase Auth from callable Functions. Signed preview builds can use
+Google identity while gameplay remains local; the production backend stays disabled until its
+server-side infrastructure is approved.
 
 ## Current Project State
 
 Project alias: `opocompit-dev`.
 
-Checked on 2026-09-28:
+Checked on 2026-10-06:
 
 - Firebase CLI authentication works.
+- Anonymous and Google Authentication are enabled for the signed React Android app.
 - Cloud Firestore API is disabled and no database location has been selected.
 - Cloud Functions API is disabled.
 - Deploying Cloud Functions requires the Blaze pay-as-you-go plan.
@@ -59,6 +62,21 @@ Guests can link an email/password or Google account on Android or web without ch
 UID, so their XP, coins, streaks, friends, and groups remain attached to the same profile. Native
 Android Google sign-in uses Credential Manager and still requires the production OAuth client IDs,
 the APK signing SHA-1, and a signed-build verification pass.
+
+## Free Auth-Only Mode
+
+Set the following values to enable Google identity without enabling callable Functions:
+
+```dotenv
+EXPO_PUBLIC_FIREBASE_AUTH_ENABLED=true
+EXPO_PUBLIC_FIREBASE_ENABLED=false
+```
+
+In this mode an existing guest can link Google and keep the same local profile on that installation.
+XP, currency, answers, statistics, friends, and inventory stay in AsyncStorage and are never written
+directly to Firestore. Sign-out and cross-device recovery are intentionally unavailable because they
+would imply cloud persistence that this mode does not provide. Account deletion removes both the
+local profile and the linked Firebase Auth identity.
 
 ## Local Emulators
 

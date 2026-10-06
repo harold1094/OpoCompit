@@ -43,6 +43,7 @@ import {
   claimMissionRemote,
   createStudyGroupRemote,
   createStudyGroupCompetitionRemote,
+  deleteLocalAccountIdentityRemote,
   equipAvatarItemRemote,
   deleteCurrentAccountRemote,
   getAvatarShopRemote,
@@ -59,6 +60,7 @@ import {
   getStudyGroupRemote,
   getStudyGroupsRemote,
   getUserPreferencesRemote,
+  isFirebaseAuthEnabled,
   isFirebaseEnabled,
   joinMatchmakingRemote,
   joinStudyGroupRemote,
@@ -426,7 +428,7 @@ export const useAppStore = create<AppStore>()(
       linkEmailAccount: async (email, password) => {
         const state = get();
         if (!state.profile || state.backendMode !== 'firebase' || state.isAccountLoading) {
-          set({ accountError: 'Necesitas una sesión de invitado conectada con Firebase.' });
+          set({ accountError: 'El acceso con correo necesita la sincronización en la nube.' });
           return false;
         }
         set({ isAccountLoading: true, accountError: null });
@@ -449,18 +451,24 @@ export const useAppStore = create<AppStore>()(
       },
       linkGoogleAccount: async () => {
         const state = get();
-        if (!state.profile || state.backendMode !== 'firebase' || state.isAccountLoading) {
-          set({ accountError: 'Necesitas una sesión de invitado conectada con Firebase.' });
+        if (
+          !state.profile
+          || state.isAccountLoading
+          || (state.backendMode !== 'firebase' && !isFirebaseAuthEnabled())
+        ) {
+          set({ accountError: 'Google todavía no está disponible en esta versión.' });
           return false;
         }
         set({ isAccountLoading: true, accountError: null });
         try {
-          const profile = await linkGoogleAccountRemote();
+          const profile = await linkGoogleAccountRemote(state.profile);
           set({
             profile,
             connectionStatus: 'connected',
-            connectionMessage: null,
-            lastSyncedAt: Date.now(),
+            connectionMessage: state.backendMode === 'firebase'
+              ? null
+              : 'Cuenta vinculada. El progreso continúa guardado en este dispositivo.',
+            lastSyncedAt: state.backendMode === 'firebase' ? Date.now() : null,
           });
           void trackEvent('signup_completed', { auth_method: 'google' });
           return true;
@@ -608,6 +616,9 @@ export const useAppStore = create<AppStore>()(
         set({isAccountLoading: true, accountError: null});
         try {
           if (state.backendMode === 'firebase') await deleteCurrentAccountRemote();
+          else if (!state.profile.isGuest && isFirebaseAuthEnabled()) {
+            await deleteLocalAccountIdentityRemote();
+          }
           setAnalyticsConsent(false);
           set({
             ...authenticatedSessionState(null),

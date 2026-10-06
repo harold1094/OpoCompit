@@ -53,6 +53,7 @@ export function readableFirebaseError(error: unknown): string {
       'popup-closed-by-user': 'Se cerró el acceso con Google antes de terminar.',
       'popup-blocked': 'El navegador ha bloqueado la ventana de acceso con Google.',
       'google-oauth-not-configured': 'Google todavía no está configurado para esta versión Android.',
+      'cloud-sync-unavailable': 'La recuperación entre dispositivos necesita la sincronización en la nube.',
       'play-services-not-available': 'Actualiza Google Play Services para continuar.',
       'operation-not-supported-in-this-environment': 'Google no está disponible en esta plataforma.',
     };

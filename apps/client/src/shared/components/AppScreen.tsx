@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.softSky,
     opacity: 0.75,
   },
-  scroll: { flexGrow: 1, alignItems: 'center' },
+  scroll: { width: '100%', flexGrow: 1, alignItems: 'center' },
   content: { flex: 1, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' },
   padded: { paddingHorizontal: layout.contentPadding, paddingVertical: layout.contentPadding },
 });

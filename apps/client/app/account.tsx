@@ -12,6 +12,10 @@ import {
 } from 'react-native';
 
 import { colors, radius, spacing } from '@/core/design/tokens';
+import {
+  isFirebaseAuthEnabled,
+  isFirebaseEnabled,
+} from '@/core/firebase/firebaseClient';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AppScreen } from '@/shared/components/AppScreen';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
@@ -36,7 +40,10 @@ export default function AccountScreen() {
 
   const isLinked = Boolean(profile && !profile.isGuest);
   const isLinking = Boolean(profile?.isGuest);
-  const firebaseAvailable = backendMode === 'firebase' || !profile;
+  const authOnly = isFirebaseAuthEnabled() && !isFirebaseEnabled();
+  const cloudAccountAvailable = backendMode === 'firebase' || (!profile && isFirebaseEnabled());
+  const showEmailForm = cloudAccountAvailable;
+  const localGoogleLinkAvailable = isLinking && isFirebaseAuthEnabled();
   const googleAvailable = Platform.OS === 'web' || (
     Platform.OS === 'android'
     && Boolean(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim())
@@ -113,7 +120,11 @@ export default function AccountScreen() {
           <View style={styles.headerCopy}>
             <Text style={styles.title}>Cuenta</Text>
             <Text style={styles.subtitle}>
-              {isLinked ? 'Sesión sincronizada' : isLinking ? 'Protege tu progreso' : 'Recupera tu progreso'}
+              {isLinked
+                ? authOnly ? 'Identidad vinculada' : 'Sesión sincronizada'
+                : isLinking
+                  ? authOnly ? 'Protege tu identidad' : 'Protege tu progreso'
+                  : authOnly ? 'Acceso desde tu perfil' : 'Recupera tu progreso'}
             </Text>
           </View>
         </View>
@@ -125,13 +136,33 @@ export default function AccountScreen() {
             </View>
             <Text style={styles.connectedTitle}>Cuenta vinculada</Text>
             <Text style={styles.connectedText}>
-              Tu progreso está asociado a una cuenta permanente y podrás recuperarlo al iniciar sesión.
+              {authOnly
+                ? 'Google protege tu identidad. Por ahora el progreso continúa guardado solo en este dispositivo.'
+                : 'Tu progreso está asociado a una cuenta permanente y podrás recuperarlo al iniciar sesión.'}
+            </Text>
+            {!authOnly ? (
+              <PrimaryButton
+                icon="logout"
+                label="Cerrar sesión"
+                loading={loading}
+                onPress={() => void exitAccount()}
+                variant="secondary"
+              />
+            ) : null}
+          </View>
+        ) : authOnly && !profile ? (
+          <View style={styles.connectedSection}>
+            <View style={styles.connectedIcon}>
+              <MaterialCommunityIcons name="cellphone-lock" size={34} color={colors.aqua} />
+            </View>
+            <Text style={styles.connectedTitle}>Crea primero tu perfil</Text>
+            <Text style={styles.connectedText}>
+              En el modo gratuito puedes vincular Google después de entrar como invitado. La recuperación entre dispositivos llegará con la nube.
             </Text>
             <PrimaryButton
-              icon="logout"
-              label="Cerrar sesión"
-              loading={loading}
-              onPress={() => void exitAccount()}
+              icon="arrow-left"
+              label="Volver al inicio"
+              onPress={() => router.replace('/onboarding')}
               variant="secondary"
             />
           </View>
@@ -149,7 +180,7 @@ export default function AccountScreen() {
               </View>
             ) : null}
 
-            <View style={styles.form}>
+            {showEmailForm ? <View style={styles.form}>
               <Text style={styles.label}>Correo electrónico</Text>
               <TextInput
                 autoCapitalize="none"
@@ -190,27 +221,27 @@ export default function AccountScreen() {
                   />
                 </>
               ) : null}
-            </View>
+            </View> : null}
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
             <View style={styles.actions}>
-              <PrimaryButton
+              {showEmailForm ? <PrimaryButton
                 icon={isLinking ? 'account-lock-outline' : 'login'}
                 label={isLinking ? 'Crear cuenta y conservar progreso' : 'Iniciar sesión'}
                 loading={loading}
                 onPress={() => void submitEmail()}
-              />
+              /> : null}
               <PrimaryButton
                 icon="google"
                 label="Continuar con Google"
-                disabled={!firebaseAvailable || !googleAvailable}
+                disabled={!(cloudAccountAvailable || localGoogleLinkAvailable) || !googleAvailable}
                 loading={loading}
                 onPress={() => void submitGoogle()}
                 variant="secondary"
               />
-              {!isLinking ? (
+              {!isLinking && showEmailForm ? (
                 <Pressable
                   accessibilityRole="button"
                   disabled={loading}
@@ -248,8 +279,8 @@ const styles = StyleSheet.create({
   recoveryText: { color: colors.aqua, fontSize: 13, fontWeight: '900' },
   error: { color: colors.danger, fontSize: 13, lineHeight: 19, marginTop: spacing.md },
   notice: { color: colors.success, fontSize: 13, lineHeight: 19, marginTop: spacing.md },
-  connectedSection: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.xxl },
+  connectedSection: { width: '100%', flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.xxl },
   connectedIcon: { width: 70, height: 70, borderRadius: 35, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.softAqua },
   connectedTitle: { color: colors.ink, fontSize: 22, fontWeight: '900' },
-  connectedText: { maxWidth: 430, color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginBottom: spacing.sm },
+  connectedText: { maxWidth: 430, flexShrink: 1, color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: 'center', marginHorizontal: spacing.sm, marginBottom: spacing.sm },
 });

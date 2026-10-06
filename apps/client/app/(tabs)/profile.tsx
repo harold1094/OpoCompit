@@ -4,7 +4,10 @@ import { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius, shadows, spacing } from '@/core/design/tokens';
-import { isUsingFirebaseEmulators } from '@/core/firebase/firebaseClient';
+import {
+  isFirebaseAuthEnabled,
+  isUsingFirebaseEmulators,
+} from '@/core/firebase/firebaseClient';
 import { AvatarPreview } from '@/features/avatar/components/AvatarPreview';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { AchievementRow } from '@/features/achievements/components/AchievementRow';
@@ -286,10 +289,14 @@ export default function ProfileScreen() {
           </Text>
           <Text style={styles.accountText}>
             {!profile.isGuest
-              ? 'Gestiona tu sesión y el acceso a tu progreso.'
+              ? backendMode === 'firebase'
+                ? 'Gestiona tu sesión y el acceso a tu progreso.'
+                : 'Identidad vinculada; el progreso sigue guardado en este dispositivo.'
               : backendMode === 'firebase'
                 ? 'Crea una cuenta sin perder XP, monedas, amigos ni inventario.'
-              : 'Activa Firebase en el entorno para sincronizar este progreso entre dispositivos.'}
+                : isFirebaseAuthEnabled()
+                  ? 'Vincula Google sin perder XP, monedas ni estadísticas.'
+                  : 'Tu progreso está guardado en este dispositivo.'}
           </Text>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
