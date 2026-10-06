@@ -19,6 +19,8 @@ npm run web
 ```
 
 For Android, install Expo Go or use an Android emulator, then run `npm run android`.
+Android icon, adaptive icon, splash, internal APK, and production AAB profiles are configured. See
+`ANDROID_RELEASE.md` before creating a signed build.
 
 The client persists progress locally through AsyncStorage. When Firebase is enabled, anonymous authentication and callable Functions own profile creation, question selection, scoring, XP, coins, level, streak, question statistics, daily rewards, missions, training and asynchronous friend duels, compatible real-player matchmaking, Elo, global/territorial/friends rankings, usernames, friendships, and private study groups.
 

@@ -1,14 +1,12 @@
-import {MaterialCommunityIcons} from '@expo/vector-icons';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 
 import {colors, spacing} from '@/core/design/tokens';
+import {BrandMark} from './BrandMark';
 
 export function FullScreenLoader({label = 'Recuperando tu sesión'}: {label?: string}) {
   return (
     <View accessibilityRole="progressbar" style={styles.loading}>
-      <View style={styles.brandIcon}>
-        <MaterialCommunityIcons name="trophy-outline" size={28} color={colors.surface} />
-      </View>
+      <BrandMark size={68} />
       <ActivityIndicator size="large" color={colors.brand} />
       <Text style={styles.label}>{label}</Text>
     </View>
@@ -22,14 +20,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.md,
     backgroundColor: colors.paper,
-  },
-  brandIcon: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: colors.brand,
   },
   label: {color: colors.muted, fontSize: 13, fontWeight: '700'},
 });

@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { Question } from '@/core/domain/types';
 import { reportQuestionRemote } from '@/core/firebase/firebaseClient';
@@ -34,16 +34,18 @@ describe('QuestionReportModal', () => {
   it('submits the selected reason and optional detail', async () => {
     const onClose = jest.fn();
     const onSubmitted = jest.fn();
-    const screen = await render(
+    const screen = render(
       <QuestionReportModal question={question} onClose={onClose} onSubmitted={onSubmitted} />,
     );
 
-    await fireEvent.press(screen.getByText('Pregunta desactualizada'));
-    await fireEvent.changeText(
+    fireEvent.press(screen.getByText('Pregunta desactualizada'));
+    fireEvent.changeText(
       screen.getByPlaceholderText('Añade un detalle (opcional)'),
       'Cambió la norma.',
     );
-    await fireEvent.press(screen.getByText('Enviar reporte'));
+    await act(async () => {
+      fireEvent.press(screen.getByText('Enviar reporte'));
+    });
 
     await waitFor(() => {
       expect(reportQuestionRemote).toHaveBeenCalledWith('q_report', 'outdated', 'Cambió la norma.');
@@ -53,12 +55,12 @@ describe('QuestionReportModal', () => {
   });
 
   it('requires a detail for the other reason', async () => {
-    const screen = await render(
+    const screen = render(
       <QuestionReportModal question={question} onClose={jest.fn()} onSubmitted={jest.fn()} />,
     );
 
-    await fireEvent.press(screen.getByText('Otro'));
-    await fireEvent.press(screen.getByText('Enviar reporte'));
+    fireEvent.press(screen.getByText('Otro'));
+    fireEvent.press(screen.getByText('Enviar reporte'));
 
     expect(screen.getByText('Cuéntanos brevemente qué debería revisarse.')).toBeTruthy();
     expect(reportQuestionRemote).not.toHaveBeenCalled();

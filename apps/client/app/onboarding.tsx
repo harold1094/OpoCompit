@@ -8,6 +8,7 @@ import { trackEvent } from '@/core/analytics/analytics';
 import { useAppStore } from '@/features/app-state/useAppStore';
 import { availableTerritories } from '@/features/onboarding/data/options';
 import { AppScreen } from '@/shared/components/AppScreen';
+import { BrandMark } from '@/shared/components/BrandMark';
 import { PrimaryButton } from '@/shared/components/PrimaryButton';
 
 export default function OnboardingScreen() {
@@ -28,9 +29,7 @@ export default function OnboardingScreen() {
   return (
     <AppScreen>
       <View style={styles.brandRow}>
-        <View style={styles.logo}>
-          <MaterialCommunityIcons name="trophy-outline" size={27} color={colors.surface} />
-        </View>
+        <BrandMark size={48} />
         <Text style={styles.brand}>OpoCompit</Text>
       </View>
 
@@ -103,14 +102,6 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 },
-  logo: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   brand: { color: colors.ink, fontSize: 22, fontWeight: '900' },
   hero: { marginTop: spacing.xl, marginBottom: spacing.xl, padding: 22, borderRadius: radius.xl, backgroundColor: colors.softBrand, ...shadows.card },
   eyebrow: { color: colors.brand, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },

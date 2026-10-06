@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
+import type { ReactTestRendererJSON } from 'react-test-renderer';
 
 import { layout } from '@/core/design/tokens';
 import { AppScreen } from './AppScreen';
@@ -20,14 +21,17 @@ describe('AppScreen', () => {
   });
 });
 
-type RenderNode = {
-  type?: string;
-  props: Record<string, unknown>;
-  children?: Array<RenderNode | string>;
-};
-
-function findNodeWithHorizontalPadding(node: RenderNode | null): RenderNode | null {
+function findNodeWithHorizontalPadding(
+  node: ReactTestRendererJSON | ReactTestRendererJSON[] | null,
+): ReactTestRendererJSON | null {
   if (!node) return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const match = findNodeWithHorizontalPadding(child);
+      if (match) return match;
+    }
+    return null;
+  }
   const style = StyleSheet.flatten(node.props.style) as { paddingHorizontal?: number } | undefined;
   if (style?.paddingHorizontal === layout.contentPadding) return node;
   for (const child of node.children ?? []) {

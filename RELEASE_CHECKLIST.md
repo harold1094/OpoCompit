@@ -23,6 +23,8 @@
 - [x] Add user question reports, admin resolution, and current-versus-historical validity handling.
 - [x] Add persistent privacy, haptic, analytics-consent, and in-app notification preferences.
 - [x] Add confirmed account and private-data deletion with shared-group ownership transfer.
+- [x] Configure Android app identity, adaptive icon, splash, internal APK, and production AAB profiles.
+- [ ] Recheck upstream Expo, React Native, and Firebase advisories before the production build.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.

@@ -3,22 +3,37 @@
     "name": "OpoCompit",
     "slug": "opocompit",
     "version": "0.1.0",
+    "description": "Oposiciones convertidas en partidas útiles, sociales y competitivas.",
     "orientation": "portrait",
     "scheme": "opocompit",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#FFFCF8",
+    "icon": "./assets/icon.png",
     "android": {
       "package": "com.opocompit.app",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#FFF9F2"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFCF8"
       }
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFCF8",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

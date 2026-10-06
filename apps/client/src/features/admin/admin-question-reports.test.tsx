@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import {
   getQuestionReportsQueueRemote,
@@ -41,10 +41,15 @@ describe('AdminQuestionReportsPanel', () => {
   });
 
   it('loads and dismisses a pending report', async () => {
-    const screen = await render(<AdminQuestionReportsPanel />);
+    const screen = render(<AdminQuestionReportsPanel />);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     await screen.findByText('¿Cuál es la respuesta correcta?');
-    await fireEvent.press(screen.getByText('Descartar'));
+    await act(async () => {
+      fireEvent.press(screen.getByText('Descartar'));
+    });
 
     await waitFor(() => {
       expect(resolveQuestionReportRemote).toHaveBeenCalledWith('report-1', 'dismiss');
