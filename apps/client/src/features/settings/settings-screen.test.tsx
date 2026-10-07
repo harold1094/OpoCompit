@@ -73,4 +73,11 @@ describe('SettingsScreen', () => {
       expect(mockReplace).toHaveBeenCalledWith('/onboarding');
     });
   });
+
+  it('opens the legal and support center', async () => {
+    const screen = await render(<SettingsScreen />);
+    await fireEvent.press(screen.getByText('Legal y soporte'));
+
+    expect(mockPush).toHaveBeenCalledWith('/legal');
+  });
 });

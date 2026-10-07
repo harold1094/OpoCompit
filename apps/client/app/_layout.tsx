@@ -66,6 +66,8 @@ export default function RootLayout() {
           <Stack.Screen name="premium" />
           <Stack.Screen name="account" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="legal" />
+          <Stack.Screen name="data-deletion" />
           <Stack.Screen name="admin" />
         </Stack>
       </SafeAreaProvider>

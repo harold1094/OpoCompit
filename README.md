@@ -131,5 +131,6 @@ Functions emulator.
 10. Open `Cuenta` from Profile to link Google without losing local progress. With the complete emulator backend, also verify email linking, sign-out, and recovery.
 11. Open `Examen`, start the local demonstration, navigate between questions, leave answers blank, and submit it to inspect the official score.
 12. Open `Ajustes y privacidad` from Profile to change preferences or test the protected account-deletion flow.
+13. Open `Legal y soporte` from Settings to review privacy, terms, support, and the public deletion path.
 
 Local progress is persisted with AsyncStorage. Firebase will progressively replace local scoring and content while keeping the same user flow.

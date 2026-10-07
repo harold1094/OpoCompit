@@ -28,10 +28,11 @@
 - [x] Link the Expo project, create the Android signing keystore, and configure EAS environments.
 - [x] Register `com.opocompit.app` and its EAS signing fingerprints in Firebase.
 - [x] Recheck upstream Expo, React Native, and Firebase advisories before the production build; see `SECURITY_REVIEW.md`.
+- [x] Add in-app privacy, terms, support, and account-deletion information.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.
-- [ ] Prepare and review the privacy policy, terms, and support contact.
+- [ ] Confirm the legal owner and support contact, review the legal text, and publish its public URLs.
 
 ## Production infrastructure
 

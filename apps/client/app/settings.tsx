@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Redirect, router, useFocusEffect } from 'expo-router';
+import { Redirect, router, useFocusEffect, type Href } from 'expo-router';
 import { ComponentProps, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -139,6 +139,24 @@ export default function SettingsScreen() {
                 : backendMode === 'firebase'
                   ? 'Sesión y recuperación de acceso.'
                   : 'Identidad vinculada; datos guardados en este dispositivo.'}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+        </Pressable>
+      </View>
+
+      <Text style={styles.sectionTitle}>Información y ayuda</Text>
+      <View style={styles.section}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/legal' as Href)}
+          style={({pressed}) => [styles.navigationRow, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.aqua} />
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowLabel}>Legal y soporte</Text>
+            <Text style={styles.rowDescription}>
+              Privacidad, términos, contacto y eliminación de datos.
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
