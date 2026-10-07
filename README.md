@@ -86,6 +86,8 @@ every push and pull request. See `RELEASE_CHECKLIST.md` for the remaining produc
 
 The legal and account-deletion pages can be published on the existing free Firebase Hosting site.
 See `LEGAL_RELEASE.md` for the public routes and deployment commands.
+Use `PLAY_CONSOLE_RELEASE.md` as the working Play Console and Data safety submission sheet; its
+remaining decisions must be confirmed against the final signed Android App Bundle.
 
 Verify the complete Firebase backend locally, without Blaze or deployed services:
 

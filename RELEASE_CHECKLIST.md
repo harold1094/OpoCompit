@@ -29,6 +29,7 @@
 - [x] Register `com.opocompit.app` and its EAS signing fingerprints in Firebase.
 - [x] Recheck upstream Expo, React Native, and Firebase advisories before the production build; see `SECURITY_REVIEW.md`.
 - [x] Add in-app privacy, terms, support, and account-deletion information.
+- [x] Prepare the Google Play App content and Data safety submission draft.
 - [ ] Configure and verify native Google sign-in for signed Android builds.
 - [ ] Review and publish the real official-exam question batches.
 - [ ] Validate complete flows, accessibility, and recovery states on physical Android devices.
@@ -42,6 +43,7 @@
 - [ ] Replace preview billing and ad configuration with approved store credentials.
 - [ ] Add a native Android analytics adapter and verify consent requirements.
 - [ ] Build a signed Android App Bundle and complete internal Play testing.
+- [ ] Reconcile and submit the Data safety form against the final signed AAB.
 
 All unchecked infrastructure work remains disabled and incurs no project cost in the current local
 emulator setup.
