@@ -24,6 +24,29 @@ matches the features enabled in the repository today.
 7. Complete Data safety using the behavior of the final signed build, including every enabled SDK.
 8. Obtain a final legal review before production publication.
 
+## Free Firebase Hosting publication
+
+The repository exports the Expo web client to `apps/client/dist` and Firebase Hosting serves it as
+a single-page application. The current free project URL is:
+
+- Privacy: `https://opocompit-dev.web.app/legal?section=privacy`
+- Terms: `https://opocompit-dev.web.app/legal?section=terms`
+- Account deletion: `https://opocompit-dev.web.app/data-deletion`
+
+Build and publish from the repository root:
+
+```powershell
+cd apps/client
+npm run export:web
+cd ../..
+npx firebase-tools deploy --only hosting --project opocompit-dev
+```
+
+The public pages can be deployed for review before the final support address is selected. They are
+not ready for Play submission until the real responsible party and support channel are visible.
+The three public routes are stored in `apps/client/.env.production`; they are public configuration,
+not credentials.
+
 The support email is deliberately not invented in code. Until it is configured, the app labels the
 contact channel as pending and does not open an unsafe or nonexistent address.
 

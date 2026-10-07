@@ -18,7 +18,6 @@ export function supportContactUrl() {
 }
 
 export function deletionRequestUrl() {
-  if (legalConfig.accountDeletionUrl) return legalConfig.accountDeletionUrl;
   if (legalConfig.supportEmail) {
     const subject = encodeURIComponent('Solicitud de eliminación de cuenta OpoCompit');
     return `mailto:${legalConfig.supportEmail}?subject=${subject}`;

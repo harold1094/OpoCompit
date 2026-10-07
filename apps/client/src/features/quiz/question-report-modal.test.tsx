@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { Question } from '@/core/domain/types';
 import { reportQuestionRemote } from '@/core/firebase/firebaseClient';
@@ -43,9 +43,7 @@ describe('QuestionReportModal', () => {
       screen.getByPlaceholderText('Añade un detalle (opcional)'),
       'Cambió la norma.',
     );
-    await act(async () => {
-      fireEvent.press(screen.getByText('Enviar reporte'));
-    });
+    fireEvent.press(screen.getByText('Enviar reporte'));
 
     await waitFor(() => {
       expect(reportQuestionRemote).toHaveBeenCalledWith('q_report', 'outdated', 'Cambió la norma.');

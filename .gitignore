@@ -16,6 +16,7 @@ Thumbs.db
 
 # Firebase/local
 *.log
+.firebase/
 functions/lib/
 
 # React Native / Expo
@@ -29,6 +30,7 @@ apps/client/.env.local
 # Local visual QA
 artifacts/
 .chrome-capture*/
+.chrome-hosting-qa/
 .chrome-cdp/
 .chrome-social*/
 .chrome-admin*/

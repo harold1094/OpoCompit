@@ -84,6 +84,9 @@ npm test -- --runInBand
 The same client, backend, security-rule, and emulator checks run in `.github/workflows/ci.yml` on
 every push and pull request. See `RELEASE_CHECKLIST.md` for the remaining production gates.
 
+The legal and account-deletion pages can be published on the existing free Firebase Hosting site.
+See `LEGAL_RELEASE.md` for the public routes and deployment commands.
+
 Verify the complete Firebase backend locally, without Blaze or deployed services:
 
 ```bash
